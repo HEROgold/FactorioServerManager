@@ -1,5 +1,5 @@
 [project]
-name = "FactorioServerManager"
+name = "Factorio Server Manager"
 requires-python = ">=3.12"
 # authors = [{name = "name", email = "name@address.com"}]
 version = "0.0.0"
