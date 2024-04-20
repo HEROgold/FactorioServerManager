@@ -21,3 +21,8 @@ def logout():
     """Log out a user."""
     return "Logout"
 
+@bp.route("/factorio_login")
+def factorio_login():
+    """Log in a user using their Factorio account."""
+    # Required just a email and password, which get forwarded to the Factorio login page
+    return "Factorio Login"
