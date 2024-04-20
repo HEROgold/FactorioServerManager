@@ -47,6 +47,7 @@ class FactorioInterface:
         }
         self.http_session.post(LOGIN_URL, data=data, timeout=5)
 
+
     def download_server_files(self: Self, build: Build, distro: Distro, version: str = "latest") -> None:
         """
         Download the files for the server with the given version, build and distro.
