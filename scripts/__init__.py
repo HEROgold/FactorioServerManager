@@ -1,11 +1,12 @@
 """Module that contains some helpful functions for the project."""
 
 from pathlib import Path
-from typing import NoReturn, Self
+from typing import Self
 
 import requests
 
-from config import LOGIN_URL, SERVERS_DIRECTORY
+from _types.enums import Build, Distro
+from config import ARCHIVE_URL, LOGIN_URL, RELEASES_URL, SERVERS_DIRECTORY
 
 
 def create_server_directory(server_name: str) -> None:
@@ -13,12 +14,8 @@ def create_server_directory(server_name: str) -> None:
     Path(SERVERS_DIRECTORY / server_name).mkdir(exist_ok=True, parents=True)
 
 
-def download_server_files() -> NoReturn:
-    """Download the files for the server with the given name."""
-    raise NotImplementedError
 
-
-class Login:  # noqa: D101
+class FactorioInterface:  # noqa: D101
     http_session: requests.Session
 
 
@@ -46,9 +43,9 @@ class Login:  # noqa: D101
 
         Parameters
         ----------
-        username_or_email : :class:`str`
+        username_or_email: :class:`str`
             the username or the email for the login
-        password : :class:`str`
+        password: :class:`str`
             the password for logging in
         """
         csrf_token = self.get_csrf_details()
@@ -58,3 +55,48 @@ class Login:  # noqa: D101
             "csrf_token": csrf_token,
         }
         self.http_session.post(LOGIN_URL, data=data, timeout=5)
+
+    def download_server_files(self: Self, build: Build, distro: Distro, version: str = "latest") -> None:
+        """
+        Download the files for the server with the given version, build and distro.
+
+        Parameters
+        ----------
+        version: :class:`str`
+            The version to download
+        build: :class:`str`
+            The build to download
+        distro: :class:`str`
+            The distro to download
+
+        Raises
+        ------
+        :class:`ValueError`
+            If any values are invalid
+        """
+        self.http_session.get(f"https://www.factorio.com/get-download/{version}/{build.value}/{distro.value}")
+
+
+    def get_versions(self: Self) -> dict:
+        """
+        Get all recent versions of factorio.
+
+        Returns
+        -------
+        :class:`dict`
+            A Json response containing the response data
+        """
+        return self.http_session.get(RELEASES_URL).json()
+
+
+    def get_archived_versions(self: Self) -> list:
+        """
+        Get all/archived versions of factorio.
+
+        Returns
+        -------
+        :class:`list`
+            A list of all the versions
+        """
+        return self.http_session.get(ARCHIVE_URL).json()
+
