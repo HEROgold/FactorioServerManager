@@ -66,7 +66,7 @@ class FactorioInterface:
         :class:`ValueError`
             If any values are invalid
         """
-        self.http_session.get(f"https://www.factorio.com/get-download/{version}/{build.value}/{distro.value}")
+        self.http_session.get(f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}")
 
 
     def get_versions(self: Self) -> dict:
