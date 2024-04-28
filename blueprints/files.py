@@ -1,13 +1,20 @@
 """Blueprint for manipulating files."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Blueprint, redirect, url_for
-from flask_login import UserMixin, current_user  # type: ignore[ReportAssignmentType]
+from flask_login import current_user, login_required  # type: ignore[ReportAssignmentType]
 from werkzeug import Response
 
+from _types.enums import Build, Distro
 
-current_user: UserMixin
+
+if TYPE_CHECKING:
+    from _types.database import User
+
+
+current_user: "User"
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
@@ -49,3 +56,11 @@ def update() -> str:
 def delete() -> str:
     """Delete a file."""
     return "Delete a file"
+
+
+@login_required
+@bp.route("/download_latest", methods=["GET"])
+async def download() -> str:
+    """Download a file."""
+    await current_user.fi.download_server_files(Build.headless, Distro.linux64)
+    return "File downloaded successfully"
