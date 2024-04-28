@@ -38,7 +38,7 @@ def login() -> str | Response:
 
     if request.method == "POST":
         login_user(User.fetch_by_email(request.form["email"]))
-        return render_template("factorio_login.j2")
+        return redirect(request.args.get("next") or url_for("/"))
 
     return redirect(url_for("/"))
 
@@ -59,8 +59,10 @@ async def factorio_login() -> str | Response:
     if request.method == "GET":
         return render_template("factorio_login.j2", form=LoginForm())
     if request.method == "POST":
-        fi = FactorioInterface()
         user = User.fetch_by_email(request.form["email"])
+        login_user(user)
+
+        fi = FactorioInterface()
         user.fi = fi
 
         return await user.fi.login_user(request.form["email"], request.form["password"])
