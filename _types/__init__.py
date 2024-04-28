@@ -1,3 +1,4 @@
+from http.client import InvalidURL
 from typing import Self
 
 import aiofile
@@ -22,9 +23,9 @@ class FactorioInterface:
         :class:`str`
             the csrf token
         """
-        req = await self.aio_http_session.get(LOGIN_URL, timeout=5)
-        j = await req.json()
-        return str(j["csrf_token"])
+        async with self.aio_http_session.get(LOGIN_URL, timeout=5) as req:
+            j = await req.json()
+            return str(j["csrf_token"])
 
     async def login_user(self: Self, username_or_email: str, password: str) -> None:
         """
@@ -47,19 +48,19 @@ class FactorioInterface:
 
     async def is_downloadable(self: Self, url: str) -> bool:
         """Is the url a downloadable resource."""
-        h = await self.aio_http_session.head(url, allow_redirects=True)
-        header = h.headers
-        content_type = header.get("content-type")
+        async with self.aio_http_session.head(url, allow_redirects=True) as h:
+            header = h.headers
+            content_type = header.get("content-type")
 
-        # fmt: off
-        if (
-            content_type is None
-            or "text" in content_type.lower()
-            or "html" in content_type.lower()
-        ):
-            return False
-        return True
-        # fmt: on
+            # fmt: off
+            if (
+                content_type is None
+                or "text" in content_type.lower()
+                or "html" in content_type.lower()
+            ):
+                return False
+            return True
+            # fmt: on
 
     async def download_server_files(
         self: Self,
@@ -92,12 +93,12 @@ class FactorioInterface:
 
         if file_path.exists() and not overwrite:
             msg = "The file already exists"
-            raise ValueError(msg)
+            raise FileExistsError(msg)
 
         url = f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}"
         if not await self.is_downloadable(url):
             msg = f"The url does not point to a downloadable resource: {url=}"
-            raise ValueError(msg)
+            raise InvalidURL(msg)
 
         # fmt: off
         async with (
@@ -116,8 +117,8 @@ class FactorioInterface:
         :class:`dict`
             A Json response containing the response data
         """
-        resp = await self.aio_http_session.get(RELEASES_URL)
-        return await resp.json()
+        async with self.aio_http_session.get(RELEASES_URL) as resp:
+            return await resp.json()
 
     async def get_archived_versions(self: Self) -> list:
         """
@@ -128,5 +129,5 @@ class FactorioInterface:
         :class:`list`
             A list of all the versions
         """
-        resp = await self.aio_http_session.get(ARCHIVE_URL)
-        return await resp.json()
+        async with self.aio_http_session.get(ARCHIVE_URL) as resp:
+            return await resp.json()
