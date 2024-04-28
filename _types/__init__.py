@@ -4,12 +4,13 @@ from typing import Self
 
 import aiofile
 import aiohttp
+from bs4 import BeautifulSoup
 from flask import Flask
 from flask_login import LoginManager
 
 from _types.database import User
 from _types.enums import Build, Distro
-from config import ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_URL, RELEASES_URL
+from config import ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_URL, RELEASES_URL, SECRET_KEY
 
 
 class FactorioInterface:
@@ -18,7 +19,7 @@ class FactorioInterface:
     def __init__(self: Self) -> None:
         self.aio_http_session = aiohttp.ClientSession()
 
-    async def _get_csrf_details(self: Self) -> str:
+    async def _get_csrf_details(self: Self) -> str | None:
         """
         Get the csrf token from the login page.
 
@@ -27,11 +28,17 @@ class FactorioInterface:
         :class:`str`
             the csrf token
         """
-        async with self.aio_http_session.get(LOGIN_URL, timeout=5) as req:
-            j = await req.json()
-            return str(j["csrf_token"])
+        async with self.aio_http_session.get(LOGIN_URL, timeout=5) as resp:
+            html = await resp.text()
+            soup = BeautifulSoup(html, "html.parser")
+            if tag := soup.find("input", {"name": "csrf_token"}):
+                return tag.get("value") # type: ignore[ReportReturnType]
 
-    async def login_user(self: Self, username_or_email: str, password: str) -> None:
+            msg = "Could not find csrf token"
+            raise ValueError(msg)
+
+
+    async def login_user(self: Self, username_or_email: str, password: str) -> str:
         """
         Log in the user with the given username and password.
 
@@ -48,7 +55,9 @@ class FactorioInterface:
             "password": password,
             "csrf_token": csrf_token,
         }
-        await self.aio_http_session.post(LOGIN_URL, data=data, timeout=5)
+        async with self.aio_http_session.post(LOGIN_URL, data=data, timeout=5) as resp:
+            return await resp.text() # FIXME: returns the html of the login page
+
 
     async def is_downloadable(self: Self, url: str) -> bool:
         """Is the url a downloadable resource."""
@@ -66,13 +75,15 @@ class FactorioInterface:
             return True
             # fmt: on
 
-    async def download_server_files(
+
+    async def download_server_files(  # noqa: PLR0913
         self: Self,
         build: Build,
         distro: Distro,
         version: str = "latest",
         *,
-        overwrite: bool = False
+        overwrite: bool = False,
+        experimental: bool = False,
     ) -> None:
         """
         Download the files for the server with the given version, build and distro.
@@ -87,29 +98,42 @@ class FactorioInterface:
             The distro to download
         overwrite: :class:`bool`
             Whether to overwrite the file if it already exists
+        experimental: :class:`bool`
+            Whether to download the experimental version when possible
 
         Raises
         ------
         :class:`ValueError`
             If any values are invalid
         """
+        if version == "latest":
+            versions = await self.get_versions()
+            version = versions["experimental"][build.name] if experimental else versions["stable"][build.name]
+
+        DOWNLOADS_DIRECTORY.mkdir(exist_ok=True)
+
         file_path = DOWNLOADS_DIRECTORY/f"{version}-{build.name}-{distro.name}"
+        url = f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}"
 
         if file_path.exists() and not overwrite:
-            msg = "The file already exists"
+            msg = f"The file already exists {file_path=}"
             raise FileExistsError(msg)
 
-        url = f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}"
         if not await self.is_downloadable(url):
             msg = f"The url does not point to a downloadable resource: {url=}"
             raise InvalidURL(msg)
 
+        # see https://proxiesapi.com/articles/downloading-files-in-python-with-aiohttp#:~:text=total_size%20%3D%20int(response,downloaded%7D%2F%7Btotal_size%7D%20bytes%22)
+        # for downloading files with progress bar
+
         # fmt: off
         async with (
+            self.aio_http_session.get(url, allow_redirects=True) as resp,
             aiofile.async_open(file_path, "wb") as f,
-            self.aio_http_session.get(url, allow_redirects=True) as resp
         ):
-            await f.write(await resp.read())
+            chunk_size = 4096
+            async for chunk in resp.content.iter_chunked(chunk_size):
+                await f.write(chunk)
         # fmt: on
 
     async def get_versions(self: Self) -> dict:
@@ -123,6 +147,7 @@ class FactorioInterface:
         """
         async with self.aio_http_session.get(RELEASES_URL) as resp:
             return await resp.json()
+
 
     async def get_archived_versions(self: Self) -> list:
         """
@@ -167,6 +192,9 @@ class Website(Flask):
         self.login_manager = LoginManager(self)
         self.login_manager.user_loader(self._user_loader)
 
+        self.config.from_pyfile("config.py")
+        self.config["SECRET_KEY"] = SECRET_KEY
+
+
     def _user_loader(self: Self, user_id: int) -> User | None:
         return User.get_by_user_id(user_id)
-
