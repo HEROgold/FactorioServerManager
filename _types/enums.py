@@ -2,13 +2,13 @@ from enum import Enum, auto
 
 
 class Distro(Enum):
-    WIN64 = auto()
-    WIN64_MANUAL = auto()
-    OSX = auto()
-    LINUX64 = auto()
+    win64 = auto()
+    win64_manual = auto()
+    osx = auto()
+    linux64 = auto()
 
 
 class Build(Enum):
-    ALPHA = auto()
-    DEMO = auto()
-    HEADLESS = auto()
+    alpha = auto()
+    demo = auto()
+    headless = auto()
