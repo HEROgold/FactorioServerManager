@@ -15,12 +15,12 @@ target-version = "py312"
 [tool.ruff.lint]
 ignore = [
     "ANN102",
+    "COM812",  # ignore missing comma in list, conflicts with formatter
+    "D203",
     "D212",
     "D413",
     "G004",
-    "D203",
-    "ISC001", # ignore implicit string concatenation, conflicts with formatter
-    "COM812", # ignore missing comma in list, conflicts with formatter
+    "ISC001",  # ignore implicit string concatenation, conflicts with formatter
 ]
 select = ["ALL"]
 
@@ -35,7 +35,6 @@ indent-style = "space"
 line-ending = "auto"
 quote-style = "double"
 skip-magic-trailing-comma = false
-
 
 [tool.tomlsort]
 all = true
