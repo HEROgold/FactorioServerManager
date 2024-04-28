@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flask import Blueprint, redirect, url_for
-from flask_login import current_user, login_required  # type: ignore[ReportAssignmentType]
+from flask_login import current_user  # type: ignore[ReportAssignmentType]
 from werkzeug import Response
 
 from _types.enums import Build, Distro
