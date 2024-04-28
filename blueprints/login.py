@@ -8,7 +8,6 @@ from werkzeug import Response
 
 from _types import FactorioInterface
 from _types.database import User
-from _types.enums import Build, Distro
 from _types.forms import LoginForm
 
 
