@@ -8,6 +8,7 @@ from flask_login import current_user, login_required  # type: ignore[ReportAssig
 from werkzeug import Response
 
 from _types.enums import Build, Distro
+from config import DOWNLOADS_DIRECTORY
 
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ def before_request() -> None | Response:
 @bp.route("/get_all", methods=["GET"])
 def get_all() -> list[Path]:
     """Get all files."""
-    return list(Path().rglob("*"))
+    return list(Path(DOWNLOADS_DIRECTORY).rglob("*"))
 
 
 @bp.route("/get", methods=["GET"])

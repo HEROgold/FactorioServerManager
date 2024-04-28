@@ -5,18 +5,21 @@ from pathlib import Path
 from tomllib import load
 
 
-TOML_FILE = Path(__file__).parent / "pyproject.toml"
+CONFIG_FILE = Path(__file__)
+TOML_FILE = CONFIG_FILE.parent / "pyproject.toml"
 
 with TOML_FILE.open("rb") as file:
     toml = load(file)
 
+PROJECT_DIRECTORY = CONFIG_FILE.parent
+SERVERS_DIRECTORY = CONFIG_FILE.parent / "servers"
+DOWNLOADS_DIRECTORY = CONFIG_FILE.parent / "downloads"
+
+DATABASE_PATH = CONFIG_FILE.parent / "database.db"
 
 PROJECT_NAME = toml["project"]["name"]
 PROJECT_VERSION = toml["project"]["version"]
 SECRET_KEY = secrets.token_hex(64)
-SERVERS_DIRECTORY = Path(__file__).parent / "servers"
-DOWNLOADS_DIRECTORY = Path(__file__).parent / "downloads"
-DATABASE_PATH = Path(__file__).parent / "database.db"
 
 MODS_API_URL = "https://mods.factorio.com/api/mods"
 LOGIN_URL = "https://www.factorio.com/login"
