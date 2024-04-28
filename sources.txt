@@ -1,1 +1,2 @@
 https://github.com/reallyrehan/flask-fileexplorer.git <> Potentially usable for own file uploading service (for configs etc)
+https://wiki.factorio.com/Download_API <> Reference to the api needed to login and download files
