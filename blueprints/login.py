@@ -28,9 +28,11 @@ async def login() -> str | Response:
         fi = FactorioInterface()
         user.fi = fi
 
-        login_user(user)
-
-        return await user.fi.login_user(request.form["email"], request.form["password"])
+        if resp := await user.fi.login_user(request.form["email"], request.form["password"]):
+            login_user(user)
+            return resp
+            return redirect(request.get("next") or url_for("dashboard.dashboard"))
+        return "Login failed"
     return redirect(request.referrer)
 
 

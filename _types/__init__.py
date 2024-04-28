@@ -10,7 +10,7 @@ from flask_login import LoginManager
 
 from _types.database import User
 from _types.enums import Build, Distro
-from config import ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_URL, RELEASES_URL, SECRET_KEY
+from config import ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, SECRET_KEY
 
 
 class FactorioInterface:
@@ -38,9 +38,14 @@ class FactorioInterface:
             raise ValueError(msg)
 
 
+    # TODO: rename function to make more sense (get_auth_token)
     async def login_user(self: Self, username_or_email: str, password: str) -> str:
         """
         Log in the user with the given username and password.
+
+        Returns
+        -------
+        Json response
 
         Parameters
         ----------
@@ -49,14 +54,12 @@ class FactorioInterface:
         password: :class:`str`
             the password for logging in
         """
-        csrf_token = await self._get_csrf_details()
         data = {
-            "username_or_email": username_or_email,
+            "username": username_or_email,
             "password": password,
-            "csrf_token": csrf_token,
         }
-        async with self.aio_http_session.post(LOGIN_URL, data=data, timeout=5) as resp:
-            return await resp.text() # FIXME: returns the html of the login page
+        async with self.aio_http_session.post(LOGIN_API, data=data, timeout=5) as resp:
+            return await resp.json()
 
 
     async def is_downloadable(self: Self, url: str) -> bool:
