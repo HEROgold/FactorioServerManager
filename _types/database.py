@@ -23,6 +23,7 @@ from config import DATABASE_PATH
 
 
 if TYPE_CHECKING:
+    from _types import FactorioInterface
     from _types.forms import RegistrationForm
 
 
@@ -53,9 +54,22 @@ class User(Base, UserMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     password: Mapped[str] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=True)
+    _display_name: Mapped[str] = mapped_column(String, nullable=True, unique=False)
+
+    @property
+    def fi(self: Self) -> "FactorioInterface":
+        return self._fi
+
+    @fi.setter
+    def fi(self: Self, fi: "FactorioInterface") -> None:
+        self._fi = fi
+
+    @property
+    def display_name(self: Self) -> str:
+        return self._display_name if self._display_name else self.email
 
     @classmethod
-    def fetch_by_user_id(cls, user_id: int) -> Self | None:
+    def get_by_user_id(cls, user_id: int) -> Self | None:
         """
         Find existing user, and return it.
 
@@ -72,23 +86,23 @@ class User(Base, UserMixin):
             return None
 
     @classmethod
-    def fetch_by_username(cls, name: str) -> Self:
+    def fetch_by_email(cls, email: str) -> Self:
         """
         Find existing or create new user, and return it.
 
         Args:
         ----
-            name (int): Name for the user.
+            email (int): The email for the user.
         """
         with Session(engine) as session:
-            logger.debug(f"Looking for user {name=}")
+            logger.debug(f"Looking for user {email=}")
 
-            if user := session.query(cls).where(cls.email == name).first():
-                logger.debug(f"Returning user {name=}")
+            if user := session.query(cls).where(cls.email == email).first():
+                logger.debug(f"Returning user {email=}")
                 return user
 
-            logger.debug(f"Creating user {name=}")
-            user = cls(username=name)
+            logger.debug(f"Creating user {email=}")
+            user = cls(email=email)
             session.add(user)
             session.commit()
             return user
