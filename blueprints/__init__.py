@@ -1,6 +1,7 @@
 # noqa: D104
 # Use a hack that allows for dynamic bp registration while also creating __all__
 
+from .dashboard import bp as dashboard
 from .files import bp as files
 from .login import bp as login
 
@@ -9,6 +10,7 @@ from .login import bp as login
 all_blueprints = [
     login,
     files,
+    dashboard
 ]
 
 __all__ = [
