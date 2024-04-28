@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{% block head %}
+
+<head>
+    <title>{% block title %}{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {# <link rel="stylesheet" href="https://factorio.com/static/css/main.css"> #}
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/main.css') }}">
+</head>
+
+{% endblock head %}
+
+<body>
+    <div class="content">
+        {% include "navbar.j2" %}
+        {% include "header.j2" %}
+        <div class="container">
+                {% block content required %}
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+    {% include "footer.j2" %}
+</body>
+
+</html>

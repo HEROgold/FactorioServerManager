@@ -1,0 +1,26 @@
+{% block navbar %}
+<nav id="top" class="top-bar">
+    <div class="top-bar-inner">
+        <div class="sites links flex-items-baseline">
+            <ul>
+                <li><a href="/">Test 1</a></li>
+                <li><a href="/">Test 2</a></li>
+                <li><a href="/">Test 3</a></li>
+                <li><a href="/">Test 4</a></li>
+                <li><a href="/">Test 5</a></li>
+            </ul>
+        </div>
+        <div class="user-controls links flex flex-items-baseline flex-end">
+            <div class="authenticated-controls">
+            {% if current_user.is_authenticated %}
+                <a href="{{url_for('login.profile')}}">{{ current_user.display_name }}</a>
+                <span class="separator separator-blue">|</span>
+                <a href="{{url_for('login.factorio_logout')}}">Log out</a>
+            {% else %}
+                <a href="{{url_for('login.factorio_login')}}">Log in</a>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock navbar %}

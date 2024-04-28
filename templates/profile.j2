@@ -1,0 +1,29 @@
+{# See https://factorio.com/profile for reference #}
+
+{% extends "base.j2" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container-inner">
+    <div id="flashed-messages" class="small-center"></div>
+    {% include "noscript.j2 "%}
+    <div class="medium-center">
+        <div class="panel mb64 pb0">
+            {# for each category #}
+            <h2>Profile</h2>
+            <div class="panel-inset-ligther">
+                {# for each item in the category #}
+                {# FIXME: fix styling #}
+                <dl class="dltabular">
+                    {% for i in range(5) %}
+                    <dt>Item {{ i }}</dt>
+                    <dd>Value {{ i }}</dd>
+                    {% endfor %}
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

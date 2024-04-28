@@ -1,13 +1,38 @@
-<form action="/factorio_login" method="POST">
-    <div>
-        <label for="email_or_username">Email or Username:</label>
-        <input type="text" id="email_or_username" name="email_or_username" required>
+{% extends "base.j2" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="container-inner">
+    <div class="panel small-center">
+        <h2>Log in</h2>
+        <p>Use your Factorio.com account</p>
+        <form method="POST" action="{{ url_for('login.factorio_login') }}">
+            {{ form.hidden_tag() }}
+            <div class="panel-inset-lighter">
+                <dl>
+                    {{ form.hidden_tag() }}
+                    <div>
+                        <dt>{{ form.email.label }}</dt>
+                        <dd style="width: 90%;">{{ form.email(size=20, required=True, type="email", placeholder="Email") }}</dd>
+                    </div>
+                    <div>
+                        <dt>{{ form.password.label }}</dt>
+                        <dd style="width: 90%;">{{ form.password(size=20, required=True, type="password", placeholder="Password") }}</dd>
+                    </div>
+                    <div>
+                        <dt>{{ form.remember.label(class="checkbox-label")}}</dt>
+                        <dd>{{ form.remember(value=True, type="checkbox") }}</dd>
+                    </div>
+                </dl>
+            </div>
+            <div class="text-right">
+                <button type="submit" class="button-green-right">
+                    Log in
+                </button>
+            </div>
+        </form>
     </div>
-    <div>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-    </div>
-    <div>
-        <input type="submit" value="Login">
-    </div>
-</form>
+</div>
+
+{% endblock %}
