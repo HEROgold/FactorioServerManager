@@ -65,6 +65,15 @@ class User(Base, UserMixin):
         self._fi = fi
 
     @property
+    def factorio_token(self: Self) -> str | None:
+        return self._factorio_token
+
+    @factorio_token.setter
+    def factorio_token(self: Self, token: str) -> None:
+        self._factorio_token = token
+
+
+    @property
     def display_name(self: Self) -> str:
         return self._display_name if self._display_name else self.email
 
