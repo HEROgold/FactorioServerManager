@@ -5,6 +5,11 @@ from pathlib import Path
 from tomllib import load
 
 
+# Users may edit these
+REQUIRE_GAME_OWNERSHIP = False
+
+
+# Do not edit
 CONFIG_FILE = Path(__file__)
 TOML_FILE = CONFIG_FILE.parent / "pyproject.toml"
 
@@ -20,6 +25,7 @@ DATABASE_PATH = CONFIG_FILE.parent / "database.db"
 PROJECT_NAME = toml["project"]["name"]
 PROJECT_VERSION = toml["project"]["version"]
 SECRET_KEY = secrets.token_hex(64)
+API_VERSION = 4
 
 MODS_API_URL = "https://mods.factorio.com/api/mods"
 LOGIN_URL = "https://www.factorio.com/login"
