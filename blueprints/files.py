@@ -28,24 +28,24 @@ def get_all():
 
 
 @bp.route("/get", methods=["GET"])
-def get():
+def get() -> str:
     """Get a file."""
     return "Get a file"
 
 
 @bp.route("/create", methods=["POST"])
-def create():
+def create() -> str:
     """Create a file."""
     return "Create a file"
 
 
 @bp.route("/update", methods=["PUT"])
-def update():
+def update() -> str:
     """Update a file."""
     return "Update a file"
 
 
 @bp.route("/delete", methods=["DELETE"])
-def delete():
+def delete() -> str:
     """Delete a file."""
     return "Delete a file"

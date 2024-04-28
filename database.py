@@ -72,7 +72,6 @@ class User(Base, UserMixin):
                 return user
             return None
 
-
     @classmethod
     def fetch_by_username(cls, name: str) -> Self:
         """
@@ -95,7 +94,6 @@ class User(Base, UserMixin):
             session.commit()
             return user
 
-
     @staticmethod
     def encrypt_password(password: str) -> str:
         """
@@ -115,7 +113,6 @@ class User(Base, UserMixin):
         random.seed(None)
         return hashlib.sha256((password + salt).encode()).hexdigest()
 
-
     @classmethod
     def insert_from_form(cls, form: "RegistrationForm") -> None:
         """
@@ -131,13 +128,14 @@ class User(Base, UserMixin):
             raise ValueError(msg)
 
         with Session(engine) as session:
-            session.add(cls(
-                username=form.email.data,
-                password=cls.encrypt_password(form.password.data),
-                email=form.email.data,
-            ))
+            session.add(
+                cls(
+                    username=form.email.data,
+                    password=cls.encrypt_password(form.password.data),
+                    email=form.email.data,
+                )
+            )
             session.commit()
-
 
     def check_password(self: Self, password: str | None) -> bool:
         """
@@ -157,13 +155,11 @@ class User(Base, UserMixin):
         return self.password == self.encrypt_password(password)
 
 
-
 Base().metadata.create_all(engine)
 
 
 def main() -> None:
     """Run the main function."""
-
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ class Distro(Enum):
     OSX = auto()
     LINUX64 = auto()
 
+
 class Build(Enum):
     ALPHA = auto()
     DEMO = auto()

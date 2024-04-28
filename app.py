@@ -8,7 +8,6 @@ app = Flask(__name__)
 lm = LoginManager(app)
 
 
-
 def main() -> None:  # noqa: D103
     app.run()
 
