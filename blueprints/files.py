@@ -59,7 +59,6 @@ def delete() -> str:
     return "Delete a file"
 
 
-@login_required
 @bp.route("/download_latest", methods=["GET"])
 async def download() -> str:
     """Download a file."""
