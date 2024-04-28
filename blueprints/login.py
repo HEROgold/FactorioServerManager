@@ -60,10 +60,10 @@ async def factorio_login() -> str | Response:
         return render_template("factorio_login.j2", form=LoginForm())
     if request.method == "POST":
         user = User.fetch_by_email(request.form["email"])
-        login_user(user)
-
         fi = FactorioInterface()
         user.fi = fi
+
+        login_user(user)
 
         return await user.fi.login_user(request.form["email"], request.form["password"])
     return redirect(request.referrer)
