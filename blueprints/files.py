@@ -22,7 +22,7 @@ def before_request() -> None | Response:
 
 
 @bp.route("/get_all", methods=["GET"])
-def get_all():
+def get_all() -> list[Path]:
     """Get all files."""
     return list(Path().rglob("*"))
 
