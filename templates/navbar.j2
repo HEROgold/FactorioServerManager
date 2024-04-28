@@ -13,11 +13,11 @@
         <div class="user-controls links flex flex-items-baseline flex-end">
             <div class="authenticated-controls">
             {% if current_user.is_authenticated %}
-                <a href="{{url_for('login.profile')}}">{{ current_user.display_name }}</a>
+                <a href="{{url_for('login.dashboard')}}">{{ current_user.display_name }}</a>
                 <span class="separator separator-blue">|</span>
-                <a href="{{url_for('login.factorio_logout')}}">Log out</a>
+                <a href="{{url_for('login.logout')}}">Log out</a>
             {% else %}
-                <a href="{{url_for('login.factorio_login')}}">Log in</a>
+                <a href="{{url_for('login.login')}}">Log in</a>
             {% endif %}
             </div>
         </div>

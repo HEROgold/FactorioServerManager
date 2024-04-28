@@ -36,8 +36,6 @@ L_REGISTER = f"{L}/register"
 L_DELETE = f"{L}/delete"
 L_LOGIN = f"{L}/login"
 L_LOGOUT = f"{L}/logout"
-L_FACTORIO_LOGIN = f"{L}/factorio_login"
-L_FACTORIO_LOGOUT = f"{L}/factorio_logout"
 
 # Files
 F = "/files"
