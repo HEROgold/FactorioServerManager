@@ -1,20 +1,19 @@
 from typing import Self
 
+import aiofile
 import aiohttp
-import requests
 
 from _types.enums import Build, Distro
 from config import ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_URL, RELEASES_URL
 
 
 class FactorioInterface:
-    http_session: requests.Session
+    aio_http_session: aiohttp.ClientSession
 
     def __init__(self: Self) -> None:
-        self.http_session = requests.Session()
         self.aio_http_session = aiohttp.ClientSession()
 
-    def get_csrf_details(self: Self) -> str:
+    async def get_csrf_details(self: Self) -> str:
         """
         Get the csrf token from the login page.
 
@@ -23,11 +22,11 @@ class FactorioInterface:
         :class:`str`
             the csrf token
         """
-        req = self.http_session.get(LOGIN_URL, timeout=5)
-        j = req.json()
+        req = await self.aio_http_session.get(LOGIN_URL, timeout=5)
+        j = await req.json()
         return str(j["csrf_token"])
 
-    def login_user(self: Self, username_or_email: str, password: str) -> None:
+    async def login_user(self: Self, username_or_email: str, password: str) -> None:
         """
         Log in the user with the given username and password.
 
@@ -38,18 +37,17 @@ class FactorioInterface:
         password: :class:`str`
             the password for logging in
         """
-        csrf_token = self.get_csrf_details()
+        csrf_token = await self.get_csrf_details()
         data = {
             "username_or_email": username_or_email,
             "password": password,
             "csrf_token": csrf_token,
         }
-        self.http_session.post(LOGIN_URL, data=data, timeout=5)
+        await self.aio_http_session.post(LOGIN_URL, data=data, timeout=5)
 
-    @staticmethod
-    def is_downloadable(url: str) -> bool:
+    async def is_downloadable(self: Self, url: str) -> bool:
         """Is the url a downloadable resource."""
-        h = requests.head(url, allow_redirects=True, timeout=5)
+        h = await self.aio_http_session.head(url, allow_redirects=True)
         header = h.headers
         content_type = header.get("content-type")
 
@@ -63,7 +61,7 @@ class FactorioInterface:
         return True
         # fmt: on
 
-    def download_server_files(self: Self, build: Build, distro: Distro, version: str = "latest") -> None:
+    async def download_server_files(self: Self, build: Build, distro: Distro, version: str = "latest") -> None:
         """
         Download the files for the server with the given version, build and distro.
 
@@ -82,18 +80,19 @@ class FactorioInterface:
             If any values are invalid
         """
         url = f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}"
-        if not self.is_downloadable(url):
-            msg = "The url does not point to a downloadable resource"
+        if not await self.is_downloadable(url):
+            msg = f"The url does not point to a downloadable resource: {url=}"
             raise ValueError(msg)
 
-        with DOWNLOADS_DIRECTORY.open("wb") as f:
-            for chunk in self.http_session.get(url, allow_redirects=True).iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-                else:
-                    break
+        # fmt: off
+        async with (
+            aiofile.async_open(DOWNLOADS_DIRECTORY, "wb") as f,
+            self.aio_http_session.get(url, allow_redirects=True) as resp
+        ):
+            await f.write(await resp.read())
+        # fmt: on
 
-    def get_versions(self: Self) -> dict:
+    async def get_versions(self: Self) -> dict:
         """
         Get all recent versions of factorio.
 
@@ -102,9 +101,10 @@ class FactorioInterface:
         :class:`dict`
             A Json response containing the response data
         """
-        return self.http_session.get(RELEASES_URL).json()
+        resp = await self.aio_http_session.get(RELEASES_URL)
+        return await resp.json()
 
-    def get_archived_versions(self: Self) -> list:
+    async def get_archived_versions(self: Self) -> list:
         """
         Get all/archived versions of factorio.
 
@@ -113,4 +113,5 @@ class FactorioInterface:
         :class:`list`
             A list of all the versions
         """
-        return self.http_session.get(ARCHIVE_URL).json()
+        resp = await self.aio_http_session.get(ARCHIVE_URL)
+        return await resp.json()
