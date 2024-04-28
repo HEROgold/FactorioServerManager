@@ -61,7 +61,14 @@ class FactorioInterface:
         return True
         # fmt: on
 
-    async def download_server_files(self: Self, build: Build, distro: Distro, version: str = "latest") -> None:
+    async def download_server_files(
+        self: Self,
+        build: Build,
+        distro: Distro,
+        version: str = "latest",
+        *,
+        overwrite: bool = False
+    ) -> None:
         """
         Download the files for the server with the given version, build and distro.
 
@@ -73,12 +80,20 @@ class FactorioInterface:
             The build to download
         distro: :class:`str`
             The distro to download
+        overwrite: :class:`bool`
+            Whether to overwrite the file if it already exists
 
         Raises
         ------
         :class:`ValueError`
             If any values are invalid
         """
+        file_path = DOWNLOADS_DIRECTORY/f"{version}-{build.name}-{distro.name}"
+
+        if file_path.exists() and not overwrite:
+            msg = "The file already exists"
+            raise ValueError(msg)
+
         url = f"https://www.factorio.com/get-download/{version}/{build.name}/{distro.name}"
         if not await self.is_downloadable(url):
             msg = f"The url does not point to a downloadable resource: {url=}"
@@ -86,7 +101,7 @@ class FactorioInterface:
 
         # fmt: off
         async with (
-            aiofile.async_open(DOWNLOADS_DIRECTORY, "wb") as f,
+            aiofile.async_open(file_path, "wb") as f,
             self.aio_http_session.get(url, allow_redirects=True) as resp
         ):
             await f.write(await resp.read())
