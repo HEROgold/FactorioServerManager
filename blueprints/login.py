@@ -1,9 +1,13 @@
 """Blueprint for login page."""
 
+from pathlib import Path
+
 from flask import Blueprint
 
 
-bp = Blueprint("login", __name__)
+this_filename = Path(__file__).name.split(".")[0]
+bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
+
 
 
 @bp.route("/register")
@@ -11,18 +15,35 @@ def register():
     """Register a user."""
     return "Register"
 
+
+@bp.route("/delete")
+def delete():
+    """Delete a user's account."""
+    return "Delete Account"
+
+
 @bp.route("/login")
 def login():
     """Log in a user."""
     return "Login"
+
 
 @bp.route("/logout")
 def logout():
     """Log out a user."""
     return "Logout"
 
+
 @bp.route("/factorio_login")
 def factorio_login():
     """Log in a user using their Factorio account."""
     # Required just a email and password, which get forwarded to the Factorio login page
+    # Factorio login page will handle the rest and return oauth token which we use for
+    # further requests like downloading mods etc.
     return "Factorio Login"
+
+
+@bp.route("/factorio_logout")
+def factorio_logout():
+    """Log out a user from their Factorio account."""
+    return "Factorio Logout"
