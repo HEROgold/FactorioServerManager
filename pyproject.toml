@@ -21,6 +21,8 @@ ignore = [
     "D413",
     "G004",
     "ISC001",  # ignore implicit string concatenation, conflicts with formatter
+    "TD", # ingore todo comments
+    "FIX001", # ignore fixme comments
 ]
 select = ["ALL"]
 
