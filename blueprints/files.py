@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from flask import Blueprint, redirect, url_for
-from flask_login import UserMixin, current_user  # type: ignore[stub]
+from flask_login import UserMixin, current_user  # type: ignore[ReportAssignmentType]
 from werkzeug import Response
 
 
