@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import random
-import secrets
 from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Self
 
@@ -109,7 +108,7 @@ class User(Base, UserMixin):
         :class:`str`
         """
         random.seed(password)
-        salt = str(secrets.randbelow(1000000))
+        salt = str(random.random() * random.random())  # noqa: S311
         random.seed(None)
         return hashlib.sha256((password + salt).encode()).hexdigest()
 
