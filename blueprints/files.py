@@ -59,8 +59,8 @@ def delete() -> str:
     return "Delete a file"
 
 
-@bp.route("/download_latest", methods=["GET"])
-async def download() -> str:
+@bp.route("/download_latest_headless_linux64", methods=["GET"])
+async def download_latest_headless_linux64() -> str:
     """Download a file."""
     await current_user.fi.download_server_files(Build.headless, Distro.linux64)
     return "File downloaded successfully"
