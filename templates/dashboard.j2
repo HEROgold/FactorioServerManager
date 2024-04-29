@@ -17,26 +17,14 @@
             <div class="panel-inset-ligther">
                 <h3>Download</h3>
                 <p>Refer to the <a href="https://wiki.factorio.com/Download_API">Download Wiki</a> for more information on each dropdown</p>
-                <select name="builds" id="build">
-                    {% for i in builds %}
-                        {% if i == "headless" %}
-                            <option value="{{ i }}" selected>{{ i }}</option>
-                        {% else %}
-                            <option value="{{ i }}">{{ i }}</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-                <select name="distros" id="distro">
-                    {% for i in distros %}
-                        <option value="{{ i }}">{{ i }}</option>
-                    {% endfor %}
-                </select>
-                <select name="versions" id="version">
-                    {% for i in versions %}
-                        <option value="{{ i }}">{{ i }}</option>
-                    {% endfor %}
-                </select>
-                {# TODO: add submit button to download said version (in background, with progress bar) #}
+                <p>Downloading will pause the website for the duration of the download!</p>
+                <form method="POST" action="{{ url_for('files.download_server') }}">
+                    {{ form.hidden_tag() }}
+                    {{ form.build }}
+                    {{ form.distro }}
+                    {{ form.version }}
+                    {{ form.submit }}
+                </form>
             </div>
         </div>
     </div>

@@ -4,7 +4,7 @@ import hashlib
 import logging
 import random
 from logging.handlers import RotatingFileHandler
-from typing import TYPE_CHECKING, Self
+from typing import Self
 
 from flask_login import UserMixin
 from sqlalchemy import (
@@ -19,12 +19,8 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
+from _types import FactorioInterface
 from config import DATABASE_PATH
-
-
-if TYPE_CHECKING:
-    from _types import FactorioInterface
-    from _types.forms import RegistrationForm
 
 
 logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
@@ -57,11 +53,13 @@ class User(Base, UserMixin):
     _display_name: Mapped[str] = mapped_column(String, nullable=True, unique=False)
 
     @property
-    def fi(self: Self) -> "FactorioInterface":
+    def fi(self: Self) -> FactorioInterface:
+        if getattr(self, "_fi", None) is None:
+            self._fi = FactorioInterface()
         return self._fi
 
     @fi.setter
-    def fi(self: Self, fi: "FactorioInterface") -> None:
+    def fi(self: Self, fi: FactorioInterface) -> None:
         self._fi = fi
 
     @property
@@ -134,30 +132,6 @@ class User(Base, UserMixin):
         salt = str(random.random() * random.random())  # noqa: S311
         random.seed(None)
         return hashlib.sha256((password + salt).encode()).hexdigest()
-
-    @classmethod
-    def insert_from_form(cls, form: "RegistrationForm") -> None:
-        """
-        Add a user to the database, based on a RegistrationForm.
-
-        Parameters
-        ----------
-        form: :class:`RegistrationForm`
-            The RegistrationForm to use
-        """
-        if form.password.data is None:
-            msg = "Password is required"
-            raise ValueError(msg)
-
-        with Session(engine) as session:
-            session.add(
-                cls(
-                    username=form.email.data,
-                    password=cls.encrypt_password(form.password.data),
-                    email=form.email.data,
-                )
-            )
-            session.commit()
 
     def check_password(self: Self, password: str | None) -> bool:
         """

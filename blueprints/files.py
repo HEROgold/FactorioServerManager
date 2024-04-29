@@ -59,26 +59,19 @@ def delete() -> str:
     return "Delete a file"
 
 
-@bp.route("/download_server", methods=["GET"])
+@bp.route("/download_server", methods=["GET", "POST"])
 async def download_server() -> Response:
     """Download a file."""
     if (
+        (build := request.form["build"]) and
+        (distro := request.form["distro"]) and
+        (version := request.form["version"])
+        or
         (build := request.args.get("build")) and
         (distro := request.args.get("distro")) and
         (version := request.args.get("version"))
     ):
-        await current_user.fi.download_server_files(
-            Build(build),
-            Distro(distro),
-            version,
-        )
+        # TODO: run download in another thread or subprocess or something to not block the server.
+        await current_user.fi.download_server_files(Build[build], Distro[distro], version)
         return redirect(request.referrer)
-    # TODO: turn outer redirect into error handling page
     return redirect(request.referrer, code=400)
-
-
-@bp.route("/download_latest_headless_linux64", methods=["GET"])
-async def download_latest_headless_linux64() -> str:
-    """Download a file."""
-    await current_user.fi.download_server_files(Build.headless, Distro.linux64)
-    return "File downloaded successfully"

@@ -11,18 +11,17 @@
             {{ form.hidden_tag() }}
             <div class="panel-inset-lighter">
                 <dl>
-                    {{ form.hidden_tag() }}
                     <div>
                         <dt>{{ form.email.label }}</dt>
-                        <dd style="width: 90%;">{{ form.email(size=20, required=True, type="email", placeholder="Email") }}</dd>
+                        <dd style="width: 90%;">{{ form.email(required=True, type="email", placeholder="Email") }}</dd>
                     </div>
                     <div>
                         <dt>{{ form.password.label }}</dt>
-                        <dd style="width: 90%;">{{ form.password(size=20, required=True, type="password", placeholder="Password") }}</dd>
+                        <dd style="width: 90%;">{{ form.password(required=True, type="password", placeholder="Password") }}</dd>
                     </div>
                     <div>
-                        <dt>{{ form.remember.label(class="checkbox-label")}}</dt>
-                        <dd>{{ form.remember(value=True, type="checkbox") }}</dd>
+                        <dt>{{ form.email_auth_code.label}}</dt>
+                        <dd style="width: 200%;">{{ form.email_auth_code(placeholder="(Optional) Email code") }}</dd>
                     </div>
                 </dl>
             </div>

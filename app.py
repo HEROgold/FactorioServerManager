@@ -5,7 +5,7 @@ from routes import app
 
 
 def main() -> None:  # noqa: D103
-    app.run()
+    app.run(threaded=True)
 
 
 if __name__ == "__main__":
