@@ -4,6 +4,8 @@
 
 {% block title %}Dashboard{% endblock %}
 
+{# TODO: move jinja codes into seperate components to import #}
+
 {% block content %}
 <div class="container-inner">
     <div id="flashed-messages" class="small-center"></div>
@@ -13,14 +15,28 @@
             {# for each category #}
             <h2>Dashboard</h2>
             <div class="panel-inset-ligther">
-                {# for each item in the category #}
-                {# FIXME: fix styling #}
-                <dl class="dltabular">
-                    {% for i in range(5) %}
-                    <dt>Item {{ i }}</dt>
-                    <dd>Value {{ i }}</dd>
+                <h3>Download</h3>
+                <p>Refer to the <a href="https://wiki.factorio.com/Download_API">Download Wiki</a> for more information on each dropdown</p>
+                <select name="builds" id="build">
+                    {% for i in builds %}
+                        {% if i == "headless" %}
+                            <option value="{{ i }}" selected>{{ i }}</option>
+                        {% else %}
+                            <option value="{{ i }}">{{ i }}</option>
+                        {% endif %}
                     {% endfor %}
-                </dl>
+                </select>
+                <select name="distros" id="distro">
+                    {% for i in distros %}
+                        <option value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+                <select name="versions" id="version">
+                    {% for i in versions %}
+                        <option value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+                {# TODO: add submit button to download said version (in background, with progress bar) #}
             </div>
         </div>
     </div>
