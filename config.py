@@ -33,6 +33,7 @@ LOGIN_API = "https://auth.factorio.com/api-login"
 RELEASES_URL = "https://factorio.com/api/latest-releases"
 ARCHIVE_URL = "https://www.factorio.com/download/archive"
 AVAILABLE_UPDATES_URL = "https://updater.factorio.com/get-available-versions."
+SHA256SUMS_URL = "https://www.factorio.com/download/sha256sums/"
 
 # Endpoints
 
