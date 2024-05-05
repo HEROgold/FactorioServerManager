@@ -1,22 +1,12 @@
-import gzip
-import mimetypes
-from collections.abc import Generator
 from http.client import InvalidURL
-from tarfile import TarFile
-import tarfile
-from typing import TYPE_CHECKING, Any, Self
-from zipfile import ZipFile
+from typing import Self
 
 import aiofile
 import aiohttp
 from bs4 import BeautifulSoup
 
 from _types.enums import Build, Distro
-from config import API_VERSION, ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, REQUIRE_GAME_OWNERSHIP, SERVERS_DIRECTORY
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from config import API_VERSION, ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, REQUIRE_GAME_OWNERSHIP
 
 
 class FactorioInterface:
@@ -199,33 +189,3 @@ class FactorioInterface:
         """
         async with self.aio_http_session.get(ARCHIVE_URL) as resp:
             return await resp.json()
-
-    @staticmethod
-    async def install_server(name: str, port: int) -> None:
-        """
-        Install a server with the given name and port. Creates a cfg file with server settings.
-
-        Parameters
-        ----------
-        name: :class:`str`
-            The name of the server
-        port: :class:`int`
-            The port of the server
-        """
-        zip_file = DOWNLOADS_DIRECTORY/name
-        server_directory = SERVERS_DIRECTORY/name
-
-        server_directory.mkdir(exist_ok=True, parents=True)
-
-        with tarfile.open(zip_file, "r") as f:
-            f.extractall(server_directory, filter="data")
-
-        async with aiofile.async_open(server_directory/"settings.cfg", "w") as f:
-            settings = {
-                "name": name,
-                "port": port,
-            }
-
-            for i in settings:
-                await f.write(f"{i}={settings[i]}")
-                await f.write("\n")

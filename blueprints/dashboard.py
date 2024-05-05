@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
 
 from flask import Blueprint, redirect, render_template, request
 from flask_login import (
-    current_user,  # type: ignore[ReportAssignmentType]
     login_required,
 )
 from werkzeug import Response
 
 from _types.forms import DownloadForm, InstallForm
+from scripts import get_downloaded, get_installed
+from scripts import install_server as inst_server
 
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
 
 @bp.before_request
 @login_required
-def before_request() -> None:
+async def before_request() -> None:
     """Run before every request."""
     return
 
@@ -52,8 +53,8 @@ async def download() -> str:
 @bp.route("/server_overview")
 async def server_overview() -> str:
     """Manage servers page."""
-    downloaded = list(current_user.fi.get_downloaded())
-    installed = list(current_user.fi.get_installed())
+    downloaded = list(await get_downloaded())
+    installed = list(await get_installed())
     return render_template("server_overview.j2", downloaded_servers=downloaded, installed_servers=installed)
 
 
@@ -68,5 +69,5 @@ async def install_server() -> Response:
     """Manage a server page."""
     file = request.form["file"]
     port = int(request.form["port"])
-    await current_user.fi.install_server(file, port)
+    await inst_server(file, port)
     return redirect(request.referrer)
