@@ -18,18 +18,17 @@ async def create_server_directory(server_name: str) -> None:
     Path(SERVERS_DIRECTORY / server_name).mkdir(exist_ok=True, parents=True)
 
 
-async def get_all_download_versions() -> list[str]:
+def get_all_download_versions() -> list[str]:
     """Get all versions."""
-    async with aiohttp.ClientSession().get(ARCHIVE_URL) as resp:
-        soup = BeautifulSoup(await resp.text(), "html.parser")
+    response = requests.get(ARCHIVE_URL, timeout=5)
+    soup = BeautifulSoup(response.text, "html.parser")
+    return [
+        i.text.strip()
+        for i in soup.find_all("a", {"class": "slot-button-inline"})
+    ]
 
-        return [
-            i.text.strip()
-            for i in soup.find_all("a", {"class": "slot-button-inline"})
-        ]
 
-
-async def get_downloaded() -> AsyncGenerator["Path", None]:
+def get_downloaded() -> Generator["Path", Any, None]:
     """
     Get all downloaded files.
 
