@@ -1,5 +1,6 @@
+from collections.abc import AsyncGenerator
 from http.client import InvalidURL
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import aiofile
 import aiohttp
@@ -7,6 +8,10 @@ from bs4 import BeautifulSoup
 
 from _types.enums import Build, Distro
 from config import API_VERSION, ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, REQUIRE_GAME_OWNERSHIP
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class FactorioInterface:
@@ -185,3 +190,16 @@ class FactorioInterface:
         """
         async with self.aio_http_session.get(ARCHIVE_URL) as resp:
             return await resp.json()
+
+    async def get_downloaded(self: Self) -> AsyncGenerator["Path", None]:
+        """
+        Get all downloaded files.
+
+        Returns
+        -------
+        :class:`list`
+            A list of all the downloaded files
+        """
+        for i in DOWNLOADS_DIRECTORY.glob("*"):
+            if i.is_file():
+                yield i
