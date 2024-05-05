@@ -61,13 +61,28 @@ async def server_overview() -> str:
 @bp.route("/manage_server/<string:name>")
 async def manage_server(name: str) -> str:
     """Manage a server page."""
-    return render_template("manage_server.j2", server_name=name, form=InstallForm())
+    return render_template("manage_server.j2", name=name)
 
 
-@bp.route("/install_server", methods=["POST"])
-async def install_server() -> Response:
+@bp.route("/install_server/<string:name>", methods=["GET", "POST"])
+async def install_server(name: str) -> Response | str:
     """Manage a server page."""
-    file = request.form["file"]
-    port = int(request.form["port"])
-    await inst_server(file, port)
-    return redirect(request.referrer)
+    if request.method == "GET":
+        installed = [
+            i
+            for i in get_installed()
+            if i.name == name
+        ]
+        return render_template(
+            "install_server.j2",
+            form=InstallForm(),
+            server_name=name,
+            installed_servers=installed
+        )
+    if request.method == "POST":
+        file = request.form["file"]
+        name = request.form["name"]
+        port = int(request.form["port"])
+        await inst_server(name, file, port)
+        return redirect(request.referrer)
+    return redirect(request.referrer, code=400)

@@ -55,7 +55,7 @@ def get_installed() -> Generator["Path", Any, None]:
             yield i
 
 
-async def install_server(name: str, port: int) -> None:
+async def install_server(name: str, filepath: str, port: int) -> None:
     """
     Install a server with the given name and port. Creates a cfg file with server settings.
 
@@ -63,10 +63,12 @@ async def install_server(name: str, port: int) -> None:
     ----------
     name: :class:`str`
         The name of the server
+    filepath: :class:`str`
+        The path where to install the server from
     port: :class:`int`
         The port of the server
     """
-    zip_file = DOWNLOADS_DIRECTORY/name
+    zip_file = DOWNLOADS_DIRECTORY/filepath
     server_directory = SERVERS_DIRECTORY/name
 
     server_directory.mkdir(exist_ok=True, parents=True)

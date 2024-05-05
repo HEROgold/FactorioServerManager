@@ -20,5 +20,6 @@ class DownloadForm(FlaskForm):
 
 class InstallForm(FlaskForm):
     file = SelectField("File", validators=[DataRequired()], choices=[(i.name, i.name) for i in get_downloaded()])
+    name = StringField("Server Name", validators=[DataRequired()])
     port = IntegerField("UDP Port", validators=[DataRequired()], default=34197)
     submit = SubmitField("Install")
