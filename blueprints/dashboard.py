@@ -93,3 +93,24 @@ async def manage_server(name: str) -> str:
 
     form = ManageServerForm(**current_settings)
     return render_template("manage_server.j2", name=name, form=form)
+
+
+# TODO: Track running servers and their processes and process ids
+@bp.route("/manage_server/<string:name>/start", methods=["POST"])
+async def start_server(name: str) -> Response:
+    """Start a server."""
+    return redirect(request.referrer)
+
+
+@bp.route("/manage_server/<string:name>/stop", methods=["POST"])
+async def stop_server(name: str) -> Response:
+    """Stop a server."""
+    return redirect(request.referrer)
+
+
+@bp.route("/manage_server/<string:name>/restart", methods=["POST"])
+async def restart_server(name: str) -> Response:
+    """Restart a server."""
+    await stop_server(name)
+    await start_server(name)
+    return redirect(request.referrer)
