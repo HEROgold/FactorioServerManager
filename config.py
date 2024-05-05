@@ -35,6 +35,14 @@ ARCHIVE_URL = "https://www.factorio.com/download/archive"
 AVAILABLE_UPDATES_URL = "https://updater.factorio.com/get-available-versions."
 SHA256SUMS_URL = "https://www.factorio.com/download/sha256sums/"
 
+# Factorio related files/paths
+FACTORIO_LINUX64_BIN = "factorio/bin/factorio"
+FACTORIO_DATA = "factorio/data"
+EXAMPLE_MAP_GEN_SETTINGS = f"{FACTORIO_DATA}/map-gen-settings.example.json"
+EXAMPLE_MAP_SETTINGS = f"{FACTORIO_DATA}/map-settings.example.json"
+EXAMPLE_SERVER_SETTINGS = f"{FACTORIO_DATA}/server-settings.example.json"
+EXAMPLE_SERVER_WHITELIST = f"{FACTORIO_DATA}/server-whitelist.example.json"
+
 # Endpoints
 
 # Login
