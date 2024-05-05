@@ -25,11 +25,10 @@ class InstallForm(FlaskForm):
     submit = SubmitField("Install")
 
 class ManageServerForm(FlaskForm):
-    name = StringField("Server Name", validators=[DataRequired()])
     port = IntegerField("UDP Port", validators=[DataRequired()])
 
     # In game hosting options
-    display_name = StringField("Display Name")
+    name = StringField("Server Name", validators=[DataRequired()])
     password = StringField("Password")
 
     description = StringField("Description")
@@ -58,4 +57,4 @@ class ManageServerForm(FlaskForm):
 
     # Dedicated server specific options
 
-    submit = SubmitField("Manage")
+    submit = SubmitField("Update settings")
