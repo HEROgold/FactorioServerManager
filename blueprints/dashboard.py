@@ -51,26 +51,6 @@ async def download() -> str:
     return render_template("download.j2", form=DownloadForm())
 
 
-@bp.route("/server_overview")
-async def server_overview() -> str:
-    """Manage servers page."""
-    downloaded = list(get_downloaded())
-    installed = list(get_installed())
-    return render_template("server_overview.j2", downloaded_servers=downloaded, installed_servers=installed)
-
-
-@bp.route("/manage_server/<string:name>")
-async def manage_server(name: str) -> str:
-    """Manage a server page."""
-    current_settings: dict[str, str] = {}
-
-    async for key, value in get_server_settings(name):
-        current_settings[key] = value
-
-    form = ManageServerForm(**current_settings)
-    return render_template("manage_server.j2", name=name, form=form)
-
-
 @bp.route("/install_server/<string:name>", methods=["GET", "POST"])
 async def install_server(name: str) -> Response | str:
     """Manage a server page."""
@@ -93,3 +73,23 @@ async def install_server(name: str) -> Response | str:
         await inst_server(name, file, port)
         return redirect(request.referrer)
     return redirect(request.referrer, code=400)
+
+
+@bp.route("/server_overview")
+async def server_overview() -> str:
+    """Manage servers page."""
+    downloaded = list(get_downloaded())
+    installed = list(get_installed())
+    return render_template("server_overview.j2", downloaded_servers=downloaded, installed_servers=installed)
+
+
+@bp.route("/manage_server/<string:name>")
+async def manage_server(name: str) -> str:
+    """Manage a server page."""
+    current_settings: dict[str, str] = {}
+
+    async for key, value in get_server_settings(name):
+        current_settings[key] = value
+
+    form = ManageServerForm(**current_settings)
+    return render_template("manage_server.j2", name=name, form=form)
