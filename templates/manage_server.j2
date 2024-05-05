@@ -11,8 +11,15 @@
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>{{ name }}</h2>
             <div class="panel-inset-lighter mb12">
-                {% for field in form %}
-                    <div>
+                <h3>Status</h3>
+                <div>
+                    {# TODO: add status things like connected players, running data, playtime, ups, etc. #}
+                    {# TODO: Add start/stop/restart actions/buttons #}
+                </div>
+                <h3>Settings</h3>
+                {{ form.hidden_tag() }}
+                {% for field in form if field.widget.input_type != "hidden" %}
+                    <div style="display: inline-block; padding: 1%;">
                         <dt>{{ field.label }}</dt>
                         <dd style="width: 90%;">{{ field }}</dd>
                     </div>
