@@ -73,5 +73,5 @@ async def download_server() -> Response:
     ):
         # TODO: run download in another thread or subprocess or something to not block the server.
         await current_user.fi.download_server_files(Build[build], Distro[distro], version)
-        return redirect(request.referrer)
+        return redirect(url_for("dashboard.server_overview"))
     return redirect(request.referrer, code=400)

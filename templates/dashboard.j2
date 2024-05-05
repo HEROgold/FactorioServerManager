@@ -1,30 +1,18 @@
-{# See https://factorio.com/dashboard for reference #}
-
 {% extends "base.j2" %}
 
 {% block title %}Dashboard{% endblock %}
-
-{# TODO: move jinja codes into seperate components to import #}
 
 {% block content %}
 <div class="container-inner">
     <div id="flashed-messages" class="small-center"></div>
     {% include "noscript.j2 "%}
     <div class="medium-center">
-        <div class="panel mb64 pb0">
-            {# for each category #}
+        <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>Dashboard</h2>
-            <div class="panel-inset-ligther">
-                <h3>Download</h3>
-                <p>Refer to the <a href="https://wiki.factorio.com/Download_API">Download Wiki</a> for more information on each dropdown</p>
-                <p>Downloading will pause the website for the duration of the download!</p>
-                <form method="POST" action="{{ url_for('files.download_server') }}">
-                    {{ form.hidden_tag() }}
-                    {{ form.build }}
-                    {{ form.distro }}
-                    {{ form.version }}
-                    {{ form.submit }}
-                </form>
+            <div class="panel-inset-lighter mb12">
+                {% for route in routes %}
+                    <h3><a href="{{ url_for(route['path']) }}">{{ route['name'] }}</a></h3>
+                {% endfor %}
             </div>
         </div>
     </div>

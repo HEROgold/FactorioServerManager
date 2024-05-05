@@ -1,13 +1,18 @@
-from collections.abc import AsyncGenerator
+import gzip
+import mimetypes
+from collections.abc import Generator
 from http.client import InvalidURL
-from typing import TYPE_CHECKING, Self
+from tarfile import TarFile
+import tarfile
+from typing import TYPE_CHECKING, Any, Self
+from zipfile import ZipFile
 
 import aiofile
 import aiohttp
 from bs4 import BeautifulSoup
 
 from _types.enums import Build, Distro
-from config import API_VERSION, ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, REQUIRE_GAME_OWNERSHIP
+from config import API_VERSION, ARCHIVE_URL, DOWNLOADS_DIRECTORY, LOGIN_API, LOGIN_URL, RELEASES_URL, REQUIRE_GAME_OWNERSHIP, SERVERS_DIRECTORY
 
 
 if TYPE_CHECKING:
@@ -164,7 +169,11 @@ class FactorioInterface:
             chunk_size = 4096
             async for chunk in resp.content.iter_chunked(chunk_size):
                 await f.write(chunk)
+
+            extension = resp.real_url.name.split(".")[1:]
         # fmt: on
+        file_path.rename(f"{file_path}{'.'.join(extension)}")
+
 
     async def get_versions(self: Self) -> dict:
         """
@@ -191,15 +200,31 @@ class FactorioInterface:
         async with self.aio_http_session.get(ARCHIVE_URL) as resp:
             return await resp.json()
 
-    async def get_downloaded(self: Self) -> AsyncGenerator["Path", None]:
+    @staticmethod
+    async def install_server(name: str, port: int) -> None:
         """
-        Get all downloaded files.
+        Install a server with the given name and port. Creates a cfg file with server settings.
 
-        Returns
-        -------
-        :class:`list`
-            A list of all the downloaded files
+        Parameters
+        ----------
+        name: :class:`str`
+            The name of the server
+        port: :class:`int`
+            The port of the server
         """
-        for i in DOWNLOADS_DIRECTORY.glob("*"):
-            if i.is_file():
-                yield i
+        zip_file = DOWNLOADS_DIRECTORY/name
+        server_directory = SERVERS_DIRECTORY/name
+
+        server_directory.mkdir(exist_ok=True, parents=True)
+
+        with tarfile.open(zip_file, "r") as f:
+            f.extractall(server_directory, filter="data")
+
+        async with aiofile.async_open(server_directory/"settings.cfg", "w") as f:
+            settings = {
+                "name": name,
+                "port": port,
+            }
+
+            for i in settings:
+                await f.write(f"{i}={settings[i]}")

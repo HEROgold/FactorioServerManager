@@ -21,8 +21,10 @@ async def login() -> str | Response:
     # Required just a email and password, which get forwarded to the Factorio login page
     # Factorio login page will handle the rest and return oauth token which we use for
     # further requests like downloading mods etc.
+    _next = request.args.get("next") or url_for("dashboard.index")
+
     if request.method == "GET":
-        return render_template("login.j2", form=LoginForm())
+        return render_template("login.j2", form=LoginForm(), next=request.endpoint)
     if request.method == "POST":
         user = User.fetch_by_email(request.form["email"])
         fi = FactorioInterface()
@@ -32,9 +34,9 @@ async def login() -> str | Response:
             token = resp["token"]
             user.factorio_token = token
             login_user(user)
-            return redirect(request.args.get("next") or url_for("dashboard.dashboard"))
+            return redirect(_next)
         return "Login failed"
-    return redirect(request.referrer)
+    return redirect(_next)
 
 
 @bp.route("/logout")
