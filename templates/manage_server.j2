@@ -11,10 +11,10 @@
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>{{ name }}</h2>
             <div class="panel-inset-lighter mb12">
-                {% for setting in settings %}
+                {% for field in form %}
                     <div>
-                        <dt>{{ setting.name }}</dt>
-                        <dd style="width: 90%;">{{ setting.value }}</dd>
+                        <dt>{{ field.label }}</dt>
+                        <dd style="width: 90%;">{{ field }}</dd>
                     </div>
                 {% endfor %}
             </div>

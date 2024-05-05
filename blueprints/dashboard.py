@@ -9,9 +9,10 @@ from flask_login import (
 )
 from werkzeug import Response
 
-from _types.forms import DownloadForm, InstallForm
+from _types.forms import DownloadForm, InstallForm, ManageServerForm
 from scripts import get_downloaded, get_installed
 from scripts import install_server as inst_server
+from scripts.server_settings import get_server_settings
 
 
 if TYPE_CHECKING:
@@ -61,7 +62,13 @@ async def server_overview() -> str:
 @bp.route("/manage_server/<string:name>")
 async def manage_server(name: str) -> str:
     """Manage a server page."""
-    return render_template("manage_server.j2", name=name)
+    current_settings: dict[str, str] = {}
+
+    async for key, value in get_server_settings(name):
+        current_settings[key] = value
+
+    form = ManageServerForm(**current_settings)
+    return render_template("manage_server.j2", name=name, form=form)
 
 
 @bp.route("/install_server/<string:name>", methods=["GET", "POST"])
