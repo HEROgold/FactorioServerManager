@@ -228,3 +228,4 @@ class FactorioInterface:
 
             for i in settings:
                 await f.write(f"{i}={settings[i]}")
+                await f.write("\n")
