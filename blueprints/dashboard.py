@@ -53,8 +53,8 @@ async def download() -> str:
 @bp.route("/server_overview")
 async def server_overview() -> str:
     """Manage servers page."""
-    downloaded = list(await get_downloaded())
-    installed = list(await get_installed())
+    downloaded = list(get_downloaded())
+    installed = list(get_installed())
     return render_template("server_overview.j2", downloaded_servers=downloaded, installed_servers=installed)
 
 

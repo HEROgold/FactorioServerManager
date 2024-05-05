@@ -41,7 +41,7 @@ def get_downloaded() -> Generator["Path", Any, None]:
         if i.is_file():
             yield i
 
-async def get_installed() -> AsyncGenerator["Path", None]:
+def get_installed() -> Generator["Path", Any, None]:
     """
     Get all installed files.
 
