@@ -3,6 +3,7 @@
 
 
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import aiofile
 
@@ -27,3 +28,17 @@ async def update_server_settings(name: str, settings: dict[str, str]) -> None:
             for name, value in settings.items():
                 if line.startswith(name): # type: ignore[reportArgumentType]
                     await f.write(f"{name}={value}\n")
+
+async def get_server_directories(name: str) -> tuple[Path, Path, Path, Path]:
+    """Get the required directories and executable for a given server."""
+    server_directory = SERVERS_DIRECTORY/name
+
+    if "linux" in name:
+        executable = server_directory/"factorio/bin/factorio"
+
+    data = server_directory/"data"
+    map_generation_settings = data/"map-gen-settings.json"
+    map_settings = data/"map-settings.json"
+    server_settings = data/"server-settings.json"
+
+    return executable, map_generation_settings, map_settings, server_settings

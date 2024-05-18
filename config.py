@@ -11,16 +11,18 @@ REQUIRE_GAME_OWNERSHIP = False
 
 # Do not edit
 CONFIG_FILE = Path(__file__)
-TOML_FILE = CONFIG_FILE.parent / "pyproject.toml"
+PROJECT_DIR = CONFIG_FILE.parent
+TOML_FILE = PROJECT_DIR / "pyproject.toml"
 
 with TOML_FILE.open("rb") as file:
     toml = load(file)
 
-PROJECT_DIRECTORY = CONFIG_FILE.parent
-SERVERS_DIRECTORY = CONFIG_FILE.parent / "servers"
-DOWNLOADS_DIRECTORY = CONFIG_FILE.parent / "downloads"
+PROJECT_DIRECTORY = PROJECT_DIR
+SERVERS_DIRECTORY = PROJECT_DIR / "servers"
+DOWNLOADS_DIRECTORY = PROJECT_DIR / "downloads"
+SAVES_DIRECTORY = PROJECT_DIR / "saves"
 
-DATABASE_PATH = CONFIG_FILE.parent / "database.db"
+DATABASE_PATH = PROJECT_DIR / "database.db"
 
 PROJECT_NAME = toml["project"]["name"]
 PROJECT_VERSION = toml["project"]["version"]
