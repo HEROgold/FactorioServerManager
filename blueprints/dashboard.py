@@ -122,7 +122,7 @@ async def create_server(name: str) -> Response:
 
 
 # TODO: Track running servers and their processes and process ids
-# TODO: Add seperate saves for each server.
+# TODO: Add separate saves for each server.
 @bp.route("/manage_server/<string:name>/start", methods=["POST"])
 async def start_server(name: str) -> Response:
     """Start a server."""
