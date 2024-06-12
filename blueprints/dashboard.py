@@ -1,31 +1,31 @@
 """Blueprint for download page."""
 
-from signal import SIGINT
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import docker
 from flask import Blueprint, redirect, render_template, request
 from flask_login import (
+    current_user,  # type: ignore[reportAssignmentType]
     login_required,
 )
 from werkzeug import Response
 
+from _types.data import Server
 from _types.forms import DownloadForm, InstallForm, ManageServerForm
-from config import SERVERS_DIRECTORY
+from config import DOCKER_CONTAINER_PREFIX
 from scripts import get_downloaded, get_installed
 from scripts import install_server as inst_server
-from scripts.server_settings import get_server_directories, get_server_settings
 
 
 if TYPE_CHECKING:
     from _types.database import User
     from _types.dicts import Route
+    current_user: "User"
 
 
-current_user: "User"
-running_servers: dict[str, subprocess.Popen] = {}
 
+docker_client = docker.from_env()
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
@@ -92,74 +92,74 @@ async def server_overview() -> str:
 async def manage_server(name: str) -> str:
     """Manage a server page."""
     current_settings: dict[str, str] = {}
+    server = Server(name)
 
-    async for key, value in get_server_settings(name):
+    for key, value in server.settings.__dataclass_fields__.items():
         current_settings[key] = value
 
     form = ManageServerForm(**current_settings)
     return render_template("manage_server.j2", name=name, form=form)
 
 
-# TODO: for first time launch, show all example settings and allow user to change them.
 @bp.route("/manage_server/<string:name>/create", methods=["POST"])
 async def create_server(name: str) -> Response:
     """Create a server."""
-    server_directory = SERVERS_DIRECTORY/name
-    executable, map_generation_settings, map_settings, server_settings = get_server_directories(name)
-
-    subprocess.Popen(  # noqa: ASYNC101
-        [  # noqa: S603
-            str(executable),
-            f"--create {server_directory}"
-            f"--map-gen-settings {map_generation_settings}"
-            f"--map-settings {map_settings}"
-            f"--server-settings {server_settings}"
+    server = Server(name)
+    docker_client.containers.create(
+        image="factoriotools/factorio",
+        detach=True,
+        ports={"34197/udp": 34197, "27015/tcp": 27015},
+        volumes=[
+            f"{server.server_directory}:/factorio",
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    ).wait()
+        name=f"{DOCKER_CONTAINER_PREFIX}{server.name}",
+        restart_policy={"Name": "on-failure", "MaximumRetryCount": 2},
+    )
+    # TODO: redirect to server overview page, which allows settings to be changed, before first start.
     return redirect(request.referrer)
 
 
-# TODO: Track running servers and their processes and process ids
-# TODO: Add separate saves for each server.
 @bp.route("/manage_server/<string:name>/start", methods=["POST"])
 async def start_server(name: str) -> Response:
-    """Start a server."""
-    server_directory = SERVERS_DIRECTORY/name
-    executable, map_generation_settings, map_settings, server_settings = get_server_directories(name)
-
-    with (
-        Path(server_directory/"stdout.txt").open("w") as stdout_file,  # noqa: ASYNC101
-        Path(server_directory/"stderr.txt").open("w") as stderr_file  # noqa: ASYNC101
-    ):
-        p = subprocess.Popen(  # noqa: ASYNC101
-            [  # noqa: S603
-                str(executable),
-                f"--map-gen-settings {map_generation_settings}"
-                f"--map-settings {map_settings}"
-                f"--server-settings {server_settings}"
-            ],
-            stdout=stdout_file,
-            stderr=stderr_file
-        )
-        running_servers[name] = p
-
+    """Start a server through a http request."""
+    # TODO: show server logs
+    await _start_server(name)
     return redirect(request.referrer)
-
 
 @bp.route("/manage_server/<string:name>/stop", methods=["POST"])
 async def stop_server(name: str) -> Response:
-    """Stop a server."""
-    process = running_servers[name]
-    process.communicate("/server-save\n", timeout=120) # 2 minute generous timeout
-    process.send_signal(SIGINT)
+    """Stop a server through a http request."""
+    await _stop_server(name)
     return redirect(request.referrer)
 
 
 @bp.route("/manage_server/<string:name>/restart", methods=["POST"])
 async def restart_server(name: str) -> Response:
-    """Restart a server."""
-    await stop_server(name)
-    await start_server(name)
+    """Restart a server through a http request."""
+    await _restart_server(name)
     return redirect(request.referrer)
+
+
+async def _start_server(name: str) -> None:
+    server = Server(name, current_user)
+    docker_client.containers.run(
+        image="factoriotools/factorio",
+        detach=True,
+        ports={"34197/udp": 34197, "27015/tcp": 27015},
+        volumes=[
+            f"{server.server_directory}:/factorio",
+        ],
+        name=f"{DOCKER_CONTAINER_PREFIX}{server.name}",
+        restart_policy={"Name": "on-failure", "MaximumRetryCount": 2},
+    )
+
+
+async def _stop_server(name: str) -> None:
+    server = Server(name)
+    docker_client.containers.get(f"{DOCKER_CONTAINER_PREFIX}{server.name}").stop()
+
+
+async def _restart_server(name: str) -> None:
+    await _stop_server(name)
+    await _start_server(name)
+

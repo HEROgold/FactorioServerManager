@@ -17,6 +17,8 @@ TOML_FILE = PROJECT_DIR / "pyproject.toml"
 with TOML_FILE.open("rb") as file:
     toml = load(file)
 
+DOCKER_CONTAINER_PREFIX = "factorio-headless_"
+
 PROJECT_DIRECTORY = PROJECT_DIR
 SERVERS_DIRECTORY = PROJECT_DIR / "servers"
 DOWNLOADS_DIRECTORY = PROJECT_DIR / "downloads"
