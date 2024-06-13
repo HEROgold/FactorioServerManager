@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from flask import redirect, render_template, url_for
+from flask import redirect, render_template, request, url_for
 from werkzeug import Response
 
 import blueprints  # type: ignore[no-stub-file]
@@ -26,3 +26,8 @@ async def index() -> Response:
 async def page_not_found(e: Exception) -> tuple[str, Literal[404]]:
     """Handle 404 errors."""
     return render_template("404.j2", error=e), 404
+
+@app.errorhandler(KeyError)
+async def key_error(_: Exception) -> tuple[Response, Literal[404]]:
+    """Handle KeyErrors errors."""
+    return redirect(request.endpoint or "/"), 404
