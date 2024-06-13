@@ -1,46 +1,44 @@
+from __future__ import annotations  # avoid User is not defined in Server class
+
 import json
-from collections.abc import Generator
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import Self
+from threading import Thread
+from typing import TYPE_CHECKING, Self
 
-from _types.database import User
-from _types.dicts import ServerModEntry
-from config import SERVERS_DIRECTORY
+import docker
+from docker.errors import NotFound
+
+from _types.enums import DockerStates
+
+# from _types.settings import MapGenerationSettings, MapSettings,
+from _types.settings import ServerSettings
+from config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY
 
 
-@dataclass
-class ServerSettings:
-    name: str
-    password: str | None
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
-    port: int = 34197
-    description: str = ""
-    tags: str = ""
-    visibility_public: bool = False
-    visibility_steam: bool = False
-    visibility_lan: bool = True
-    verify_user_identity: bool = True
-    use_authserver_bans: bool = True
-    whitelist: bool = True
-    max_players: int = 10
-    ignore_limit_returning: bool = True
-    admins: str = ""
-    allow_lua_commands: bool = True
-    admin_pause: bool = True
-    afk_autokick_timer: int = 0
-    max_upload_speed: int = 2000
-    max_upload_slots: int = 5
-    autosave_interval: int = 3600
-    autosave_only_on_server: bool = True
+    from docker.models.containers import Container
+
+    from _types.database import User
+    from _types.dicts import ServerModEntry
+
+
+docker_client = docker.from_env()
 
 
 @dataclass
 class Server:
     name: str
-    user: User | None = None
-    _settings: ServerSettings | None = None
+    user: User
     _PID: int | None = None
+    _version: str | None = None
+    _container: Container | None = None
+    _settings: ServerSettings | None = None
+    # _map_settings: MapSettings | None = None
+    # _map_generation_settings: MapGenerationSettings | None = None
 
     @property
     def server_directory(self: Self) -> Path:
@@ -49,11 +47,11 @@ class Server:
         return SERVERS_DIRECTORY / f"dummy/{self.name}"
 
     @property
-    def current_log(self: Self) -> Path:
+    def current_log_file(self: Self) -> Path:
         return self.server_directory / "factorio-current.log"
 
     @property
-    def previous_log(self: Self) -> Path:
+    def previous_log_file(self: Self) -> Path:
         return self.server_directory / "factorio-previous.log"
 
     @property
@@ -61,19 +59,19 @@ class Server:
         return self.server_directory / "config"
 
     @property
-    def map_generation_settings(self: Self) -> Path:
+    def map_generation_settings_file(self: Self) -> Path:
         return self.config / "map-gen-settings.json"
 
     @property
-    def map_settings(self: Self) -> Path:
+    def map_settings_file(self: Self) -> Path:
         return self.config / "map-settings.json"
 
     @property
-    def server_settings(self: Self) -> Path:
+    def server_settings_file(self: Self) -> Path:
         return self.config / "server-settings.json"
 
     @property
-    def server_whitelist(self: Self) -> Path:
+    def server_whitelist_file(self: Self) -> Path:
         return self.config / "server-whitelist.json"
 
     @property
@@ -125,19 +123,141 @@ class Server:
     @settings.setter
     def settings(self: Self, settings: ServerSettings) -> None:
         self._settings = settings
+        # Write settings to file
+        if not self.server_settings_file.exists():
+            return
+        # with self.server_settings_file.open("w") as f:
+        #     data = json.load(f)
+        #     setting = settings.__dict__
+        #     for k, v in setting.items():
+        #         if k.startswith("visibility"):
+        #             data["visibility"][k.split("_")[-1]] = v
+        #             continue
+        #         if k == "password":
+        #             data["game_password"] = v
+        #             continue
+        #         data[k] = v
+        #     f.write(json.dumps(settings))
+
+    # @property
+    # def map_settings(self: Self) -> MapSettings:
+    #     if self._map_settings:
+    #         return self._map_settings
+    #     self.map_settings = MapSettings()
+    #     return self.map_settings
+
+    # @map_settings.setter
+    # def map_settings(self: Self, settings: MapSettings) -> None:
+    #     self._map_settings = settings
+
+    # @property
+    # def map_generation_settings(self: Self) -> MapGenerationSettings:
+    #     if self._map_generation_settings:
+    #         return self._map_generation_settings
+    #     self.map_generation_settings = MapGenerationSettings()
+    #     return self.map_generation_settings
+
+    # @map_generation_settings.setter
+    # def map_generation_settings(self: Self, settings: MapGenerationSettings) -> None:
+    #     self._map_generation_settings = settings
 
     @property
-    def process_id(self: Self) -> int:
-        if self._PID:
-            return self._PID
-        msg = "PID not set"
+    def version(self: Self) -> str:
+        if self._version:
+            return self._version
+        msg = "Version not set"
         raise AttributeError(msg)
 
-    @process_id.setter
-    def process_id(self: Self, value: int) -> None:
-        self._PID = value
+    @version.setter
+    def version(self: Self, value: str) -> None:
+        if self._version:
+            msg = "Version already set"
+            raise AttributeError(msg)
+        self._version = value
 
+    @property
     def is_first_launch(self: Self) -> bool:
         if self.server_directory.exists():
             return False
         return True
+
+    @property
+    def container(self: Self) -> Container:
+        if self._container:
+            return self._container
+        self._container = docker_client.containers.get(self.get_container_name())
+        return self.container
+
+    def get_container_name(self: Self) -> str:
+        if self.user:
+            return f"{DOCKER_CONTAINER_PREFIX}_{self.user.id}_{self.name}"
+        return f"{DOCKER_CONTAINER_PREFIX}_dummy_{self.name}"
+
+    @property
+    def status(self: Self) -> str:
+        try:
+            return self.container.status
+        except NotFound:
+            return DockerStates.UNKNOWN.value
+
+    async def create(self: Self, version: str = "latest") -> None:
+        if not self.is_first_launch:
+            msg = "Server already exists"
+            raise FileExistsError(msg)
+
+        self.version = version
+
+        def _pull_create(container_name: str, directory: Path) -> None:
+            docker_client.images.pull("factoriotools/factorio", tag=version) # Naively pull, to ensure we have it.
+            docker_client.containers.create(
+                image=f"factoriotools/factorio:{version}",
+                detach=True,
+                ports={"34197/udp": self.port, "27015/tcp": 27015},
+                volumes=[
+                    f"{directory}:/factorio",
+                ],
+                name=container_name,
+                restart_policy={"Name": "on-failure", "MaximumRetryCount": 2},
+            )
+        self.server_directory.mkdir(parents=True, exist_ok=True)
+        t = Thread(target=_pull_create, args=[self.get_container_name(), self.server_directory])
+        t.daemon = True
+        t.start()
+
+    async def start(self: Self) -> None:
+        """Use a new thread to start the server."""
+        if self.container.status == DockerStates.RUNNING.value:
+            msg = "Server already running"
+            raise RuntimeError(msg)
+        p = partial(self.container.start)
+        t = Thread(target=p)
+        t.daemon = True
+        t.start()
+
+    async def stop(self: Self) -> None:
+        """Use a new thread to stop the server."""
+        if self.container.status == DockerStates.EXITED.value:
+            msg = "Server already stopped"
+            raise RuntimeError(msg)
+        p = partial(self.container.stop)
+        t = Thread(target=p)
+        t.daemon = True
+        t.start()
+
+    async def restart(self: Self) -> None:
+        """Use a new thread to restart the server."""
+        if self.container.status == DockerStates.EXITED.value:
+            msg = "Server not running"
+            raise RuntimeError(msg)
+        if self.container.status == DockerStates.RESTARTING.value:
+            msg = "Server busy restarting"
+            raise RuntimeError(msg)
+        p = partial(self.container.restart)
+        t = Thread(target=p)
+        t.daemon = True
+        t.start()
+
+    def remove(self: Self) -> None:
+        s = self.server_directory
+        s.rmdir()
+        del self

@@ -1,14 +1,12 @@
-from enum import Enum, auto
+
+from enum import Enum
 
 
-class Distro(Enum):
-    win64 = auto()
-    win64_manual = auto()
-    osx = auto()
-    linux64 = auto()
-
-
-class Build(Enum):
-    alpha = auto()
-    demo = auto()
-    headless = auto()
+class DockerStates(Enum):
+    CREATED = "created"
+    RUNNING = "running"
+    RESTARTING = "restarting"
+    EXITED = "exited"
+    PAUSED = "paused"
+    DEAD = "dead"
+    UNKNOWN = "unknown"

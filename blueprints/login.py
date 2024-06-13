@@ -24,14 +24,14 @@ async def login() -> str | Response:
     _next = request.args.get("next") or url_for("dashboard.index")
 
     if request.method == "GET":
-        return render_template("login.j2", form=LoginForm(), next=request.endpoint)
+        return render_template("login.j2", form=LoginForm(), next=_next)
     if request.method == "POST":
         user = User.fetch_by_email(request.form["email"])
         fi = FactorioInterface()
         user.fi = fi
 
         if resp := await user.fi.get_auth_token(request.form["email"], request.form["password"]):
-            token = resp["token"]
+            token = resp["token"] # TODO: find out that if we don't have this, failed to login?
             user.factorio_token = token
             login_user(user)
             return redirect(_next)

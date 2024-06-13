@@ -20,7 +20,8 @@ from sqlalchemy.orm import (
 )
 
 from _types import FactorioInterface
-from config import DATABASE_PATH
+from _types.data import Server
+from config import DATABASE_PATH, SERVERS_DIRECTORY
 
 
 logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
@@ -28,7 +29,7 @@ handler = RotatingFileHandler(filename="sqlalchemy.log", backupCount=7, encoding
 handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
+# logger.addHandler(logging.StreamHandler())
 
 
 engine = create_engine(f"sqlite:///{DATABASE_PATH}")
@@ -150,6 +151,30 @@ class User(Base, UserMixin):
             return False
         return self.password == self.encrypt_password(password)
 
+    @property
+    def servers(self: Self) -> dict[str, Server]:
+        servers = SERVERS_DIRECTORY/str(self.id)
+        if not servers.exists():
+            servers.mkdir(parents=True)
+
+        if getattr(self, "_servers", None) is None:
+            self._servers = {}
+            for server in servers.iterdir():
+                self._servers[server.name] = Server(server.name, self)
+        return self._servers
+
+
+    def add_server(self: Self, server: Server) -> None:
+        if server.name in self.servers:
+            msg = f"Server {server.name} already exists"
+            raise ValueError(msg)
+        self._servers[server.name] = server
+
+    def remove_server(self: Self, server: Server) -> None:
+        if server.name not in self.servers:
+            msg = f"Server {server.name} does not exist"
+            raise ValueError(msg)
+        self._servers[server.name].remove()
 
 Base().metadata.create_all(engine)
 

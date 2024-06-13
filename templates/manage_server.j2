@@ -1,6 +1,6 @@
 {% extends "base.j2" %}
 
-{% block title %}{{ name }}{% endblock %}
+{% block title %}{{ server.name }}{% endblock %}
 
 
 {% block content %}
@@ -9,21 +9,41 @@
     {% include "noscript.j2 "%}
     <div class="medium-center">
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
-            <h2>{{ name }}</h2>
+            <h2>{{ server.name }}</h2>
             <div class="panel-inset-lighter mb12">
                 <h3>Status</h3>
+                <div hx-sse="connect:{{ url_for('dashboard.server_status', name=server.name) }}">
+                    <h4><strong hx-sse="swap:serverStatusUpdate">{{ server.status }}</strong></h4>
+                </div>
+                <br>
                 <div>
                     {# TODO: add status things like connected players, running data, playtime, ups, etc. #}
-                    {# TODO: Add start/stop/restart actions/buttons #}
+                    {# https://htmx.org/attributes/hx-sse/ #}
+                    <a hx-post="{{ url_for('dashboard.start_server', name=server.name) }}" hx-swap="none"
+                        hx-trigger="click throttle:10s" class="button">
+                        Start
+                    </a>
+                    <a hx-post="{{ url_for('dashboard.stop_server', name=server.name) }}" hx-swap="none"
+                        hx-trigger="click throttle:10s" class="button">
+                        Stop
+                    </a>
+                    <a hx-post="{{ url_for('dashboard.restart_server', name=server.name) }}" hx-swap="none"
+                        hx-trigger="click throttle:10s" class="button">
+                        Restart
+                    </a>
                 </div>
-                <h3>Settings</h3>
-                {{ form.hidden_tag() }}
-                {% for field in form if field.widget.input_type != "hidden" %}
+                <br>
+                {# TODO: style nicely into some kind of grid-like #}
+                <div class="panel-inset-lighter mb12">
+                    <h3>Settings (WIP), not functional yet!</h3>
+                    {{ form.hidden_tag() }}
+                    {% for field in form if field.widget.input_type != "hidden" %}
                     <div style="display: inline-block; padding: 1%;">
                         <dt>{{ field.label }}</dt>
                         <dd style="width: 90%;">{{ field }}</dd>
                     </div>
-                {% endfor %}
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
