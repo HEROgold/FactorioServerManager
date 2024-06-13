@@ -31,10 +31,11 @@ async def login() -> str | Response:
         fi = FactorioInterface()
         user.fi = fi
 
-        if (
-            (resp := await user.fi.get_auth_token(request.form["email"], request.form["password"])) and
-            (token := resp["token"])
-        ):
+        if resp := await user.fi.get_auth_token(request.form["email"], request.form["password"]):
+            try:
+                token = resp["token"]
+            except KeyError:
+                return "Login failed"
             user.factorio_token = token
             login_user(user)
             return redirect(_next)
