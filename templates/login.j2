@@ -8,6 +8,7 @@
         <h2>Log in</h2>
         <p>Use your Factorio.com account</p>
         <form method="POST" action="{{ url_for('login.login') }}">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
             {{ form.hidden_tag() }}
             <div class="panel-inset-lighter">
                 <dl>
