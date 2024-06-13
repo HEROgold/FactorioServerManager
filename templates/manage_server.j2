@@ -10,7 +10,7 @@
     <div class="medium-center">
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>{{ server.name }}</h2>
-            <a href="{{ url_for('dashboard.delete_server', name=server.name) }}" hx-confirm="Are you sure?" class="button button-red">
+            <a href="{{ url_for('dashboard.delete_server', name=server.name) }}" onclick="event.preventDefault(); if(confirm('Are you sure?')) { window.location = this.href; }" class="button button-red">
                 Delete Server
             </a>
             <div class="panel-inset-lighter mb12">
