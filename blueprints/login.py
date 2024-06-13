@@ -21,22 +21,25 @@ async def login() -> str | Response:
     # Required just a email and password, which get forwarded to the Factorio login page
     # Factorio login page will handle the rest and return oauth token which we use for
     # further requests like downloading mods etc.
-    _next = request.args.get("next") or url_for("dashboard.index")
-
+    dashboard_index = url_for("dashboard.index")
     if request.method == "GET":
+        _next = request.args.get("next") or dashboard_index
         return render_template("login.j2", form=LoginForm(), next=_next)
     if request.method == "POST":
+        _next = request.form.get("next") or dashboard_index
         user = User.fetch_by_email(request.form["email"])
         fi = FactorioInterface()
         user.fi = fi
 
-        if resp := await user.fi.get_auth_token(request.form["email"], request.form["password"]):
-            token = resp["token"] # TODO: find out that if we don't have this, failed to login?
+        if (
+            (resp := await user.fi.get_auth_token(request.form["email"], request.form["password"])) and
+            (token := resp["token"])
+        ):
             user.factorio_token = token
             login_user(user)
             return redirect(_next)
         return "Login failed"
-    return redirect(_next)
+    return redirect(dashboard_index)
 
 
 @bp.route("/logout")
