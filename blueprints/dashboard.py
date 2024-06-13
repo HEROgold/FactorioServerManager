@@ -88,6 +88,12 @@ async def create_server(name: str) -> Response:
     await server.create(version)
     return redirect(url_for(".manage_server", name=name))
 
+@bp.route("/manage_server/<string:name>/delete", methods=["GET"])
+async def delete_server(name: str) -> Response:
+    """Delete a server."""
+    server = current_user.servers[name]
+    server.remove()
+    return redirect(url_for(".index"))
 
 @bp.route("/manage_server/<string:name>/start", methods=["POST"])
 async def start_server(name: str) -> Response:

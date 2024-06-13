@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+import shutil
 from threading import Thread
 from typing import TYPE_CHECKING, Self
 
@@ -259,5 +260,7 @@ class Server:
 
     def remove(self: Self) -> None:
         s = self.server_directory
-        s.rmdir()
+        shutil.rmtree(s)
+        self.container.stop()
+        self.container.remove()
         del self

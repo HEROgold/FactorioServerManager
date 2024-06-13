@@ -10,6 +10,9 @@
     <div class="medium-center">
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>{{ server.name }}</h2>
+            <a href="{{ url_for('dashboard.delete_server', name=server.name) }}" hx-confirm="Are you sure?" class="button button-red">
+                Delete Server
+            </a>
             <div class="panel-inset-lighter mb12">
                 <h3>Status</h3>
                 <div hx-sse="connect:{{ url_for('dashboard.server_status', name=server.name) }}">
