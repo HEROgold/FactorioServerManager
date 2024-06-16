@@ -22,8 +22,6 @@ bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
 bp.before_request(require_login)
 
 @bp.route("/")
-@bp.route("/index")
-@bp.route("/server_overview")
 async def index() -> str:
     """Dashboard page."""
-    return render_template("server_overview.j2", servers=current_user.servers.values())
+    return render_template("server/overview.j2", servers=current_user.servers.values())

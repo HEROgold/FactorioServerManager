@@ -23,6 +23,7 @@ bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
 bp.before_request(require_login)
 
 prefix = "/<string:name>"
+templates = "server"
 
 
 def get_live_status(name: str) -> str:
@@ -38,7 +39,7 @@ async def index(name: str) -> str:
     server = current_user.servers[name]
 
     form = ManageServerForm(**server.settings.__dict__)
-    return render_template("manage_server.j2", server=server, form=form)
+    return render_template(templates+"/manage.j2", server=server, form=form)
 
 
 @bp.route(prefix+"/install/", methods=["GET", "POST"])
@@ -46,7 +47,7 @@ async def install(name: str) -> Response | str:
     """Manage a server page."""
     if request.method == "GET":
         return render_template(
-            "install_server.j2",
+            templates+"/install.j2",
             form=InstallForm(),
             server_name=name,
         )
