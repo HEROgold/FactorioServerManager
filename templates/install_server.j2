@@ -12,7 +12,7 @@
             <h2>Server Manager</h2>
             <div class="panel-inset-lighter mb12">
                 <h3>Install</h3>
-                <form method="post" action="{{ url_for('dashboard.install_server', name=server_name) }}">
+                <form method="post" action="{{ url_for('server.install', name=server_name) }}">
                     {{ form.hidden_tag() }}
                     {{ form.name.label }}
                     {{ form.name }}
