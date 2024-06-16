@@ -1,7 +1,8 @@
 """Blueprint for download page."""
 
+from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from flask import Blueprint, redirect, render_template, request, stream_with_context, url_for
 from flask_login import (
@@ -11,8 +12,9 @@ from flask_login import (
 from werkzeug import Response
 
 from _types.data import Server
-from _types.forms import InstallForm, ManageServerForm
-from _types.settings import ServerSettings
+from _types.forms import InstallForm
+
+from .server import bp as server
 
 
 if TYPE_CHECKING:
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
-
+bp.register_blueprint(server)
 
 @bp.before_request
 @login_required
@@ -58,61 +60,6 @@ async def install_server(name: str) -> Response | str:
 async def server_overview() -> str:
     """Manage servers page."""
     return render_template("server_overview.j2", servers=current_user.servers.values())
-
-
-@bp.route("/manage_server/<string:name>")
-async def manage_server(name: str) -> str:
-    """Manage a server page."""
-    # TODO: show server logs
-    server = current_user.servers[name]
-
-    form = ManageServerForm(**server.settings.__dict__)
-    return render_template("manage_server.j2", server=server, form=form)
-
-@bp.route("/manage_server/<string:name>/update", methods=["POST"])
-async def update_server(name: str) -> Response:
-    """Update a server."""
-    server = current_user.servers[name]
-    form = ManageServerForm(request.form)
-    server.settings = ServerSettings(**form.data)
-    return redirect(url_for(".manage_server", name=name))
-
-@bp.route("/manage_server/<string:name>/create", methods=["POST"])
-async def create_server(name: str) -> Response:
-    """Create a server."""
-    version = request.form["version"]
-    # only keep 0-9, a-z, A-Z, and _ in the name
-    name = "".join([c for c in name if c.isalnum() or c == "_"])
-    current_user.add_server(Server(name, current_user))
-    server = current_user.servers[name]
-    await server.create(version)
-    return redirect(url_for(".manage_server", name=name))
-
-@bp.route("/manage_server/<string:name>/delete", methods=["GET"])
-async def delete_server(name: str) -> Response:
-    """Delete a server."""
-    server = current_user.servers[name]
-    server.remove()
-    return redirect(url_for(".index"))
-
-@bp.route("/manage_server/<string:name>/start", methods=["POST"])
-async def start_server(name: str) -> Response:
-    """Start a server through a http request."""
-    await current_user.servers[name].start()
-    return Response(status=200)
-
-@bp.route("/manage_server/<string:name>/stop", methods=["POST"])
-async def stop_server(name: str) -> Response:
-    """Stop a server through a http request."""
-    await current_user.servers[name].stop()
-    return Response(status=200)
-
-
-@bp.route("/manage_server/<string:name>/restart", methods=["POST"])
-async def restart_server(name: str) -> Response:
-    """Restart a server through a http request."""
-    await current_user.servers[name].restart()
-    return Response(status=200)
 
 
 def get_live_server_status(name: str) -> str:
