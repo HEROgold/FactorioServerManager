@@ -1,10 +1,14 @@
+from collections.abc import Generator
+from typing import Any, Self
+
+from flask_wtf.form import _Auto
 import requests
 from bs4 import BeautifulSoup
 from flask_wtf import FlaskForm  # type: ignore[stub]
 from wtforms import BooleanField, IntegerField, PasswordField, SelectField, StringField, SubmitField
 from wtforms.validators import DataRequired, Email
 
-from config import ARCHIVE_URL
+from config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
 
 
 def get_all_download_versions() -> list[str]:
@@ -15,6 +19,14 @@ def get_all_download_versions() -> list[str]:
         i.text.strip()
         for i in soup.find_all("a", {"class": "slot-button-inline"})
     ]
+
+used_ports: list[int] = []
+def get_available_port() -> Generator[int, Any, None]:
+    """Get an available port."""
+    for i in range(LOWER_PORT_LIMIT, UPPER_PORT_LIMIT + 1):
+        if i not in used_ports:
+            used_ports.append(i)
+            yield i
 
 class LoginForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
@@ -29,7 +41,7 @@ class InstallForm(FlaskForm):
     submit = SubmitField("Install")
 
 class ManageServerForm(FlaskForm):
-    port = IntegerField("UDP Port", validators=[DataRequired()])
+    port = IntegerField("UDP Port", validators=[DataRequired()]) # Make read-only
 
     # In game hosting options
     name = StringField("Server Name", validators=[DataRequired()])

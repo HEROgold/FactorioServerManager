@@ -1,17 +1,19 @@
 """Blueprint for server management."""
 
+import contextlib
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
+import docker.errors
 from flask import Blueprint, redirect, render_template, request, stream_with_context, url_for
 from flask_login import current_user  # type: ignore[reportAssignmentType]
 from werkzeug import Response
 
 from _types.data import Server
-from _types.forms import InstallForm, ManageServerForm
+from _types.forms import InstallForm, ManageServerForm, get_available_port
 from _types.settings import ServerSettings
-from scripts import require_login
+from scripts import require_login, sanitize_str
 
 
 if TYPE_CHECKING:
@@ -37,8 +39,9 @@ async def index(name: str) -> str:
     """Manage a server page."""
     # TODO: show server logs
     server = current_user.servers[name]
+    settings = ServerSettings.read(server.custom_settings_file)
 
-    form = ManageServerForm(**server.settings.__dict__)
+    form = ManageServerForm(**settings.__dict__)
     return render_template(templates+"/manage.j2", server=server, form=form)
 
 
@@ -46,9 +49,11 @@ async def index(name: str) -> str:
 async def install(name: str) -> Response | str:
     """Manage a server page."""
     if request.method == "GET":
+        form: InstallForm = InstallForm()
+        form.port.data = next(get_available_port())
         return render_template(
             templates+"/install.j2",
-            form=InstallForm(),
+            form=form,
             server_name=name,
         )
     if request.method == "POST":
@@ -61,13 +66,15 @@ async def install(name: str) -> Response | str:
 async def create(name: str) -> Response:
     """Create a server."""
     version = request.form["version"]
-    # only keep 0-9, a-z, A-Z, and _ in the name
-    name = "".join([c for c in name if c.isalnum() or c == "_"])
-    current_user.add_server(Server(name, current_user))
+    name = sanitize_str(name)
+
+    server = Server(name, current_user)
+    server.settings.port = int(request.form["port"])
+    current_user.add_server(server)
+
     server = current_user.servers[name]
     await server.create(version)
     return redirect(url_for(".index", name=name))
-
 
 @bp.route(prefix+"/update", methods=["POST"])
 async def update(name: str) -> Response:
@@ -75,6 +82,7 @@ async def update(name: str) -> Response:
     server = current_user.servers[name]
     form = ManageServerForm(request.form)
     server.settings = ServerSettings(**form.data)
+    server.settings.write(server.custom_settings_file)
     return redirect(url_for(".index", name=name))
 
 
@@ -104,7 +112,10 @@ async def stop(name: str) -> Response:
 @bp.route(prefix+"/restart", methods=["POST"])
 async def restart(name: str) -> Response:
     """Restart a server through a http request."""
-    await current_user.servers[name].restart()
+    try:
+        await current_user.servers[name].restart()
+    except RuntimeError as e:
+        return Response(status=400, response=str(e))
     return Response(status=200)
 
 

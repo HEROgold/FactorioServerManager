@@ -1,10 +1,10 @@
 from __future__ import annotations  # avoid User is not defined in Server class
 
 import json
+import shutil
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-import shutil
 from threading import Thread
 from typing import TYPE_CHECKING, Self
 
@@ -12,10 +12,8 @@ import docker
 from docker.errors import NotFound
 
 from _types.enums import DockerStates
-
-# from _types.settings import MapGenerationSettings, MapSettings,
 from _types.settings import ServerSettings
-from config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY
+from config import DOCKER_CONTAINER_PREFIX, PUBLIC_IP, SERVERS_DIRECTORY
 
 
 if TYPE_CHECKING:
@@ -38,8 +36,15 @@ class Server:
     _version: str | None = None
     _container: Container | None = None
     _settings: ServerSettings | None = None
+    _ip: str | None = None
     # _map_settings: MapSettings | None = None
     # _map_generation_settings: MapGenerationSettings | None = None
+
+    @property
+    def ip(self: Self) -> str:
+        if not self._ip:
+            self._ip = PUBLIC_IP or "localhost"
+        return self._ip
 
     @property
     def server_directory(self: Self) -> Path:
@@ -60,6 +65,10 @@ class Server:
         return self.server_directory / "config"
 
     @property
+    def custom_settings_file(self: Self) -> Path:
+        return self.config / "custom-settings.json"
+
+    @property
     def map_generation_settings_file(self: Self) -> Path:
         return self.config / "map-gen-settings.json"
 
@@ -77,7 +86,7 @@ class Server:
 
     @property
     def port(self: Self) -> int:
-        return 34197
+        return self.settings.port
 
     @property
     def rcon_password(self: Self) -> str:
@@ -124,21 +133,6 @@ class Server:
     @settings.setter
     def settings(self: Self, settings: ServerSettings) -> None:
         self._settings = settings
-        # Write settings to file
-        if not self.server_settings_file.exists():
-            return
-        # with self.server_settings_file.open("w") as f:
-        #     data = json.load(f)
-        #     setting = settings.__dict__
-        #     for k, v in setting.items():
-        #         if k.startswith("visibility"):
-        #             data["visibility"][k.split("_")[-1]] = v
-        #             continue
-        #         if k == "password":
-        #             data["game_password"] = v
-        #             continue
-        #         data[k] = v
-        #     f.write(json.dumps(settings))
 
     # @property
     # def map_settings(self: Self) -> MapSettings:
@@ -221,6 +215,7 @@ class Server:
                 restart_policy={"Name": "on-failure", "MaximumRetryCount": 2},
             )
         self.server_directory.mkdir(parents=True, exist_ok=True)
+        self.settings.write(self.custom_settings_file)
         t = Thread(target=_pull_create, args=[self.get_container_name(), self.server_directory])
         t.daemon = True
         t.start()

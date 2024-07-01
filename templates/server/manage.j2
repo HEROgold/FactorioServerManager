@@ -14,7 +14,10 @@
                 Delete Server
             </a>
             <div class="panel-inset-lighter mb12">
-                <h3>Status</h3>
+                <div style="display: flex; align-items: center;">
+                    <h3 style="margin-right: 10px;">Status</h3>
+                    <a style="height: 50%; margin-left: auto;" href="#" onclick="copyToClipboard('{{ server.ip }}:{{ server.port }}')" class="button">Copy {{server.ip}}:{{server.port}}</a>
+                </div>
                 <div hx-sse="connect:{{ url_for('server.status', name=server.name) }}">
                     <h4><strong hx-sse="swap:serverStatusUpdate">{{ server.status }}</strong></h4>
                 </div>
@@ -38,18 +41,34 @@
                 <br>
                 {# TODO: style nicely into some kind of grid-like #}
                 <div class="panel-inset-lighter mb12">
+                    <form method="post" action="{{ url_for('server.update', name=server_name) }}">
                     <h3>Settings (WIP), not functional yet!</h3>
                     {{ form.hidden_tag() }}
-                    {% for field in form if field.widget.input_type != "hidden" %}
-                    <div style="display: inline-block; padding: 1%;">
-                        <dt>{{ field.label }}</dt>
-                        <dd style="width: 90%;">{{ field }}</dd>
-                    </div>
-                    {% endfor %}
+                    <table style="width: 100%;">
+                        <tbody>
+                            {% for field in form if field.widget.input_type != "hidden" %}
+                            <tr>
+                                <td style="padding: 1%;"><strong>{{ field.label }}</strong></td>
+                                <td style="padding: 1%; width: 90%;">{{ field }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Copied to clipboard');
+    }, function(err) {
+        console.error('Could not copy text: ', err);
+    });
+}
+</script>
 
 {% endblock %}

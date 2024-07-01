@@ -1,4 +1,8 @@
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Self
+
 
 # from _types.dicts import AutoPlace, Coordinates, SteerSettings
 
@@ -30,6 +34,18 @@ class ServerSettings:
     autosave_only_on_server: bool = True
     non_blocking_saving: bool = False
     auto_pause: bool = True
+
+    def write(self: Self, file: Path) -> None:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.touch(exist_ok=True)
+        with file.open("w") as f:
+            json.dump(asdict(self), f)
+
+    @classmethod
+    def read(cls, file: Path) -> Self:
+        with file.open() as f:
+            return cls(**json.load(f))
+
 
 
 # @dataclass
