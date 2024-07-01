@@ -82,7 +82,8 @@ async def update(name: str) -> Response:
 async def delete(name: str) -> Response:
     """Delete a server."""
     server = current_user.servers[name]
-    server.remove()
+    with contextlib.suppress(docker.errors.NotFound):
+        server.remove()
     return redirect(url_for("dashboard.index"))
 
 
