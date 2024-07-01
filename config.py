@@ -7,6 +7,7 @@ from tomllib import load
 
 # Users may edit these
 REQUIRE_GAME_OWNERSHIP = False
+PUBLIC_IP = "x.x.x.x" # The IP Address where servers are reachable from.
 
 
 # Do not edit
@@ -63,3 +64,7 @@ F_GET = f"{F}/get"
 F_CREATE = f"{F}/create"
 F_UPDATE = f"{F}/update"
 F_DELETE = f"{F}/delete"
+
+# Port limits.
+UPPER_PORT_LIMIT = 65565
+LOWER_PORT_LIMIT = 61616
