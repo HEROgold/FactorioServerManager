@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import docker.errors
 from flask import Blueprint, redirect, render_template, request, stream_with_context, url_for
@@ -122,7 +122,7 @@ async def restart(name: str) -> Response:
 @bp.route(prefix+"/status/")
 def status(name: str) -> Response:
     """Stream the status of a server using SSE."""
-    def generate() -> Generator[str, any, NoReturn]:
+    def generate() -> Generator[str, Any, NoReturn]:
         previous_status = None
         while True:
             status = get_live_status(name)
