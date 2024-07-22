@@ -10,7 +10,7 @@ from config import SECRET_KEY
 
 class Website(Flask):
     def __init__(  # noqa: PLR0913
-        self,  # noqa: ANN101
+        self,
         import_name: str,
         *,
         static_url_path: str | None = None,
