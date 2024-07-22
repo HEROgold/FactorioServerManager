@@ -158,7 +158,7 @@ class User(Base, UserMixin):
             servers.mkdir(parents=True)
 
         if getattr(self, "_servers", None) is None:
-            self._servers = {}
+            self._servers: dict[str, Server] = {}
             for server in servers.iterdir():
                 self._servers[server.name] = Server(server.name, self)
         return self._servers
