@@ -36,6 +36,8 @@ async def login() -> str | Response:
                 token = resp["token"]
             except KeyError:
                 return "Login failed"
+            if resp["email-authentication-required"] is not None:
+                return "Email authentication required"
             user.factorio_token = token
             login_user(user)
             return redirect(_next)
