@@ -1,0 +1,21 @@
+indent-width = 4
+line-length = 128
+target-version = "py313"
+unsafe-fixes = true
+
+[lint]
+exclude = ["build", "dist", "venv"]
+# ignore = ["ANN002", "ANN003", "D10", "D203", "D213", "FIX001", "FIX002", "G004", "INP001", "S311", "TD001"]
+select = ["ALL"]
+
+[lint.isort]
+lines-after-imports = 2
+
+[lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]  # imports not at top of cell and unused imports
+
+[format]
+indent-style = "space"
+line-ending = "auto"
+quote-style = "double"
+skip-magic-trailing-comma = false

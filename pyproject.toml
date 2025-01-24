@@ -1,45 +1,39 @@
 [project]
-name = "FactorioServerManager"
+dependencies = [
+    "backend",
+    "bot",
+    "database",
+    # "audioop-lts>=0.2.1",
+    "discord-py>=2.4.0",
+    "tests",
+    "toml-sort>=0.24.2",
+    "uvicorn>=0.34.0",
+]
+name = "Winter-Dragon-Bot"
 requires-python = ">=3.12"
 # authors = [{name = "name", email = "name@address.com"}]
-version = "0.0.0"
+version = "0.1.0"
 
-[build-system]
-requires = ["docker==7.1.0"]
-
-[tool.pyright]
-reportMissingTypeStubs = "none"
-
-[tool.ruff]
-indent-width = 4
-line-length = 300
-target-version = "py312"
-
-[tool.ruff.lint]
-ignore = [
-    "ANN102",
-    "COM812",  # ignore missing comma in list, conflicts with formatter
-    "D203",
-    "D212",
-    "D413",
-    "G004",
-    "ISC001",  # ignore implicit string concatenation, conflicts with formatter
-    "TD", # ingore todo comments
-    "FIX001", # ignore fixme comments
+[tool.uv.workspace]
+members = [
+    "backend",
+    "bot",
+    "database",
+    "tests",
 ]
-select = ["ALL"]
 
-[tool.ruff.lint.isort]
-lines-after-imports = 2
+[tool.uv.sources]
+backend = {workspace = true}
+bot = {workspace = true}
+database = {workspace = true}
+tests = {workspace = true}
 
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401"]  # imports not at top of cell and unused imports
-
-[tool.ruff.format]
-indent-style = "space"
-line-ending = "auto"
-quote-style = "double"
-skip-magic-trailing-comma = false
+[tool.setuptools]
+py-modules = [
+    "backend",
+    "bot",
+    "database",
+]
 
 [tool.tomlsort]
 all = true
