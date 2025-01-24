@@ -3,7 +3,16 @@
 import secrets
 from pathlib import Path
 from tomllib import load
+from pydantic import BaseSettings
 
+class Settings(BaseSettings):
+    secret_key: str
+    database_url: str
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
 
 # Users may edit these
 REQUIRE_GAME_OWNERSHIP = False
@@ -29,7 +38,7 @@ DATABASE_PATH = PROJECT_DIR / "database.db"
 
 PROJECT_NAME = toml["project"]["name"]
 PROJECT_VERSION = toml["project"]["version"]
-SECRET_KEY = secrets.token_hex(64)
+SECRET_KEY = settings.secret_key
 API_VERSION = 4
 
 MODS_API_URL = "https://mods.factorio.com/api/mods"

@@ -1,0 +1,14 @@
+
+<!-- ...existing code... -->
+<a href="#" onclick="copyToClipboard('{{ server.ip }}:{{ server.port }}')" class="button">Copy IP:Port</a>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Copied to clipboard');
+    }, function(err) {
+        console.error('Could not copy text: ', err);
+    });
+}
+</script>
+<!-- ...existing code... -->
