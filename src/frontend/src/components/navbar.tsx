@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router';
 
-function Navbar() {
+export default function Navbar() {
     // TODO: Check JWT token to determine if user is authenticated
     const isAuthenticated = true;
     const displayName = 'User Name';
@@ -31,5 +31,3 @@ function Navbar() {
         </nav>
     );
 };
-
-export default Navbar;

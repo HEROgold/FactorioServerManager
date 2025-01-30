@@ -1,6 +1,6 @@
 import React from 'react';
 
-function Template() {
+export default function Template() {
     return (
         <div>
             <h1>Login</h1>
@@ -10,5 +10,3 @@ function Template() {
         </div>
     );
 };
-
-export default Template;

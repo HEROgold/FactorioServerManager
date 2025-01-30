@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router';
 import Login from './login.tsx';
 import HomePage from './home.tsx';
 
-function Routing() {
+export default function Routing() {
     return (
         <Routes>
             <Route path="/" element={<HomePage />} />
@@ -12,5 +12,3 @@ function Routing() {
         </Routes>
     )
 }
-
-export default Routing;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router';
 
-function Footer() {
+export default function Footer() {
     return (
         <footer className="footer">
             <div className="footer-inner panel">
@@ -24,4 +24,3 @@ function Footer() {
     );
 };
 
-export default Footer;
