@@ -9,7 +9,7 @@ function App() {
   return (
       <div className="App">
         <Header />
-        <Navbar isAuthenticated={undefined} displayName={undefined} />
+        <Navbar />
         <Routing />
         <Footer />
       </div>
