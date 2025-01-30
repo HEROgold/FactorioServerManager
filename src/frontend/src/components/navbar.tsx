@@ -1,7 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router';
 
-function Navbar({ isAuthenticated, displayName }) {
+function Navbar() {
+    // TODO: Check JWT token to determine if user is authenticated
+    const isAuthenticated = true;
+    const displayName = 'User Name';
+
     return (
         <nav id="top" className="top-bar">
             <div className="top-bar-inner">
