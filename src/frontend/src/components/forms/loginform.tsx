@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 
+export type LoginFormProps = {
+    email: string;
+    password: string;
+    emailAuthCode: string;
+};
+
 export default function LoginForm() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
