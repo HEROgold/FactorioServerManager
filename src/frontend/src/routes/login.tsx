@@ -1,13 +1,55 @@
 import React, { useState } from 'react';
+import { ENDPOINTS } from '../constants';
+import { redirect } from 'react-router';
 
 export default function Login() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [emailAuthCode, setEmailAuthCode] = useState('');
+    const [email, setEmail] = useState<string>('');
+    const [password, setPassword] = useState<string>('');
+    const [emailAuthCode, setEmailAuthCode] = useState<string>('');
+    const [error, setError] = useState<string>('');
+
+    const validateForm = () => {
+        if (!email) {
+            setError('Email is required');
+            return false;
+        }
+        if (!password) {
+            setError('Password is required');
+            return false;
+        }
+        return true;
+    };
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        // Handle form submission logic here
+        if (!validateForm()) {
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.append('email', email);
+        params.append('password', password);
+        params.append('emailAuthCode', emailAuthCode);
+
+        try {
+            const response = fetch(ENDPOINTS.Login, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params,
+            });
+            response.then((res) => {
+                if (res.ok) {
+                    res.json().then((data) => {
+                        localStorage.setItem('token', data.token);
+                        redirect('/home');
+                    });
+                }
+            });
+        } catch (error) {
+            setError(error.message);
+        }
     };
 
     return (
