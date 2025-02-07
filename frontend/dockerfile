@@ -6,3 +6,5 @@ ADD public ./
 ADD src ./
 
 RUN bun install
+
+ENTRYPOINT bun start
