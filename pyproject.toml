@@ -1,38 +1,23 @@
 [project]
 dependencies = [
     "backend",
-    "bot",
-    "database",
-    # "audioop-lts>=0.2.1",
-    "discord-py>=2.4.0",
-    "tests",
-    "toml-sort>=0.24.2",
-    "uvicorn>=0.34.0",
 ]
-name = "Winter-Dragon-Bot"
+name = "FactorioServerManager"
 requires-python = ">=3.12"
 # authors = [{name = "name", email = "name@address.com"}]
 version = "0.1.0"
 
 [tool.uv.workspace]
 members = [
-    "backend",
-    "bot",
-    "database",
-    "tests",
+    
 ]
 
 [tool.uv.sources]
-backend = {workspace = true}
-bot = {workspace = true}
-database = {workspace = true}
-tests = {workspace = true}
+backend = { path = "src/backend" }
 
 [tool.setuptools]
 py-modules = [
-    "backend",
-    "bot",
-    "database",
+    
 ]
 
 [tool.tomlsort]

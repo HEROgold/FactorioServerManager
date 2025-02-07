@@ -1,3 +1,4 @@
+"""Server API endpoints."""
 from fastapi import APIRouter
 
 

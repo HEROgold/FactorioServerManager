@@ -3,9 +3,8 @@
 from typing import Any
 
 import aiohttp
+from constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 from fastapi import APIRouter, Request
-
-from backend.constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 
 
 aio_http_session = aiohttp.ClientSession()
@@ -46,5 +45,5 @@ async def get_auth_token(
             "require_game_ownership": REQUIRE_GAME_OWNERSHIP,
             "email_authentication_code": email_authentication_code,
         }
-        async with aio_http_session.post(LOGIN_API, data=data, timeout=5) as resp:
+        async with aio_http_session.post(LOGIN_API, data=data, timeout=aiohttp.ClientTimeout(total=5)) as resp:
             return await resp.json()
