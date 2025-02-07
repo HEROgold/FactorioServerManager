@@ -11,7 +11,7 @@ class LoginForm(BaseModel):
 
 class FactorioLoginSchema(BaseModel):
     """Form for logging in a user on factorio's end."""
-    content: str = "application/x-www-form-urlencoded"
+    content_type: str = "application/x-www-form-urlencoded"
 
     username: str
     password: SecretStr

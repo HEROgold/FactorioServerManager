@@ -50,7 +50,7 @@ async def get_auth_token(
     async with httpx.AsyncClient() as client:
         response = await client.post(
             LOGIN_API,
-            content=data.content,
+            content=data.content_type,
             data=data.model_dump(),
             timeout=5.0,
         )
