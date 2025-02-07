@@ -6,6 +6,7 @@ unsafe-fixes = true
 [lint]
 exclude = ["build", "dist", "venv"]
 # ignore = ["ANN002", "ANN003", "D10", "D203", "D213", "FIX001", "FIX002", "G004", "INP001", "S311", "TD001"]
+ignore = ["D204"]
 select = ["ALL"]
 
 [lint.isort]
