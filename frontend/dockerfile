@@ -1,10 +1,10 @@
-FROM oven/bun:latest
+FROM oven/bun:1.2.1
 
 ADD package.json ./
 ADD bun.lock ./
-ADD public ./
-ADD src ./
+ADD public ./public/
+ADD src ./src/
 
 RUN bun install
 
-ENTRYPOINT bun start
+ENTRYPOINT bun start app
