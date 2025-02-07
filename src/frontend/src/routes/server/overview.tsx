@@ -1,5 +1,5 @@
 import React from 'react';
-import { ENDPOINTS } from '../../constants';
+import { ENDPOINTS } from '../../constants.ts';
 
 type Server = {
     name: string;

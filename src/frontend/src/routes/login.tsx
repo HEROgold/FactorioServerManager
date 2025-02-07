@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ENDPOINTS } from '../constants';
+import { ENDPOINTS } from '../constants.ts';
 import { redirect } from 'react-router';
 
 export default function Login() {
