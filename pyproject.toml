@@ -9,7 +9,7 @@ version = "0.1.0"
 
 [tool.uv.workspace]
 members = [
-    
+    "backend",
 ]
 
 [tool.uv.sources]
