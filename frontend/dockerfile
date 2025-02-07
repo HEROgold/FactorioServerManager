@@ -1,0 +1,8 @@
+FROM oven/bun:latest
+
+ADD package.json ./
+ADD bun.lock ./
+ADD public ./
+ADD src ./
+
+RUN bun install
