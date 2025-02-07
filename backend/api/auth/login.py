@@ -48,11 +48,10 @@ async def get_auth_token(
         email_authentication_code=email_authentication_code,
     )
     async with httpx.AsyncClient() as client:
-        print(data.model_dump_json())
         response = await client.post(
             LOGIN_API,
-            json=data.model_dump_json(),
+            content=data.content,
+            data=data.model_dump(),
             timeout=5.0,
         )
-        print(response.json())
         return response.json()
