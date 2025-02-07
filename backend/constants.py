@@ -7,7 +7,7 @@ from tomllib import load
 
 # Users may edit these
 REQUIRE_GAME_OWNERSHIP = False
-PUBLIC_IP = "x.x.x.x" # The IP Address where servers are reachable from.
+PUBLIC_IP = "x.x.x.x"  # The IP Address where servers are reachable from.
 
 
 # Do not edit

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 # 0
 class User:
     """Class Representing a User."""
+
     async def get_servers(self) -> list[str]:
         """Get the servers that the user has access to."""
         return ["server1", "server2"]

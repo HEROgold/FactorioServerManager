@@ -1,4 +1,5 @@
 """Main FastAPI application."""
+
 import fastapi
 from api import router as api_router
 

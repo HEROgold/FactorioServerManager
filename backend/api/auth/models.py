@@ -5,12 +5,15 @@ from pydantic import BaseModel, SecretStr
 
 class LoginForm(BaseModel):
     """Form for logging in a user."""
+
     username: str
     password: SecretStr
     auth_code: str | None = None
 
+
 class FactorioLoginSchema(BaseModel):
     """Form for logging in a user on factorio's end."""
+
     content_type: str = "application/x-www-form-urlencoded"
 
     username: str
@@ -18,4 +21,3 @@ class FactorioLoginSchema(BaseModel):
     api_version: int
     require_game_ownership: bool
     email_authentication_code: str | None = None
-
