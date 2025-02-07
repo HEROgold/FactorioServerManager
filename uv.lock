@@ -106,7 +106,7 @@ wheels = [
 [[package]]
 name = "backend"
 version = "0.1.0"
-source = { virtual = "src/backend" }
+source = { virtual = "backend" }
 dependencies = [
     { name = "aiohttp" },
     { name = "fastapi", extra = ["standard"] },
@@ -181,7 +181,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "backend", virtual = "src/backend" }]
+requires-dist = [{ name = "backend", virtual = "backend" }]
 
 [[package]]
 name = "fastapi"
