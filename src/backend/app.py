@@ -4,13 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import fastapi
 import jwt
+from api import router as api_router
+from constants import ENCODING_ALGORITHM, JWT_EXPIRATION, SECRET_KEY
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
-
-from constants import ENCODING_ALGORITHM, JWT_EXPIRATION, SECRET_KEY
 from models.user import User
-
-from api import router as api_router
 
 
 app = fastapi.FastAPI()
