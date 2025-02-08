@@ -1,1 +1,1 @@
-"""Init namespace."""
+"""Init package."""

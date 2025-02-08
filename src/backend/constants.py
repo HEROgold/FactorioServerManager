@@ -13,7 +13,7 @@ PUBLIC_IP = "x.x.x.x"  # The IP Address where servers are reachable from.
 # Do not edit
 CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
-TOML_FILE = PROJECT_DIR / "pyproject.toml"
+TOML_FILE = PROJECT_DIR.parent / "pyproject.toml"
 
 with TOML_FILE.open("rb") as file:
     toml = load(file)
