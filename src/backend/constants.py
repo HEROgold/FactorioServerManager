@@ -30,6 +30,8 @@ DATABASE_PATH = PROJECT_DIR / "database.db"
 PROJECT_NAME = toml["project"]["name"]
 PROJECT_VERSION = toml["project"]["version"]
 SECRET_KEY = secrets.token_hex(64)
+JWT_EXPIRATION = 60 * 60
+ENCODING_ALGORITHM = "HS256"
 API_VERSION = 6
 
 MODS_API_URL = "https://mods.factorio.com/api/mods"

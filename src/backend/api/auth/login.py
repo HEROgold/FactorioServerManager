@@ -7,7 +7,7 @@ from constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 from fastapi import APIRouter
 from pydantic import SecretStr
 
-from .models import FactorioLoginSchema, LoginForm
+from models.login import FactorioLoginSchema, LoginForm
 
 
 router = APIRouter()
@@ -21,6 +21,12 @@ async def login(login: LoginForm) -> dict[Any, Any]:
         login.password,
         login.auth_code,
     )
+
+
+@router.get("/validate")
+async def validate() -> bool:
+    """Validate the user's token."""
+    return True
 
 
 async def get_auth_token(
