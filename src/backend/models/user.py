@@ -9,6 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
 from backend.constants import ENCODING_ALGORITHM, JWT_EXPIRATION, SECRET_KEY
+from backend.core.server import Server
 
 
 oath2 = OAuth2PasswordBearer(tokenUrl="token")
@@ -21,6 +22,7 @@ class User(BaseModel):
     username: str
     email: str
     password: str
+    servers: dict[str, Server] = {}
 
     async def get_servers(self) -> list[str]:
         """Get the servers that the user has."""
@@ -30,6 +32,10 @@ class User(BaseModel):
     async def from_token(token: str) -> Self:
         """Get a user from a token."""
         return decrypt_token(token)
+
+    def add_server(self, server: Server) -> None:
+        """Add a server to the user."""
+        self.servers[server.name] = server
 
 
 async def create_access_token(data: User, expires_delta: timedelta | None = None) -> str:

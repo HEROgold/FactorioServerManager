@@ -155,6 +155,7 @@ class Server(BaseModel):
     @settings.setter
     def settings(self: Self, settings: ServerSettings) -> None:
         self._settings = settings
+        self.custom_settings_file.write_text(settings.model_dump_json())
 
     @property
     def map_settings(self: Self) -> MapSettings:
@@ -245,7 +246,7 @@ class Server(BaseModel):
             )
 
         self.server_directory.mkdir(parents=True, exist_ok=True)
-        self.custom_settings_file.write_text(self.settings.model_dump_json())
+        self.settings = self.settings # Trigger a write to the custom settings file
         t = Thread(target=_pull_create, args=[self.get_container_name(), self.server_directory])
         t.daemon = True
         t.start()
