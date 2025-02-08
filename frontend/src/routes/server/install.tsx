@@ -1,14 +1,14 @@
 import React from 'react';
-import InstallForm from '../../components/forms/installform';
+import InstallForm from '../../components/forms/installform.tsx';
 
-export default function Install() {
+export default function ServerInstall() {
     return (
-        <div class="container-inner">
-            <div id="flashed-messages" class="small-center"></div>
-            <div class="medium-center">
-                <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
+        <div className="container-inner">
+            <div id="flashed-messages" className="small-center"></div>
+            <div className="medium-center">
+                <div className="panel mb64 pb0 m0 flex-grow flex flex-column">
                     <h2>Server Manager</h2>
-                    <div class="panel-inset-lighter mb12">
+                    <div className="panel-inset-lighter mb12">
                         <h3>Install</h3>
                         <InstallForm />
                     </div>

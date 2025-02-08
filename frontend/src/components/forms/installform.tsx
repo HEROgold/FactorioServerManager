@@ -1,7 +1,6 @@
 import React, {useState} from 'react';
-import { ENDPOINTS } from '../../constants';
-import { FormField, FormHandler, FormSubmit } from './formHandler';
-import { FactorioVersion } from "../../types";
+import { FormField, FormHandler, FormSelector, FormSubmit } from './formHandler.tsx';
+import { ENDPOINTS } from '../../constants.ts';
 
 
 export type InstallFormProps = {
@@ -12,16 +11,18 @@ export type InstallFormProps = {
 
 export default function InstallForm() {
     const serverName = "FactorioServer";
-    const nameField = new FormField<string>('name', serverName, 'text');
-    const formHandler = new FormHandler('post', ENDPOINTS.InstallServer, [
-        nameField,
-        new FormField<FactorioVersion>('version', [1, 0, 0], 'text'),
-        new FormField<number>('port', 34197, 'number'),
-        new FormSubmit(),
-    ]);
-    formHandler.linkAction(nameField);
+
+
+    // const nameField = new FormField('name', serverName, 'text');
+    // const formHandler = new FormHandler('post', ENDPOINTS.InstallServer, [
+    //     nameField,
+    //     new FormSelector('version', [1, 0, 0], 'text'),
+    //     new FormField('port', 34197, 'number'),
+    //     new FormSubmit(),
+    // ]);
+    // formHandler.linkAction(nameField);
     
-    return formHandler.render()
+    // return formHandler.render()
 
     // Original code:
     // const changeHandler = (e: React.ChangeEvent<HTMLInputElement>) => setProps({...props, [e.target.name]: e.target.value});
@@ -38,4 +39,21 @@ export default function InstallForm() {
     //         <button type="submit">Submit</button>
     //     </form>
     // );
+    const [name, setName] = useState(serverName);
+    const [version, setVersion] = useState("2.0.0");
+    const [port, setPort] = useState(34197);
+
+    return (
+        <form method="post" action={ENDPOINTS.InstallServer(name)}>
+            <label>{serverName}</label>
+            <input style={{ marginLeft: '5%', marginTop: '1%' }} type="text" name="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <br />
+            <label>Version</label>
+            <input style={{ marginLeft: '5%', marginTop: '1%' }} type="text" name="version" value={version} onChange={(e) => setVersion(e.target.value)} />
+            <br />
+            <label>Port</label>
+            <input style={{ marginLeft: '5%', marginTop: '1%' }} type="number" name="port" value={port} onChange={(e) => setPort(parseInt(e.target.value))} />
+            <button type="submit">Submit</button>
+        </form>
+    )
 }

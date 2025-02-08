@@ -67,4 +67,12 @@
 // }
 // </script>
 
-export default function ServerManager() {}
+import React from "react";
+
+export default function ServerManager() {
+    return (
+    <>
+    
+    </>
+    );
+}
