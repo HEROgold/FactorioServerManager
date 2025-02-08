@@ -4,20 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-
-# TODO @HEROgold: move this class to a separate file
-# 0
-class User:
-    """Class Representing a User."""
-
-    async def get_servers(self) -> list[str]:
-        """Get the servers that the user has access to."""
-        return ["server1", "server2"]
+from backend.models.user import User
 
 
 async def get_current_user() -> User:
     """Get the current user."""
-    return User()
+    return await User.from_token("token")
 
 
 router = APIRouter(prefix="/server", tags=["server"])
