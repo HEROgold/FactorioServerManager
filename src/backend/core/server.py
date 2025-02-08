@@ -183,7 +183,7 @@ class Server(BaseModel):
 
     @property
     def version(self: Self) -> str:
-        """ "Return the server's version."""
+        """Return the server's version."""
         if self._version:
             return self._version
         msg = "Version not set"
