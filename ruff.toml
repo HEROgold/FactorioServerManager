@@ -17,6 +17,7 @@ lines-after-imports = 2
 
 [lint.per-file-ignores]
 "__init__.py" = ["E402", "F401"]  # imports not at top of cell and unused imports
+"*/models/factorio.py" = ["D"]
 
 [format]
 indent-style = "space"

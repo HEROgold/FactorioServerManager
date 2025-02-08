@@ -1,0 +1,1 @@
+"""Server related management endpoints."""
