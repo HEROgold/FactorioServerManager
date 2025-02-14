@@ -208,3 +208,18 @@ class ServerSettings(BaseModel):
 
 class MapGenerationSettings(BaseModel):
     ...
+
+class FactorioVersion(BaseModel):
+    major: int
+    minor: int
+    patch: int
+
+class FactorioStable(BaseModel):
+    version: FactorioVersion
+
+class DistroFactorioVersion(BaseModel):
+    _from: FactorioVersion
+    to: FactorioVersion
+
+class AvailableVersions(BaseModel):
+    versions: list[DistroFactorioVersion | FactorioStable]

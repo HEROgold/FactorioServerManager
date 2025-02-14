@@ -8,9 +8,10 @@ from pydantic import SecretStr
 
 from backend.constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 from backend.models.login import FactorioLoginSchema, LoginForm
+from backend.models.user import User, get_current_user
 
 
-router = APIRouter()
+router = APIRouter(prefix="/auth")
 
 
 @router.post("/login")
@@ -23,10 +24,10 @@ async def login(login: LoginForm) -> dict[Any, Any]:
     )
 
 
-@router.get("/validate")
-async def validate() -> bool:
+@router.post("/validate")
+async def validate(token: str) -> bool:
     """Validate the user's token."""
-    return True
+    return User.from_token(token) == get_current_user()
 
 
 async def get_auth_token(

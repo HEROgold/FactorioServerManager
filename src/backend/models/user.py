@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
-from backend.constants import ENCODING_ALGORITHM, JWT_EXPIRATION, SECRET_KEY
+from backend.constants import ENCODING_ALGORITHM, FREE_SERVER_LIMIT, JWT_EXPIRATION, SECRET_KEY
 from backend.core.server import Server
 
 
@@ -31,7 +31,15 @@ class User(BaseModel):
     @staticmethod
     async def from_token(token: str) -> Self:
         """Get a user from a token."""
-        return decrypt_token(token)
+        return await decrypt_token(token)
+
+    def can_add_server(self) -> bool:
+        """Check if the user can add a server."""
+        return not len(self.servers) >= FREE_SERVER_LIMIT
+
+    def is_server_registered(self, server: Server) -> bool:
+        """Check if the server is registered to the user."""
+        return bool(self.servers[server.name] or server.exists)
 
     def add_server(self, server: Server) -> None:
         """Add a server to the user."""

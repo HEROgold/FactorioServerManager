@@ -2,22 +2,39 @@
 
 
 import contextlib
-from collections.abc import AsyncGenerator
-from typing import NoReturn
 
 import docker
 import docker.errors
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter, HTTPException
 
 from backend.core.server import Server
+from backend.enums.states import DockerStates
 from backend.models.factorio import ServerSettings
 from backend.models.user import get_current_user
+from backend.utils.strings import sanitize
 
 
-router = APIRouter()
+router = APIRouter(prefix="/manage")
 
-@router.route("/update", methods=["POST"])
+@router.post("/create")
+async def create(name: str, version: str, port: int) -> None:
+    """Create a server."""
+    user = await get_current_user()
+    name = sanitize(name)
+
+    server = Server(name=name, user=user)
+    server.settings.port = port
+    if not user.is_server_registered(server):
+        msg = "Server is already registered."
+        raise HTTPException(405, msg)
+    if not user.can_add_server():
+        msg = "User cannot add more servers."
+        raise HTTPException(405, msg)
+    user.add_server(server)
+
+    await server.create(version)
+
+@router.post("/update")
 async def update(name: str, new_settings: ServerSettings) -> None:
     """Update a server."""
     user = await get_current_user()
@@ -25,7 +42,7 @@ async def update(name: str, new_settings: ServerSettings) -> None:
     server.settings = new_settings
 
 
-@router.route("/delete", methods=["GET"])
+@router.get("/delete")
 async def delete(name: str) -> None:
     """Delete a server."""
     current_user = await get_current_user()
@@ -34,52 +51,40 @@ async def delete(name: str) -> None:
         server.remove()
 
 
-@router.route("/start", methods=["POST"])
+@router.post("/start")
 async def start(name: str) -> None:
     """Start a server through a http request."""
     current_user = await get_current_user()
     await current_user.servers[name].start()
 
 
-@router.route("/stop", methods=["POST"])
+@router.post("/stop")
 async def stop(name: str) -> None:
     """Stop a server through a http request."""
     current_user = await get_current_user()
     await current_user.servers[name].stop()
 
 
-@router.route("/restart", methods=["POST"])
-async def restart(name: str) -> JSONResponse | None:
+@router.post("/restart")
+async def restart(name: str) -> bool:
     """Restart a server through a http request."""
     current_user = await get_current_user()
     try:
         await current_user.servers[name].restart()
         current_user = await get_current_user()
-    except RuntimeError as e:
-        return JSONResponse(status_code=400, content={"detail": str(e)})
-
-
-async def get_live_status(name: str) -> str:
-    """Get the status of a server. without using cached data."""
-    return Server(name=name, user=await get_current_user()).status
-
-@router.route("/status/")
-def status(name: str) -> None:
-    """Stream the status of a server using SSE."""
-    async def generate() -> AsyncGenerator[str, NoReturn]:
-        previous_status = ""
-        while True:
-            status = await get_live_status(name)
-            if status == previous_status:
-                continue
-            previous_status = status
-            yield "event: serverStatusUpdate\n"
-            yield f"data: {status}\n"
-            yield "\n"
-            return StreamingResponse(generate(), media_type="text/event-stream")
+    except RuntimeError as _:
+        return False
+    return True
 
 
 @router.route("/rcon", methods=["POST", "GET"])
 async def rcon(name: str) -> None:
     """Return rcon data."""
     # TODO  # noqa: FIX002, TD002, TD003, TD004
+
+
+@router.get("/status")
+async def status(name: str) -> DockerStates:
+    """Return the status of a server."""
+    current_user = await get_current_user()
+    return current_user.servers[name].status

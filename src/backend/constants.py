@@ -7,7 +7,7 @@ from pathlib import Path
 # Users may edit these
 REQUIRE_GAME_OWNERSHIP = False
 PUBLIC_IP = "x.x.x.x"  # The IP Address where servers are reachable from.
-
+FREE_SERVER_LIMIT = 5
 
 # Do not edit
 CONFIG_FILE = Path(__file__)

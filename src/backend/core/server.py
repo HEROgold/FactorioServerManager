@@ -50,10 +50,15 @@ class Server(BaseModel):
         return self._ip
 
     @property
+    def user_directory(self: Self) -> Path:
+        """Return the user's directory."""
+        return SERVERS_DIRECTORY / f"{self.user.id}"
+
+    @property
     def server_directory(self: Self) -> Path:
         """Return the server's directory."""
         if self.user:
-            return SERVERS_DIRECTORY / f"{self.user.id}/{self.name}"
+            return self.user_directory / self.name
         return SERVERS_DIRECTORY / f"dummy/{self.name}"
 
     @property
@@ -217,12 +222,12 @@ class Server(BaseModel):
         return f"{DOCKER_CONTAINER_PREFIX}_dummy_{self.name}"
 
     @property
-    def status(self: Self) -> str:
+    def status(self: Self) -> DockerStates:
         """Return the server's status."""
         try:
-            return self.container.status
+            return DockerStates(self.container.status)
         except NotFound:
-            return DockerStates.UNKNOWN.value
+            return DockerStates.UNKNOWN
 
     async def create(self: Self, version: str = "latest") -> None:
         """Create the server."""
@@ -291,3 +296,8 @@ class Server(BaseModel):
         self.container.stop()
         self.container.remove()
         del self
+
+    @property
+    def exists(self: Self) -> bool:
+        """Return True if the server already exists."""
+        return self.server_directory.exists()

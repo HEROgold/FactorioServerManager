@@ -3,10 +3,10 @@
 
 from fastapi import APIRouter
 
-from .download import router as download
 from .manage import router as manage
+from .version import router as version
 
 
-router = APIRouter()
-router.include_router(download)
+router = APIRouter(prefix="/server")
 router.include_router(manage)
+router.include_router(version)
