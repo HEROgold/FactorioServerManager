@@ -2,7 +2,6 @@
 
 import secrets
 from pathlib import Path
-from tomllib import load
 
 
 # Users may edit these
@@ -13,10 +12,6 @@ PUBLIC_IP = "x.x.x.x"  # The IP Address where servers are reachable from.
 # Do not edit
 CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
-TOML_FILE = PROJECT_DIR.parent / "pyproject.toml"
-
-with TOML_FILE.open("rb") as file:
-    toml = load(file)
 
 DOCKER_CONTAINER_PREFIX = "factorio-headless"
 
@@ -27,8 +22,6 @@ SAVES_DIRECTORY = PROJECT_DIR / "saves"
 
 DATABASE_PATH = PROJECT_DIR / "database.db"
 
-PROJECT_NAME = toml["project"]["name"]
-PROJECT_VERSION = toml["project"]["version"]
 SECRET_KEY = secrets.token_hex(64)
 JWT_EXPIRATION = 60 * 60
 ENCODING_ALGORITHM = "HS256"
