@@ -40,10 +40,10 @@ class AutoPlaceControls(BaseModel):
 
 
 class CliffSettings(BaseModel):
-    name = "cliff"
+    name: str = "cliff"
     cliff_elevation_0: int = 10
     cliff_elevation_interval: int = 40
-    richness: 1
+    richness: int = 1
 
 class PropertyExpressionNames(BaseModel):
     pass
@@ -194,9 +194,9 @@ class ServerSettings(BaseModel):
     max_heartbeats_per_second: int
     ignore_player_limit_for_returning_players: bool
     allow_commands: Literal["true", "false", "admins-only"]
-    autosave_interval: 10
-    autosave_slots: 5
-    afk_autokick_interval: 0
+    autosave_interval: int = 10
+    autosave_slots: int = 5
+    afk_autokick_interval: int = 0
     auto_pause: bool
     only_admins_can_pause_the_game: bool
     autosave_only_on_server: bool
