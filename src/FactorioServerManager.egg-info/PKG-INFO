@@ -1,0 +1,11 @@
+Metadata-Version: 2.2
+Name: FactorioServerManager
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: docker>=7.1.0
+Requires-Dist: fastapi[standard]>=0.115.8
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: uvicorn>=0.34.0
