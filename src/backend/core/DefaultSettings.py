@@ -1,7 +1,7 @@
 # TODO @HEROgold: Update and fix default map settings according to the server's default settings after being created.  # noqa: FIX002
 # 0
 import functools
-from typing import Any
+from typing import Any, Literal
 
 from backend.models.factorio import (
     DifficultySettings,
@@ -150,31 +150,32 @@ default_map_settings = MapSettings(
 
 class DefaultServerSettings(ServerSettings):
     """Default server settings."""
-    description="A Server Managed By Factorio Server Manager"
-    port=34197
-    tags=["Factorio", "Server", "Manager"]  # noqa: RUF012
-    max_players=5
-    visibility="public"
-    username="FactorioServerManager"
-    password="FactorioServerManager"  # noqa: S105
-    # token="", # May be used instead of password.  # noqa: ERA001
-    game_password=""
-    require_user_verification=True
-    max_upload_in_kilobytes_per_second=0
-    max_upload_slots=0
-    minimum_latency_in_ticks=0
-    max_heartbeats_per_second=0
-    ignore_player_limit_for_returning_players=False
-    allow_commands="admins-only"
-    autosave_interval=0
-    autosave_slots=0
-    afk_autokick_interval=0
-    auto_pause=False
-    only_admins_can_pause_the_game=True
-    autosave_only_on_server=False
-    non_blocking_saving=True
-    minimum_segment_size=0
-    minimum_segment_size_peer_count=0
-    maximum_segment_size=0
-    maximum_segment_size_peer_count=0
+    description: str = "A Server Managed By Factorio Server Manager"
+    port: int = 34197
+    tags: list[str] = ["Factorio", "Server", "Manager"]  # noqa: RUF012
+    max_players: int = 5
+    visibility: Literal["public", "lan"] = "public"
+    username: str = "FactorioServerManager"
+    password: str = "FactorioServerManager"  # noqa: S105
+    # token: str = "", # May be used instead of password.  # noqa: ERA001
+    game_password: str = ""
+    require_user_verification: bool = True
+    max_upload_in_kilobytes_per_second: int = 0
+    max_upload_slots: int = 0
+    minimum_latency_in_ticks: int = 0
+    max_heartbeats_per_second: int = 0
+    ignore_player_limit_for_returning_players: bool = False
+    allow_commands: Literal["true", "false", "admins-only"] = "admins-only"
+    autosave_interval: int = 0
+    autosave_slots: int = 0
+    afk_autokick_interval: int = 0
+    auto_pause: bool = False
+    only_admins_can_pause_the_game: bool = True
+    autosave_only_on_server: bool = False
+    non_blocking_saving: bool = True
+    minimum_segment_size: int = 0
+    minimum_segment_size_peer_count: int = 0
+    maximum_segment_size: int = 0
+    maximum_segment_size_peer_count: int = 0
+
 
