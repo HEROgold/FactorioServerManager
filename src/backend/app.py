@@ -3,9 +3,10 @@
 from typing import Annotated
 
 import fastapi
-from api import router as api_router
 from fastapi.middleware.cors import CORSMiddleware
-from models.user import User, get_current_user
+
+from backend.api import router as api_router
+from backend.models.user import User, get_current_user
 
 
 app = fastapi.FastAPI()
