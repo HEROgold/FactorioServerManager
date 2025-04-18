@@ -3,8 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-
-from backend.models.user import User
+from models.user import User
 
 
 async def get_current_user() -> User:

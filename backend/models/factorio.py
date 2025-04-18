@@ -1,7 +1,7 @@
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ServerModEntry(BaseModel):
@@ -183,9 +183,9 @@ class ServerSettings(BaseModel):
     max_players: int = 0
     visibility: Literal["public", "lan"]
     username: str # Required when visibility is set to public
-    password: str # Required when visibility is set to public
+    password: str | None # Required when visibility is set to public
     # "Authentication token. May be used instead of 'password' above."
-    token: str
+    token: str | None
     game_password: str
     require_user_verification: bool
     max_upload_in_kilobytes_per_second: int
@@ -205,6 +205,35 @@ class ServerSettings(BaseModel):
     minimum_segment_size_peer_count: int
     maximum_segment_size: int
     maximum_segment_size_peer_count: int
+
+    def check_username(self) -> Self:
+        """Check if password is set when visibility is public."""
+        if self.visibility == "public" and not self.username:
+            msg = "Username is required when visibility is set to public."
+            raise ValueError(msg)
+        return self
+
+    def check_password(self) -> Self:
+        """Check if password is set when visibility is public."""
+        errors: list[ValueError] = []
+        if self.visibility == "public" and not self.password:
+            msg = "Password is required when visibility is set to public."
+            errors.append(ValueError(msg))
+        if self.token and self.password:
+            msg = "Token and password cannot be set at the same time."
+            errors.append(ValueError(msg))
+        validation_errors = ExceptionGroup("Password validation errors", errors)
+
+        if errors:
+            raise validation_errors
+        return self
+
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
+        """Validate the model after all fields are validated."""
+        self.check_username()
+        self.check_password()
+        return self
 
 class MapGenerationSettings(BaseModel):
     ...

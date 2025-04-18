@@ -1,9 +1,14 @@
-# TODO @HEROgold: Update and fix default map settings according to the server's default settings after being created.  # noqa: FIX002
-# 0
+"""Default settings for the Factorio server.
+
+These settings are used to create a new server and are set to the default values.
+"""
+
+# TODO
+# Update and fix default map settings according to the server's default settings after being created.
 import functools
 from typing import Any, Literal
 
-from backend.models.factorio import (
+from models.factorio import (
     DifficultySettings,
     EnemyEvolutionSettings,
     EnemyExpansionSettings,
@@ -150,14 +155,15 @@ default_map_settings = MapSettings(
 
 class DefaultServerSettings(ServerSettings):
     """Default server settings."""
+
     description: str = "A Server Managed By Factorio Server Manager"
     port: int = 34197
     tags: list[str] = ["Factorio", "Server", "Manager"]  # noqa: RUF012
     max_players: int = 5
     visibility: Literal["public", "lan"] = "public"
     username: str = "FactorioServerManager"
-    password: str = "FactorioServerManager"  # noqa: S105
-    # token: str = "", # May be used instead of password.  # noqa: ERA001
+    password: str | None = "FactorioServerManager"  # noqa: S105
+    token: str | None = None # May be used instead of password.
     game_password: str = ""
     require_user_verification: bool = True
     max_upload_in_kilobytes_per_second: int = 0

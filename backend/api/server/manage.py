@@ -5,13 +5,12 @@ import contextlib
 
 import docker
 import docker.errors
+from core.server import Server
+from enums.states import DockerStates
 from fastapi import APIRouter, HTTPException
-
-from backend.core.server import Server
-from backend.enums.states import DockerStates
-from backend.models.factorio import ServerSettings
-from backend.models.user import get_current_user
-from backend.utils.strings import sanitize
+from models.factorio import ServerSettings
+from models.user import get_current_user
+from utils.strings import sanitize
 
 
 router = APIRouter(prefix="/manage")

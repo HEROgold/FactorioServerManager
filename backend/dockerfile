@@ -1,0 +1,12 @@
+FROM python:alpine
+
+
+# Setup project
+ADD . .
+
+RUN pip3.13 install uv uvicorn
+# RUN uv pip install . --system
+RUN uv pip install docker fastapi[standard] pyjwt uvicorn --system
+
+
+ENTRYPOINT ["uvicorn", "app:app"]

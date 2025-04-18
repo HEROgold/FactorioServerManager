@@ -4,12 +4,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Self
 
 import jwt
+from constants import ENCODING_ALGORITHM, FREE_SERVER_LIMIT, JWT_EXPIRATION, SECRET_KEY
+from core.server import Server
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
-
-from backend.constants import ENCODING_ALGORITHM, FREE_SERVER_LIMIT, JWT_EXPIRATION, SECRET_KEY
-from backend.core.server import Server
 
 
 oath2 = OAuth2PasswordBearer(tokenUrl="token")

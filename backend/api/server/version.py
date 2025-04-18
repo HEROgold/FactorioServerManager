@@ -2,8 +2,7 @@
 
 from fastapi import APIRouter
 from httpx import request
-
-from backend.models.factorio import AvailableVersions
+from models.factorio import AvailableVersions
 
 
 router = APIRouter(prefix="/version")
