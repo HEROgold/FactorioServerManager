@@ -3,11 +3,12 @@
 from typing import Any
 
 import httpx
-from constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 from fastapi import APIRouter
+from pydantic import SecretStr
+
+from constants import API_VERSION, LOGIN_API, REQUIRE_GAME_OWNERSHIP
 from models.login import FactorioLoginSchema, LoginForm
 from models.user import User, get_current_user
-from pydantic import SecretStr
 
 
 router = APIRouter(prefix="/auth")

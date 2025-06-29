@@ -5,9 +5,10 @@ import contextlib
 
 import docker
 import docker.errors
+from fastapi import APIRouter, HTTPException
+
 from core.server import Server
 from enums.states import DockerStates
-from fastapi import APIRouter, HTTPException
 from models.factorio import ServerSettings
 from models.user import get_current_user
 from utils.strings import sanitize

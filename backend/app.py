@@ -3,8 +3,9 @@
 from typing import Annotated
 
 import fastapi
-from api import router as api_router
 from fastapi.middleware.cors import CORSMiddleware
+
+from api import router as api_router
 from models.user import User, get_current_user
 
 

@@ -9,18 +9,20 @@ from threading import Thread
 from typing import TYPE_CHECKING, Self
 
 import docker
+from docker.errors import NotFound
+from pydantic import BaseModel
+
 from constants import DOCKER_CONTAINER_PREFIX, PUBLIC_IP, SERVERS_DIRECTORY
 from core.default_settings import DefaultServerSettings, default_map_settings
-from docker.errors import NotFound
 from enums.states import DockerStates
 from models.factorio import MapGenerationSettings, MapSettings, ServerSettings
-from pydantic import BaseModel
 
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from docker.models.containers import Container
+
     from models.factorio import ServerModEntry
     from models.user import User
 
