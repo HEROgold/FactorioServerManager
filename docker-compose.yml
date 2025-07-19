@@ -1,3 +1,19 @@
 services:
   frontend:
+    build:
+      context: frontend
+      dockerfile: dockerfile
+    ports:
+      - "3001:3000"
+
+  frontend2:
+    build:
+      context: frontend2
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3000"
+
   api:
+    build:
+      context: backend
+      dockerfile: Dockerfile
