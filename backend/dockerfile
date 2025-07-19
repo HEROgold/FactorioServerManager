@@ -1,6 +1,9 @@
 FROM python:alpine
 
 
+# Install Docker
+RUN apk add --no-cache docker-cli
+
 # Setup project
 ADD . .
 

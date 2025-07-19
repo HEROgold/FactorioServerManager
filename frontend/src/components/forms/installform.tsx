@@ -5,7 +5,8 @@ import {
   FormSelector,
   FormSubmit,
 } from "./formHandler.tsx";
-import { ENDPOINTS } from "../../constants.ts";
+import { DEFAULT_SERVER_PORT, ENDPOINTS, FACTORIO_LATEST_VERSION } from "../../constants.ts";
+import { api } from "../../utils/api.ts";
 
 export type InstallFormProps = {
   name: string;
@@ -43,15 +44,15 @@ export default function InstallForm() {
   //     </form>
   // );
   const [name, setName] = useState(serverName);
-  const [version, setVersion] = useState("2.0.0");
-  const [port, setPort] = useState(34197);
+  const [version, setVersion] = useState(FACTORIO_LATEST_VERSION);
+  const [port, setPort] = useState(DEFAULT_SERVER_PORT);
   let availableVersions;
   fetch(ENDPOINTS.FactorioVersions).then((res) =>
     res.json().then((data) => (availableVersions = data))
   );
 
   return (
-    <form method="post" action={ENDPOINTS.InstallServer(name)}>
+    <form method="post" action={api.InstallServer(name)}>
       <label>{serverName}</label>
       <input
         style={{ marginLeft: "5%", marginTop: "1%" }}

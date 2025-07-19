@@ -1,5 +1,5 @@
 import React from 'react';
-import './static/css/main.css';
+import './styles/main.css';
 import Footer from './components/footer.tsx';
 import Header from './components/header.tsx';
 import Navbar from './components/navbar.tsx';

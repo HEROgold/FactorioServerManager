@@ -6,14 +6,13 @@ services:
     ports:
       - "3001:3000"
 
-  frontend2:
-    build:
-      context: frontend2
-      dockerfile: Dockerfile
-    ports:
-      - "3002:3000"
-
   api:
+    hostname: api
     build:
       context: backend
       dockerfile: Dockerfile
+    privileged: true  # Required for Docker in Docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket
+    expose:
+      - 3000

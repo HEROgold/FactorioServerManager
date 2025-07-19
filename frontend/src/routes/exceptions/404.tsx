@@ -2,11 +2,11 @@ import React from 'react';
 
 export default function NotFound(error: Error) {
     return (
-        <div class="container-inner">
-            <div class="panel">
+        <div className="container-inner">
+            <div className="panel">
                 <h1>404</h1>
                 <p>Page not found.</p>
-                <div class="panel-inset-lighter">
+                <div className="panel-inset-lighter">
                     <p>{error.message}</p>
                 </div>
             </div>
