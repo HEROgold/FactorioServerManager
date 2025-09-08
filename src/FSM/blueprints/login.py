@@ -2,14 +2,15 @@
 
 from pathlib import Path
 
-from flask import Blueprint, redirect, render_template, request, url_for
-from flask_login import login_user, logout_user
-from werkzeug import Response
-
 from _types import FactorioInterface
 from _types.database import User
 from _types.forms import LoginForm
-
+from flask import Blueprint, redirect, render_template, request, url_for
+from flask_login import (  # pyright: ignore[reportMissingTypeStubs]
+    login_user,
+    logout_user,
+)
+from werkzeug import Response
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")

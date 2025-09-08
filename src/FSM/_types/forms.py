@@ -1,14 +1,19 @@
 from collections.abc import Generator
-from typing import Any, Self
+from typing import Any
 
-from flask_wtf.form import _Auto
 import requests
 from bs4 import BeautifulSoup
-from flask_wtf import FlaskForm  # type: ignore[stub]
-from wtforms import BooleanField, IntegerField, PasswordField, SelectField, StringField, SubmitField
-from wtforms.validators import DataRequired, Email
-
 from config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
+from flask_wtf import FlaskForm  # type: ignore[stub]
+from wtforms import (
+    BooleanField,
+    IntegerField,
+    PasswordField,
+    SelectField,
+    StringField,
+    SubmitField,
+)
+from wtforms.validators import DataRequired, Email
 
 
 def get_all_download_versions() -> list[str]:
@@ -21,7 +26,7 @@ def get_all_download_versions() -> list[str]:
     ]
 
 used_ports: list[int] = []
-def get_available_port() -> Generator[int, Any, None]:
+def get_available_port() -> Generator[int, Any]:
     """Get an available port."""
     for i in range(LOWER_PORT_LIMIT, UPPER_PORT_LIMIT + 1):
         if i not in used_ports:

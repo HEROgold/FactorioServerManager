@@ -1,11 +1,10 @@
 from os import PathLike
 from typing import Self
 
-from flask import Flask
-from flask_login import LoginManager
-
 from _types.database import User
 from config import SECRET_KEY
+from flask import Flask
+from flask_login import LoginManager  # pyright: ignore[reportMissingTypeStubs]
 
 
 class Website(Flask):
@@ -37,7 +36,7 @@ class Website(Flask):
         )
         self.login_manager = LoginManager(self)
         self.login_manager.user_loader(self._user_loader)
-        self.login_manager.login_view = "login.login" # type: ignore[reportAttributeAccessIssue]
+        self.login_manager.login_view = "login" # type: ignore[reportAttributeAccessIssue]
 
         self.config.from_pyfile("config.py")
         self.config["SECRET_KEY"] = SECRET_KEY

@@ -9,20 +9,17 @@ from threading import Thread
 from typing import TYPE_CHECKING, Self
 
 import docker
-from docker.errors import NotFound
-
 from _types.enums import DockerStates
-from _types.settings import ServerSettings
+from _types.settings import MapGenerationSettings, MapSettings, ServerSettings
 from config import DOCKER_CONTAINER_PREFIX, PUBLIC_IP, SERVERS_DIRECTORY
-
+from docker.errors import NotFound
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from docker.models.containers import Container
-
     from _types.database import User
     from _types.dicts import ServerModEntry
+    from docker.models.containers import Container
 
 
 docker_client = docker.from_env()
@@ -37,8 +34,8 @@ class Server:
     _container: Container | None = None
     _settings: ServerSettings | None = None
     _ip: str | None = None
-    # _map_settings: MapSettings | None = None
-    # _map_generation_settings: MapGenerationSettings | None = None
+    _map_settings: MapSettings | None = None
+    _map_generation_settings: MapGenerationSettings | None = None
 
     @property
     def ip(self: Self) -> str:
@@ -101,12 +98,12 @@ class Server:
     def mods_list(self: Self) -> Path:
         return self.server_directory / "mods-list.json"
 
-    def get_installed_mods(self: Self) -> Generator[ServerModEntry, None, None]:
+    def get_installed_mods(self: Self) -> Generator[ServerModEntry]:
         with self.mods_list.open() as f:
             data = json.load(f)
         yield from data["mods"]
 
-    def get_active_mods(self: Self) -> Generator[str, None, None]:
+    def get_active_mods(self: Self) -> Generator[str]:
         for mod in self.get_installed_mods():
             if mod["enabled"]:
                 yield mod["name"]
@@ -134,27 +131,27 @@ class Server:
     def settings(self: Self, settings: ServerSettings) -> None:
         self._settings = settings
 
-    # @property
-    # def map_settings(self: Self) -> MapSettings:
-    #     if self._map_settings:
-    #         return self._map_settings
-    #     self.map_settings = MapSettings()
-    #     return self.map_settings
+    @property
+    def map_settings(self: Self) -> MapSettings:
+        if self._map_settings:
+            return self._map_settings
+        self.map_settings = MapSettings()
+        return self.map_settings
 
-    # @map_settings.setter
-    # def map_settings(self: Self, settings: MapSettings) -> None:
-    #     self._map_settings = settings
+    @map_settings.setter
+    def map_settings(self: Self, settings: MapSettings) -> None:
+        self._map_settings = settings
 
-    # @property
-    # def map_generation_settings(self: Self) -> MapGenerationSettings:
-    #     if self._map_generation_settings:
-    #         return self._map_generation_settings
-    #     self.map_generation_settings = MapGenerationSettings()
-    #     return self.map_generation_settings
+    @property
+    def map_generation_settings(self: Self) -> MapGenerationSettings:
+        if self._map_generation_settings:
+            return self._map_generation_settings
+        self.map_generation_settings = MapGenerationSettings()
+        return self.map_generation_settings
 
-    # @map_generation_settings.setter
-    # def map_generation_settings(self: Self, settings: MapGenerationSettings) -> None:
-    #     self._map_generation_settings = settings
+    @map_generation_settings.setter
+    def map_generation_settings(self: Self, settings: MapGenerationSettings) -> None:
+        self._map_generation_settings = settings
 
     @property
     def version(self: Self) -> str:
@@ -172,9 +169,7 @@ class Server:
 
     @property
     def is_first_launch(self: Self) -> bool:
-        if self.server_directory.exists():
-            return False
-        return True
+        return not self.server_directory.exists()
 
     @property
     def container(self: Self) -> Container:
@@ -249,7 +244,7 @@ class Server:
             msg = "Server busy restarting"
             raise RuntimeError(msg)
         p = partial(self.container.restart)
-        t = Thread(target=p)
+        t = Thread(target=p) # pyright: ignore[reportUnknownArgumentType]
         t.daemon = True
         t.start()
 

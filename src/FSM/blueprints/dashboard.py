@@ -4,12 +4,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flask import Blueprint, render_template
-from flask_login import (
+from flask_login import (  # pyright: ignore[reportMissingTypeStubs]
     current_user,  # type: ignore[reportAssignmentType]
 )
 
-from scripts import require_login
-
+from FSM.scripts import require_login
 
 if TYPE_CHECKING:
     from _types.database import User

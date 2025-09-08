@@ -6,7 +6,10 @@ import random
 from logging.handlers import RotatingFileHandler
 from typing import Self
 
-from flask_login import UserMixin
+from _types import FactorioInterface
+from _types.data import Server
+from config import DATABASE_PATH, SERVERS_DIRECTORY
+from flask_login import UserMixin  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy import (
     Integer,
     String,
@@ -19,17 +22,11 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from _types import FactorioInterface
-from _types.data import Server
-from config import DATABASE_PATH, SERVERS_DIRECTORY
-
-
 logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
 handler = RotatingFileHandler(filename="sqlalchemy.log", backupCount=7, encoding="utf-8")
 handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
-# logger.addHandler(logging.StreamHandler())
 
 
 engine = create_engine(f"sqlite:///{DATABASE_PATH}")
@@ -78,12 +75,12 @@ class User(Base, UserMixin):
 
     @classmethod
     def get_by_user_id(cls, user_id: int) -> Self | None:
-        """
-        Find existing user, and return it.
+        """Find existing user, and return it.
 
         Args:
         ----
             user_id (int): Identifier for the user.
+
         """
         with Session(engine) as session:
             logger.debug(f"Looking for user {user_id=}")
@@ -95,12 +92,12 @@ class User(Base, UserMixin):
 
     @classmethod
     def fetch_by_email(cls, email: str) -> Self:
-        """
-        Find existing or create new user, and return it.
+        """Find existing or create new user, and return it.
 
         Args:
         ----
             email (int): The email for the user.
+
         """
         with Session(engine) as session:
             logger.debug(f"Looking for user {email=}")
@@ -117,8 +114,7 @@ class User(Base, UserMixin):
 
     @staticmethod
     def encrypt_password(password: str) -> str:
-        """
-        Encrypt a password.
+        """Encrypt a password.
 
         Parameters
         ----------
@@ -128,6 +124,7 @@ class User(Base, UserMixin):
         Returns
         -------
         :class:`str`
+
         """
         random.seed(password)
         salt = str(random.random() * random.random())  # noqa: S311
@@ -135,8 +132,7 @@ class User(Base, UserMixin):
         return hashlib.sha256((password + salt).encode()).hexdigest()
 
     def check_password(self: Self, password: str | None) -> bool:
-        """
-        Check if the user's stored password matches a given password.
+        """Check if the user's stored password matches a given password.
 
         Parameters
         ----------
@@ -146,6 +142,7 @@ class User(Base, UserMixin):
         Returns
         -------
         :class:`bool`
+
         """
         if password is None:
             return False

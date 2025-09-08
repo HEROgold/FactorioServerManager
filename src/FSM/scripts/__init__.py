@@ -1,5 +1,5 @@
 """Hold random scripts for use in the project."""
-from flask_login import login_required
+from flask_login import login_required  # pyright: ignore[reportMissingTypeStubs]
 
 
 @login_required

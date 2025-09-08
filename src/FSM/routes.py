@@ -2,12 +2,10 @@
 
 from typing import Literal
 
-from flask import redirect, render_template, request, url_for
-from werkzeug import Response
-
 import blueprints  # type: ignore[no-stub-file]
 from _types import Website
-
+from flask import redirect, render_template, request, url_for
+from werkzeug import Response
 
 app = Website(__name__)
 

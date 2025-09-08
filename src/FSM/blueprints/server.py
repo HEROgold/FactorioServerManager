@@ -6,15 +6,21 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
 import docker.errors
-from flask import Blueprint, redirect, render_template, request, stream_with_context, url_for
-from flask_login import current_user  # type: ignore[reportAssignmentType]
-from werkzeug import Response
-
 from _types.data import Server
 from _types.forms import InstallForm, ManageServerForm, get_available_port
 from _types.settings import ServerSettings
-from scripts import require_login, sanitize_str
+from flask import (
+    Blueprint,
+    redirect,
+    render_template,
+    request,
+    stream_with_context,
+    url_for,
+)
+from flask_login import current_user  # type: ignore[reportAssignmentType]
+from werkzeug import Response
 
+from FSM.scripts import require_login, sanitize_str
 
 if TYPE_CHECKING:
     from _types.database import User

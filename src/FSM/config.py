@@ -1,9 +1,10 @@
 # noqa: D100
 
 import secrets
+from configparser import ConfigParser
 from pathlib import Path
-from tomllib import load
 
+from confkit import Config
 
 # Users may edit these
 REQUIRE_GAME_OWNERSHIP = False
@@ -15,8 +16,8 @@ CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
 TOML_FILE = PROJECT_DIR / "pyproject.toml"
 
-with TOML_FILE.open("rb") as file:
-    toml = load(file)
+Config.set_parser(ConfigParser())
+Config.set_file(PROJECT_DIR/"config.ini")
 
 DOCKER_CONTAINER_PREFIX = "factorio-headless"
 
@@ -27,8 +28,6 @@ SAVES_DIRECTORY = PROJECT_DIR / "saves"
 
 DATABASE_PATH = PROJECT_DIR / "database.db"
 
-PROJECT_NAME = toml["project"]["name"]
-PROJECT_VERSION = toml["project"]["version"]
 SECRET_KEY = secrets.token_hex(64)
 API_VERSION = 4
 
