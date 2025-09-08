@@ -1,82 +1,99 @@
 import { ENDPOINTS } from "../constants";
+import type { 
+    ApiResponse, 
+    Server, 
+    User, 
+    LoginCredentials, 
+    LoginResponse, 
+    FactorioVersions 
+} from "../types/api";
 
 export class ApiEndpoints {
-    private makeRequest(endpoint: string, method: string = "GET", body?: any): Response {
-        const result = fetch(endpoint, {
-            method,
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
+    private async makeRequest<T = any>(endpoint: string, method: string = "GET", body?: any): Promise<ApiResponse<T>> {
+        try {
+            const response = await fetch(endpoint, {
+                method,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: body ? JSON.stringify(body) : undefined,
+            });
 
-        result.then((response) => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+                return {
+                    error: `HTTP error! status: ${response.status}, message: ${response.statusText}`,
+                    status: response.status
+                };
             }
-            return response;
-        });
-        throw new Error("invalid response");
+
+            const data = await response.json() as T;
+            return {
+                data,
+                status: response.status
+            };
+        } catch (error) {
+            return {
+                error: error instanceof Error ? error.message : "Unknown error occurred",
+                status: 0
+            };
+        }
     }
 
     // Server management endpoints
-    InstallServer(name: string) {
-        return this.makeRequest(ENDPOINTS.InstallServer(name));
+    async InstallServer(name: string, version: string, port: number): Promise<ApiResponse> {
+        return this.makeRequest(ENDPOINTS.InstallServer(name), "POST", { version, port });
     }
-    FactorioVersions() {
+    async FactorioVersions(): Promise<ApiResponse<FactorioVersions>> {
         return this.makeRequest(ENDPOINTS.FactorioVersions);
     }
-    LatestServerVersion() {
+    async LatestServerVersion(): Promise<ApiResponse<string>> {
         return this.makeRequest(ENDPOINTS.LatestServerVersion);
     }
 
     // Authentication endpoints
-    Login() {
-        return this.makeRequest(ENDPOINTS.Login);
+    async Login(credentials: LoginCredentials): Promise<ApiResponse<LoginResponse>> {
+        return this.makeRequest(ENDPOINTS.Login, "POST", credentials);
     }
-    ValidateToken(token: string) {
+    async ValidateToken(token: string): Promise<ApiResponse<{ valid: boolean }>> {
         return this.makeRequest(ENDPOINTS.ValidateToken(token));
     }
 
     // Server listing and operations
-    ServerList() {
+    async ServerList(): Promise<ApiResponse<Server[]>> {
         return this.makeRequest(ENDPOINTS.ServerList);
     }
-    ServerDetails(id: string) {
+    async ServerDetails(id: string): Promise<ApiResponse<Server>> {
         return this.makeRequest(ENDPOINTS.ServerDetails(id));
     }
-    ServerStart(id: string) {
-        return this.makeRequest(ENDPOINTS.ServerStart(id));
+    async ServerStart(id: string): Promise<ApiResponse> {
+        return this.makeRequest(ENDPOINTS.ServerStart(id), "POST");
     }
-    ServerStop(id: string) {
-        return this.makeRequest(ENDPOINTS.ServerStop(id));
+    async ServerStop(id: string): Promise<ApiResponse> {
+        return this.makeRequest(ENDPOINTS.ServerStop(id), "POST");
     }
-    ServerRestart(id: string) {
-        return this.makeRequest(ENDPOINTS.ServerRestart(id));
+    async ServerRestart(id: string): Promise<ApiResponse> {
+        return this.makeRequest(ENDPOINTS.ServerRestart(id), "POST");
     }
-    ServerDelete(id: string) {
-        return this.makeRequest(ENDPOINTS.ServerDelete(id));
+    async ServerDelete(id: string): Promise<ApiResponse> {
+        return this.makeRequest(ENDPOINTS.ServerDelete(id), "DELETE");
     }
-    ServerSettings(id: string) {
+    async ServerSettings(id: string): Promise<ApiResponse> {
         return this.makeRequest(ENDPOINTS.ServerSettings(id));
     }
 
-    // WebSocket for server status
-    ServerStatus(id: string) {
-        return this.makeRequest(ENDPOINTS.ServerStatus(id));
-    }
-
     // Mod management
-    ModsList() {
+    async ModsList(): Promise<ApiResponse<any[]>> {
         return this.makeRequest(ENDPOINTS.ModsList);
     }
-    ServerMods(id: string) {
+    async ServerMods(id: string): Promise<ApiResponse<any[]>> {
         return this.makeRequest(ENDPOINTS.ServerMods(id));
     }
 
     // User endpoints
-    CurrentUser() {
+    async CurrentUser(): Promise<ApiResponse<User>> {
         return this.makeRequest(ENDPOINTS.CurrentUser);
     }
 }
+
 export const api = new ApiEndpoints();
+export type { ApiResponse } from "../types/api";

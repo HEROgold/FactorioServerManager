@@ -1,16 +1,28 @@
-import React from 'react';
-import { ENDPOINTS } from '../../constants.ts';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router';
-
-type Server = {
-    name: string;
-};
+import { api } from '../../utils/api.ts';
+import type { Server } from '../../types/api.ts';
 
 export default function ServerOverview() {
-    const servers: Server[] = [];
-    fetch(ENDPOINTS.ServerList)
-        .then((response) => response.json())
-        .then((data) => servers.push(...data));
+    const [servers, setServers] = useState<Server[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchServers = async () => {
+            setLoading(true);
+            const response = await api.ServerList();
+            
+            if (response.error) {
+                setError(`Failed to fetch servers: ${response.error}`);
+            } else if (response.data) {
+                setServers(response.data);
+            }
+            setLoading(false);
+        };
+
+        fetchServers();
+    }, []);
 
     return (
         <div className="container-inner">
@@ -22,6 +34,11 @@ export default function ServerOverview() {
                         <NavLink to="/server/install" className="button">Create Server</NavLink>
                         <div className="panel-inset-lighter mb12">
                             <h3>Servers</h3>
+                            {loading && <p>Loading servers...</p>}
+                            {error && <p style={{ color: 'red' }}>{error}</p>}
+                            {!loading && !error && servers.length === 0 && (
+                                <p>No servers found. Create your first server!</p>
+                            )}
                             {servers.map((server, index) => (
                                 <a key={index} href={`/server/${server.name}`}>{server.name}</a>
                             ))}

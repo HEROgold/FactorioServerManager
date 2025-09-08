@@ -1,86 +1,153 @@
-import React, { useState } from "react";
-import {
-  FormField,
-  FormHandler,
-  FormSelector,
-  FormSubmit,
-} from "./formHandler.tsx";
-import { DEFAULT_SERVER_PORT, ENDPOINTS, FACTORIO_LATEST_VERSION } from "../../constants.ts";
+import React, { useState, useEffect } from "react";
+import { DEFAULT_SERVER_PORT, FACTORIO_LATEST_VERSION } from "../../constants.ts";
 import { api } from "../../utils/api.ts";
+import type { FactorioVersions } from "../../types/api.ts";
 
 export type InstallFormProps = {
   name: string;
-  version: [number, number, number];
+  version: string;
   port: number;
 };
 
 export default function InstallForm() {
   const serverName = "FactorioServer";
 
-  // const nameField = new FormField('name', serverName, 'text');
-  // const formHandler = new FormHandler('post', ENDPOINTS.InstallServer, [
-  //     nameField,
-  //     new FormSelector('version', [1, 0, 0], 'text'),
-  //     new FormField('port', 34197, 'number'),
-  //     new FormSubmit(),
-  // ]);
-  // formHandler.linkAction(nameField);
-
-  // return formHandler.render()
-
-  // Original code:
-  // const changeHandler = (e: React.ChangeEvent<HTMLInputElement>) => setProps({...props, [e.target.name]: e.target.value});
-  // return (
-  //     <form method="post" action={ENDPOINTS.InstallServer(props.name)}>
-  //         <label>{props.name}</label>
-  //         <input type="text" name="name" value={props.name} onChange={changeHandler} />
-  //         <br />
-  //         <label>{props.version.join('.')}</label>
-  //         <input type="number" name="version" value={props.version.join('.')} onChange={changeHandler} />
-  //         <br />
-  //         <label>{props.port}</label>
-  //         <input type="number" name="port" value={props.port} onChange={changeHandler} />
-  //         <button type="submit">Submit</button>
-  //     </form>
-  // );
   const [name, setName] = useState(serverName);
   const [version, setVersion] = useState(FACTORIO_LATEST_VERSION);
   const [port, setPort] = useState(DEFAULT_SERVER_PORT);
-  let availableVersions;
-  fetch(ENDPOINTS.FactorioVersions).then((res) =>
-    res.json().then((data) => (availableVersions = data))
-  );
+  const [availableVersions, setAvailableVersions] = useState<FactorioVersions>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch available versions on component mount
+  useEffect(() => {
+    const fetchVersions = async () => {
+      setLoading(true);
+      const response = await api.FactorioVersions();
+      if (response.error) {
+        setError(`Failed to fetch versions: ${response.error}`);
+      } else if (response.data) {
+        setAvailableVersions(response.data);
+      }
+      setLoading(false);
+    };
+
+    fetchVersions();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    const response = await api.InstallServer(name, version, port);
+    
+    if (response.error) {
+      setError(`Failed to install server: ${response.error}`);
+    } else {
+      // Success - you might want to redirect or show success message
+      console.log('Server installation started successfully');
+      // Reset form or redirect
+      setName(serverName);
+      setVersion(FACTORIO_LATEST_VERSION);
+      setPort(DEFAULT_SERVER_PORT);
+    }
+    
+    setIsSubmitting(false);
+  };
 
   return (
-    <form method="post" action={api.InstallServer(name)}>
-      <label>{serverName}</label>
-      <input
-        style={{ marginLeft: "5%", marginTop: "1%" }}
-        type="text"
-        name="name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+    <form onSubmit={handleSubmit}>
+      {error && (
+        <div style={{ color: 'red', marginBottom: '10px' }}>
+          {error}
+        </div>
+      )}
+      
+      <div>
+        <label>Server Name</label>
+        <input
+          style={{ marginLeft: "5%", marginTop: "1%" }}
+          type="text"
+          name="name"
+          value={name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.currentTarget.value)}
+          disabled={isSubmitting}
+          required
+        />
+      </div>
       <br />
-      <label>Version</label>
-      <input
-        style={{ marginLeft: "5%", marginTop: "1%" }}
-        type="text"
-        name="version"
-        value={version}
-        onChange={(e) => setVersion(e.target.value)}
-      />
+      
+      <div>
+        <label>Version</label>
+        {loading ? (
+          <span style={{ marginLeft: "5%" }}>Loading versions...</span>
+        ) : (
+          <select
+            style={{ marginLeft: "5%", marginTop: "1%" }}
+            name="version"
+            value={version}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setVersion(e.target.value)}
+            disabled={isSubmitting}
+          >
+            <option value={FACTORIO_LATEST_VERSION}>Latest ({FACTORIO_LATEST_VERSION})</option>
+            {availableVersions && (
+              <>
+                <optgroup label="Core - Stable">
+                  <option value={availableVersions.core.stable}>
+                    {availableVersions.core.stable}
+                  </option>
+                </optgroup>
+                <optgroup label="Core - Experimental">
+                  <option value={availableVersions.core.experimental}>
+                    {availableVersions.core.experimental}
+                  </option>
+                </optgroup>
+                <optgroup label="Space Age - Stable">
+                  <option value={availableVersions.space_age.stable}>
+                    {availableVersions.space_age.stable}
+                  </option>
+                </optgroup>
+                <optgroup label="Space Age - Experimental">
+                  <option value={availableVersions.space_age.experimental}>
+                    {availableVersions.space_age.experimental}
+                  </option>
+                </optgroup>
+              </>
+            )}
+          </select>
+        )}
+      </div>
       <br />
-      <label>Port</label>
-      <input
-        style={{ marginLeft: "5%", marginTop: "1%" }}
-        type="number"
-        name="port"
-        value={port}
-        onChange={(e) => setPort(parseInt(e.target.value))}
-      />
-      <button type="submit">Submit</button>
-      {availableVersions}
+      
+      <div>
+        <label>Port</label>
+        <input
+          style={{ marginLeft: "5%", marginTop: "1%" }}
+          type="number"
+          name="port"
+          value={port}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPort(parseInt(e.target.value) || DEFAULT_SERVER_PORT)}
+          disabled={isSubmitting}
+          min="1024"
+          max="65535"
+          required
+        />
+      </div>
+      <br />
+      
+      <button 
+        type="submit" 
+        disabled={isSubmitting || loading}
+        style={{ 
+          opacity: isSubmitting || loading ? 0.6 : 1,
+          cursor: isSubmitting || loading ? 'not-allowed' : 'pointer'
+        }}
+      >
+        {isSubmitting ? 'Installing...' : 'Install Server'}
+      </button>
     </form>
   );
 }

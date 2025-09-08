@@ -7,4 +7,4 @@ ADD src ./src/
 
 RUN bun install
 
-ENTRYPOINT bun start app
+ENTRYPOINT [ "bun", "start", "app" ]
