@@ -37,7 +37,7 @@ class Website(Flask):
         )
         self.login_manager = LoginManager(self)
         self.login_manager.user_loader(self._user_loader)
-        self.login_manager.login_view = "login" # type: ignore[reportAttributeAccessIssue]
+        self.login_manager.login_view = "login.login" # type: ignore[reportAttributeAccessIssue]
 
         self.config.from_pyfile("config.py")
         self.config["SECRET_KEY"] = SECRET_KEY
