@@ -19,7 +19,7 @@ class AppConfig:
     """Application configuration settings."""
 
     REQUIRE_GAME_OWNERSHIP = Config(default=False)
-    PUBLIC_IP = Config("x.x.x.x") # The IP Address where servers are reachable from.
+    PUBLIC_IP = Config("127.0.0.1") # The IP Address where servers are reachable from.
     RCON_PORT = Config(default=27015)
 
 
