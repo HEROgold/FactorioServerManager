@@ -2,7 +2,8 @@ from typing import Self
 
 import aiohttp
 from bs4 import BeautifulSoup
-from config import API_VERSION, LOGIN_API, LOGIN_URL, REQUIRE_GAME_OWNERSHIP, Config
+
+from FSM.config import API_VERSION, LOGIN_API, LOGIN_URL, REQUIRE_GAME_OWNERSHIP, Config
 
 
 class HTTPConfig:

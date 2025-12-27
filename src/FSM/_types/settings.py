@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Self
 
-from _types.dicts import AutoPlace, Coordinates, SteerSettings
+from FSM._types.dicts import AutoPlace, Coordinates, SteerSettings
 
 
 @dataclass

@@ -6,9 +6,6 @@ import random
 from logging.handlers import RotatingFileHandler
 from typing import Self
 
-from _types import FactorioInterface
-from _types.data import Server
-from config import DATABASE_PATH, SERVERS_DIRECTORY
 from flask_login import UserMixin  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy import (
     Integer,
@@ -21,6 +18,10 @@ from sqlalchemy.orm import (
     Session,
     mapped_column,
 )
+
+from FSM._types import FactorioInterface
+from FSM._types.data import Server
+from FSM.config import DATABASE_PATH, SERVERS_DIRECTORY
 
 logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
 handler = RotatingFileHandler(filename="sqlalchemy.log", backupCount=7, encoding="utf-8")

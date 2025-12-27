@@ -6,9 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
 import docker.errors
-from _types.data import Server
-from _types.forms import InstallForm, ManageServerForm, get_available_port
-from _types.settings import ServerSettings
 from flask import (
     Blueprint,
     redirect,
@@ -20,10 +17,13 @@ from flask import (
 from flask_login import current_user  # type: ignore[reportAssignmentType]
 from werkzeug import Response
 
+from FSM._types.data import Server
+from FSM._types.forms import InstallForm, ManageServerForm, get_available_port
+from FSM._types.settings import ServerSettings
 from FSM.scripts import require_login, sanitize_str
 
 if TYPE_CHECKING:
-    from _types.database import User
+    from FSM._types.database import User
     current_user: "User"
 
 this_filename = Path(__file__).name.split(".")[0]
@@ -132,7 +132,7 @@ def status(name: str) -> Response:
         previous_status = None
         while True:
             status = get_live_status(name)
-            if status == previous_status:
+            if status and status == previous_status:
                 continue
             previous_status = status
             yield "event: serverStatusUpdate\n"

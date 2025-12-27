@@ -3,7 +3,6 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
 from flask_wtf import FlaskForm  # type: ignore[stub]
 from wtforms import (
     BooleanField,
@@ -14,6 +13,8 @@ from wtforms import (
     SubmitField,
 )
 from wtforms.validators import DataRequired, Email
+
+from FSM.config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
 
 
 def get_all_download_versions() -> list[str]:

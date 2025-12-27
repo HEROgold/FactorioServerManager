@@ -11,7 +11,7 @@ from flask_login import (  # pyright: ignore[reportMissingTypeStubs]
 from FSM.scripts import require_login
 
 if TYPE_CHECKING:
-    from _types.database import User
+    from FSM._types.database import User
     current_user: "User"
 
 
