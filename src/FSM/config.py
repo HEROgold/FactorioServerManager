@@ -1,5 +1,6 @@
 # noqa: D100
 
+import os
 import secrets
 from configparser import ConfigParser
 from pathlib import Path
@@ -28,7 +29,30 @@ SAVES_DIRECTORY = PROJECT_DIR / "saves"
 
 DATABASE_PATH = PROJECT_DIR / "database.db"
 
-SECRET_KEY = secrets.token_hex(64)
+SECRET_KEY_ENV = "FSM_SECRET_KEY"  # noqa: S105
+SECRET_KEY_FILE = PROJECT_DIR / ".flask_secret.key"
+
+
+def _load_secret_key() -> str:
+    env_value = os.getenv(SECRET_KEY_ENV)
+    if env_value:
+        return env_value.strip()
+
+    if SECRET_KEY_FILE.exists():
+        return SECRET_KEY_FILE.read_text(encoding="utf-8").strip()
+
+    key = secrets.token_hex(64)
+    SECRET_KEY_FILE.write_text(key, encoding="utf-8")
+    try:
+        if os.name != "nt":
+            SECRET_KEY_FILE.chmod(0o600)
+    except OSError:
+        # Permission tweaks may fail on some filesystems; silently continue.
+        pass
+    return key
+
+
+SECRET_KEY = _load_secret_key()
 API_VERSION = 4
 
 MODS_API_URL = "https://mods.factorio.com/api/mods"
