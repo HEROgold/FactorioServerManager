@@ -5,5 +5,5 @@ __pycache__
 *.db
 *.sqlite
 *.sqlite3
-/downloads*
-/servers*
+src/FSM/downloads*
+src/FSM/servers*
