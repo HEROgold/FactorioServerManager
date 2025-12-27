@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 
 class Route(TypedDict):
@@ -8,6 +8,7 @@ class Route(TypedDict):
 class ServerModEntry(TypedDict):
     name: str
     enabled: bool
+    version: NotRequired[str]
 
 
 class SteerSettings(TypedDict):

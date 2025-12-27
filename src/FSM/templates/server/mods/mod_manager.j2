@@ -1,0 +1,100 @@
+{% extends "base.j2" %}
+
+{% block title %}{{ server.name }} • Mods{% endblock %}
+
+{% block content %}
+<div class="container-inner">
+    <div class="mod-manager">
+        <div class="mod-hero">
+            <div>
+                <p class="mod-eyebrow">Mod Manager</p>
+                <h2>{{ server.name }} — Curate Your Loadout</h2>
+                <p>Search the Factorio mod portal, resolve compatible versions, and keep this server's mods in sync.</p>
+            </div>
+            <div class="mod-hero-actions">
+                <span class="mod-version-pill">Factorio {{ factorio_version or "unknown" }}</span>
+                <a class="button button-ghost" href="{{ url_for('server.index', name=server.name) }}">Back to server dashboard</a>
+            </div>
+        </div>
+        {% if token_missing %}
+        <div class="mod-warning">
+            <strong>Factorio login required.</strong> Sign in through the main dashboard before downloading new mods.
+        </div>
+        {% endif %}
+        <div class="mod-layout">
+            <section class="mod-column">
+                <header class="mod-column-header">
+                    <div>
+                        <p class="mod-eyebrow">Installed</p>
+                        <h3>Server Loadout</h3>
+                    </div>
+                    <div class="mod-column-tools">
+                        <div id="mods-installed-indicator" class="mod-indicator htmx-indicator">Updating loadout…</div>
+                    </div>
+                </header>
+                <div id="installed-mods" class="mod-installed-grid">
+                    {% include "server/mods/_installed_list.j2" %}
+                </div>
+            </section>
+            <section class="mod-column">
+                <header class="mod-column-header">
+                    <div>
+                        <p class="mod-eyebrow">Discover</p>
+                        <h3>Factorio Mod Portal</h3>
+                    </div>
+                    <div class="mod-column-tools">
+                        <div id="mod-search-indicator" class="mod-indicator htmx-indicator">Searching mods…</div>
+                    </div>
+                </header>
+                <form
+                    id="mod-search-form"
+                    class="mod-search-form"
+                    hx-get="{{ url_for('mods.search', name=server.name) }}"
+                    hx-target="#mod-search-results"
+                    hx-trigger="keyup changed delay:400ms, submit"
+                    hx-indicator="#mod-search-indicator"
+                >
+                    <input type="search" name="q" placeholder="Search by name, author, or tag" aria-label="Search mods">
+                    <button class="button" type="submit">Search</button>
+                </form>
+                <div id="mod-search-results" class="mod-search-results">
+                    {% set results = [] %}
+                    {% set pagination = {'page': 1, 'has_prev': False, 'has_next': False} %}
+                    {% set query = '' %}
+                    {% set error = None %}
+                    {% include "server/mods/_search_results.j2" %}
+                </div>
+                <div id="mod-detail-panel" class="mod-detail-panel">
+                    <div id="mod-detail-indicator" class="mod-indicator htmx-indicator">Loading details…</div>
+                    <div id="mod-detail-content">
+                        <div class="mod-detail-placeholder">
+                            <h4>Select a mod to preview releases</h4>
+                            <p>Run a search, then click any card to view available versions, dependencies, and install actions.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div id="mod-toast" class="mod-toast" hidden></div>
+    </div>
+</div>
+<script>
+(function () {
+    const toast = document.getElementById('mod-toast');
+    if (!toast) { return; }
+    document.body.addEventListener('mods-changed', function (event) {
+        const detail = event.detail || {};
+        const name = detail.name || 'Mod';
+        const action = detail.action || 'updated';
+        toast.textContent = name + ' ' + action;
+        toast.hidden = false;
+        toast.classList.add('show');
+        clearTimeout(toast._timeoutId);
+        toast._timeoutId = setTimeout(function () {
+            toast.classList.remove('show');
+            toast.hidden = true;
+        }, 3200);
+    });
+})();
+</script>
+{% endblock %}

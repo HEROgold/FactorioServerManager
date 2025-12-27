@@ -63,7 +63,7 @@ class User(Base, UserMixin):
 
     @property
     def factorio_token(self: Self) -> str | None:
-        return self._factorio_token
+        return getattr(self, "_factorio_token", None)
 
     @factorio_token.setter
     def factorio_token(self: Self, token: str) -> None:
@@ -88,6 +88,7 @@ class User(Base, UserMixin):
 
             if user := session.query(cls).where(cls.id == user_id).first():
                 logger.debug(f"Returning user {user_id=}")
+                session.expunge(user)
                 return user
             return None
 
@@ -105,12 +106,15 @@ class User(Base, UserMixin):
 
             if user := session.query(cls).where(cls.email == email).first():
                 logger.debug(f"Returning user {email=}")
+                session.expunge(user)
                 return user
 
             logger.debug(f"Creating user {email=}")
             user = cls(email=email)
             session.add(user)
             session.commit()
+            session.refresh(user)
+            session.expunge(user)
             return user
 
     @staticmethod

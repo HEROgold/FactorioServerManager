@@ -10,6 +10,9 @@
     <div class="medium-center">
         <div class="panel mb64 pb0 m0 flex-grow flex flex-column">
             <h2>{{ server.name }}</h2>
+            <div class="server-subnav">
+                <a class="button button-ghost" href="{{ url_for('mods.index', name=server.name) }}">Open Mod Manager</a>
+            </div>
             <a href="{{ url_for('server.delete', name=server.name) }}" onclick="event.preventDefault(); if(confirm('Are you sure?')) { window.location = this.href; }" class="button button-red">
                 Delete Server
             </a>

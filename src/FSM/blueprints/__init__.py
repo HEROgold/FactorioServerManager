@@ -3,12 +3,14 @@
 
 from .dashboard import bp as dashboard
 from .login import bp as login
+from .mods import bp as mods
 from .server import bp as server
 
 # fmt: off
 all_blueprints = [
     login,
     dashboard,
+    mods,
     server,
 ]
 

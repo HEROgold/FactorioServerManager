@@ -34,11 +34,10 @@ async def login() -> str | Response:
         user.fi = fi
 
         if resp := await user.fi.get_auth_token(request.form["email"], request.form["password"]):
-            try:
-                token = resp["token"]
-            except KeyError:
+            token = resp.get("token")
+            if not token:
                 return "Login failed"
-            if resp["email-authentication-required"] is not None:
+            if resp.get("email-authentication-required"):
                 return "Email authentication required"
             user.factorio_token = token
             login_user(user)
