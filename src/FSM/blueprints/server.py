@@ -92,12 +92,16 @@ async def update(name: str) -> Response:
     return redirect(url_for(".index", name=name))
 
 
-@bp.route(prefix+"/delete", methods=["GET"])
+@bp.route(prefix+"/delete", methods=["GET", "POST"])
 async def delete(name: str) -> Response:
     """Delete a server."""
     server = current_user.servers[name]
     with contextlib.suppress(docker.errors.NotFound):
         server.remove()
+    if request.headers.get("HX-Request") == "true":
+        response = Response(status=204)
+        response.headers["HX-Redirect"] = url_for("dashboard.index")
+        return response
     return redirect(url_for("dashboard.index"))
 
 
