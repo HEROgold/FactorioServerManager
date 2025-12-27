@@ -20,6 +20,7 @@ from werkzeug import Response
 from FSM._types.data import Server
 from FSM._types.forms import InstallForm, ManageServerForm, get_available_port
 from FSM._types.settings import ServerSettings
+from FSM.config import AppConfig
 from FSM.scripts import require_login, sanitize_str
 
 if TYPE_CHECKING:
@@ -32,6 +33,7 @@ bp.before_request(require_login)
 
 prefix = "/<string:name>"
 templates = "server"
+LOG_TAIL_BYTES = 200_000
 
 
 def get_live_status(name: str) -> str:
@@ -39,16 +41,39 @@ def get_live_status(name: str) -> str:
     return Server(name, current_user).status
 
 
+def _read_log_tail(log_path: Path, limit: int = LOG_TAIL_BYTES) -> str:
+    """Return the tail of a log file while keeping huge files manageable."""
+    if not log_path.exists():
+        return ""
+    data = log_path.read_text(encoding="utf-8", errors="replace")
+    if limit and len(data) > limit:
+        return data[-limit:]
+    return data
+
+
 @bp.route("/")
 @bp.route(prefix)
 async def index(name: str) -> str:
     """Manage a server page."""
-    # TODO: show server logs
     server = current_user.servers[name]
     settings = ServerSettings.read(server.custom_settings_file)
 
     form = ManageServerForm(**settings.__dict__)
     return render_template(templates+"/manage.j2", server=server, form=form)
+
+
+@bp.route(prefix+"/logs")
+async def logs(name: str) -> str:
+    """Render the log viewer for the selected server."""
+    server = current_user.servers[name]
+    current_log = _read_log_tail(server.current_log_file)
+    previous_log = _read_log_tail(server.previous_log_file)
+    return render_template(
+        templates+"/logs.j2",
+        server=server,
+        current_log=current_log,
+        previous_log=previous_log,
+    )
 
 
 @bp.route(prefix+"/install/", methods=["GET", "POST"])
@@ -146,7 +171,10 @@ def status(name: str) -> Response:
     return Response(stream_with_context(generate()), content_type="text/event-stream")
 
 
-@bp.route(prefix+"/rcon", methods=["POST", "GET"])
+@bp.route(prefix+"/rcon", methods=["GET"])
 async def rcon(name: str) -> Response:
-    """RCON page."""
-    return Response(status=200)
+    """Redirect directly to the server's exposed RCON endpoint."""
+    server = current_user.servers[name]
+    host = server.ip
+    port = AppConfig.RCON_PORT
+    return redirect(f"http://{host}:{port}")

@@ -1,57 +1,22 @@
 {% if installed_mods %}
-    {% for mod in installed_mods %}
-    <article class="mod-installed-card{% if not mod.has_archive %} mod-installed-missing{% endif %}">
-        <div class="mod-installed-header">
-            <div>
-                <p class="mod-installed-name">{{ mod.name }}</p>
-                <p class="mod-installed-version">{{ mod.version or '—' }}</p>
-            </div>
-            {% if not mod.is_core %}
-            <div class="mod-installed-actions">
-                <form
-                    hx-post="{{ url_for('mods.toggle_state', name=server.name) }}"
-                    hx-target="#installed-mods"
-                    hx-swap="innerHTML"
-                    hx-indicator="#mods-installed-indicator"
-                >
-                    <input type="hidden" name="mod_name" value="{{ mod.name }}">
-                    <input type="hidden" name="enabled" value="{{ 'false' if mod.enabled else 'true' }}">
-                    <button class="button button-ghost small" type="submit">
-                        {{ 'Disable' if mod.enabled else 'Enable' }}
-                    </button>
-                </form>
-                <button
-                    class="button button-red small"
-                    hx-delete="{{ url_for('mods.remove', name=server.name, mod_name=mod.name) }}"
-                    hx-target="#installed-mods"
-                    hx-swap="innerHTML"
-                    hx-indicator="#mods-installed-indicator"
-                    hx-confirm="Remove {{ mod.name }} from this server?"
-                >
-                    Remove
-                </button>
-            </div>
-            {% endif %}
-        </div>
-        <div class="mod-installed-meta">
-            <span class="mod-pill {{ 'active' if mod.enabled else 'inactive' }}">{{ 'Enabled' if mod.enabled else 'Disabled' }}</span>
-            {% if not mod.has_archive %}
-            <span class="mod-pill warning">Archive missing</span>
-            {% endif %}
-        </div>
-        {% if mod.archives %}
-        <div class="mod-installed-archives">
-            {% for archive in mod.archives[:3] %}
-            <span class="mod-chip">
-                {{ archive.version }} · {{ archive.size_label }}
-            </span>
-            {% endfor %}
-        </div>
-        {% endif %}
-    </article>
-    {% endfor %}
+<table class="table installed-mods-table">
+    <thead>
+        <tr>
+            <th scope="col">Mod</th>
+            <th scope="col">Version</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for mod in installed_mods %}
+        <tr>
+            <td>
+                <strong>{{ mod.name }}</strong>
+            </td>
+            <td>{{ mod.version or '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% else %}
-    <div class="mod-placeholder">
-        <p>No mods installed yet. Use the discovery panel to install your first mod.</p>
-    </div>
+<p class="mb0">No mods installed for this server.</p>
 {% endif %}

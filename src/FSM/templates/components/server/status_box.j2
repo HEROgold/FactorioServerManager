@@ -1,7 +1,11 @@
 <div class="panel-inset-lighter mb12">
     <div style="display: flex; align-items: center;">
         <h3 style="margin-right: 10px;">Status</h3>
-        <a style="height: 50%; margin-left: auto;" href="#"
+        <a class="button button-ghost" style="margin-left: auto;"
+            href="{{ url_for('server.logs', name=server.name) }}">Logs</a>
+        <a class="button button-ghost" style="margin-left: 8px;"
+            href="{{ url_for('server.rcon', name=server.name) }}" target="_blank" rel="noreferrer">RCON</a>
+        <a style="height: 50%; margin-left: 8px;" href="#"
             onclick="copyToClipboard('{{ server.ip }}:{{ server.port }}')" class="button">Copy
             {{server.ip}}:{{server.port}}</a>
     </div>
