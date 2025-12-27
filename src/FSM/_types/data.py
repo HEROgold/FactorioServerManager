@@ -14,7 +14,7 @@ from docker.errors import DockerException, NotFound
 
 from FSM._types.enums import DockerStates
 from FSM._types.settings import MapGenerationSettings, MapSettings, ServerSettings
-from FSM.config import DOCKER_CONTAINER_PREFIX, PUBLIC_IP, SERVERS_DIRECTORY
+from FSM.config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY, AppConfig
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -47,7 +47,7 @@ class Server:
     @property
     def ip(self: Self) -> str:
         if not self._ip:
-            self._ip = PUBLIC_IP or "localhost"
+            self._ip = AppConfig.PUBLIC_IP or "localhost"
         return self._ip
 
     @property
@@ -128,7 +128,7 @@ class Server:
 
     def write_mod_list(self: Self, mods: list[ServerModEntry]) -> None:
         self.ensure_mods_workspace()
-        normalized: list[ServerModEntry] = [dict(mod) for mod in mods]
+        normalized: list[ServerModEntry] = list(mods)
         if not any(mod.get("name") == "base" for mod in normalized):
             normalized.insert(0, {"name": "base", "enabled": True})
         with self.mods_list.open("w") as f:
@@ -303,7 +303,7 @@ class Server:
 
     def _version_from_container(self: Self) -> str | None:
         with contextlib.suppress(Exception):
-            image_tags = self.container.image.tags
+            image_tags = self.container.image.tags # pyright: ignore[reportOptionalMemberAccess]
             if image_tags:
                 tag = image_tags[0]
                 if ":" in tag:

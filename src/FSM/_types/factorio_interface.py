@@ -9,14 +9,9 @@ from FSM.config import (
     LOGIN_API,
     LOGIN_URL,
     MODS_API_URL,
-    REQUIRE_GAME_OWNERSHIP,
-    Config,
+    AppConfig,
+    HTTPConfig,
 )
-
-
-class HTTPConfig:
-    timeout = Config(5)
-
 
 MOD_PORTAL_BASE = "https://mods.factorio.com"
 
@@ -24,7 +19,7 @@ class FactorioInterface:
     aio_http_session: aiohttp.ClientSession
 
     def __init__(self) -> None:
-        self.aio_http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
+        self.aio_http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=HTTPConfig.timeout))
 
     async def _get_csrf_details(self: Self) -> str | None:
         """Get the csrf token from the login page.
@@ -87,7 +82,7 @@ class FactorioInterface:
             "username": username_or_email,
             "password": password,
             "api_version": API_VERSION,
-            "require_game_ownership": REQUIRE_GAME_OWNERSHIP,
+            "require_game_ownership": AppConfig.REQUIRE_GAME_OWNERSHIP,
             "email_authentication_code": email_authentication_code,
         }
         async with self.aio_http_session.post(LOGIN_API, data=data) as resp:

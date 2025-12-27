@@ -7,18 +7,27 @@ from pathlib import Path
 
 from confkit import Config
 
-# Users may edit these
-REQUIRE_GAME_OWNERSHIP = False
-PUBLIC_IP = "x.x.x.x" # The IP Address where servers are reachable from.
-
-
-# Do not edit
 CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
 TOML_FILE = PROJECT_DIR / "pyproject.toml"
 
 Config.set_parser(ConfigParser())
 Config.set_file(PROJECT_DIR/"config.ini")
+
+# Users may edit these Config(x) values in config.ini to customize their setup.
+class AppConfig:
+    """Application configuration settings."""
+
+    REQUIRE_GAME_OWNERSHIP = Config(default=False)
+    PUBLIC_IP = Config("x.x.x.x") # The IP Address where servers are reachable from.
+    RCON_PORT = Config(default=27015)
+
+
+class HTTPConfig:
+    """HTTP configuration settings."""
+
+    timeout = Config(5)
+
 
 DOCKER_CONTAINER_PREFIX = "factorio-headless"
 
