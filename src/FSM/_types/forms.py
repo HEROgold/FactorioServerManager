@@ -41,7 +41,7 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Login")
 
 class InstallForm(FlaskForm):
-    name = StringField("Server Name", validators=[DataRequired()])
+    name = StringField("Server Name", validators=[DataRequired()], default="Factorio Server")
     port = IntegerField("UDP Port", validators=[DataRequired()], default=34197)
     version = SelectField("Version", validators=[DataRequired()], choices=[(i, i) for i in get_all_download_versions()])
     submit = SubmitField("Install")
