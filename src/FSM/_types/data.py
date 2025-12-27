@@ -9,7 +9,7 @@ from threading import Thread
 from typing import TYPE_CHECKING, Self
 
 import docker
-from docker.errors import NotFound
+from docker.errors import DockerException, NotFound
 
 from FSM._types.enums import DockerStates
 from FSM._types.settings import MapGenerationSettings, MapSettings, ServerSettings
@@ -24,7 +24,11 @@ if TYPE_CHECKING:
     from FSM._types.dicts import ServerModEntry
 
 
-docker_client = docker.from_env()
+try:
+    docker_client = docker.from_env()
+except DockerException as exc:
+    msg = "Docker daemon unavailable. Start Docker Desktop and rerun the Factorio Server Manager."
+    raise RuntimeError(msg) from exc
 
 
 @dataclass
