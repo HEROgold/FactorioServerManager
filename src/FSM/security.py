@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from cryptography.fernet import Fernet
 
 from FSM.config import PROJECT_DIRECTORY
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 TOKEN_KEY_ENV: Final[str] = "FSM_TOKEN_KEY"
 TOKEN_KEY_FILE: Final[Path] = PROJECT_DIRECTORY / ".factorio_token.key"

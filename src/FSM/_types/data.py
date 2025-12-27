@@ -194,7 +194,7 @@ class Server:
     @staticmethod
     def _version_key(version: str) -> tuple[int, ...]:
         parts: list[int] = []
-        for part in version.split('.'):
+        for part in version.split("."):
             if part.isdigit():
                 parts.append(int(part))
             else:
@@ -223,10 +223,10 @@ class Server:
             )
         return described
 
-    def get_installed_mods(self: Self) -> Generator[ServerModEntry, None, None]:
+    def get_installed_mods(self: Self) -> Generator[ServerModEntry]:
         yield from self.read_mod_list()
 
-    def get_active_mods(self: Self) -> Generator[str, None, None]:
+    def get_active_mods(self: Self) -> Generator[str]:
         for mod in self.get_installed_mods():
             if mod["enabled"]:
                 yield mod["name"]

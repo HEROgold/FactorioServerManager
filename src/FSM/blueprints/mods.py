@@ -18,14 +18,14 @@ if TYPE_CHECKING:
     from FSM._types.data import Server
     from FSM._types.database import User
 
-    current_user: "User"
+    current_user: User
 
 
 bp = Blueprint("mods", __name__, url_prefix="/server/<string:name>/mods")
 bp.before_request(require_login)
 
 
-def _get_server_or_404(name: str) -> "Server":
+def _get_server_or_404(name: str) -> Server:
     try:
         return current_user.servers[name]
     except KeyError as e:
@@ -76,7 +76,7 @@ def _prepare_release(release: dict[str, Any], *, is_recommended: bool) -> dict[s
     }
 
 
-def _install_response(server: "Server", trigger: dict[str, Any]) -> Response:
+def _install_response(server: Server, trigger: dict[str, Any]) -> Response:
     html = render_template(
         "server/mods/_installed_list.j2",
         server=server,
