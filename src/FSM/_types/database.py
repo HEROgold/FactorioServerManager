@@ -6,11 +6,15 @@ import random
 from logging.handlers import RotatingFileHandler
 from typing import Self
 
+from cryptography.fernet import InvalidToken
 from flask_login import UserMixin  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy import (
     Integer,
+    LargeBinary,
     String,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -22,6 +26,7 @@ from sqlalchemy.orm import (
 from FSM._types import FactorioInterface
 from FSM._types.data import Server
 from FSM.config import DATABASE_PATH, SERVERS_DIRECTORY
+from FSM.security import decrypt_factorio_token, encrypt_factorio_token
 
 logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
 handler = RotatingFileHandler(filename="sqlalchemy.log", backupCount=7, encoding="utf-8")
@@ -50,6 +55,11 @@ class User(Base, UserMixin):
     password: Mapped[str] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=True)
     _display_name: Mapped[str] = mapped_column(String, nullable=True, unique=False)
+    factorio_token_encrypted: Mapped[bytes | None] = mapped_column(
+        "factorio_token",
+        LargeBinary,
+        nullable=True,
+    )
 
     @property
     def fi(self: Self) -> FactorioInterface:
@@ -63,11 +73,25 @@ class User(Base, UserMixin):
 
     @property
     def factorio_token(self: Self) -> str | None:
-        return getattr(self, "_factorio_token", None)
+        encrypted = self.factorio_token_encrypted
+        if not encrypted:
+            return None
+        try:
+            return decrypt_factorio_token(encrypted)
+        except InvalidToken:  # pragma: no cover - indicates on-disk corruption
+            logger.warning(
+                "Unable to decrypt Factorio token for user %s; clearing stored value.",
+                self.email,
+            )
+            self.factorio_token_encrypted = None
+            return None
 
     @factorio_token.setter
-    def factorio_token(self: Self, token: str) -> None:
-        self._factorio_token = token
+    def factorio_token(self: Self, token: str | None) -> None:
+        if not token:
+            self.factorio_token_encrypted = None
+            return
+        self.factorio_token_encrypted = encrypt_factorio_token(token)
 
 
     @property
@@ -165,6 +189,19 @@ class User(Base, UserMixin):
                 self._servers[server.name] = Server(server.name, self)
         return self._servers
 
+    def persist_factorio_token(self: Self, token: str) -> None:
+        """Persist the encrypted Factorio token for this user."""
+        self.factorio_token = token
+        with Session(engine) as session:
+            db_user = session.get(User, self.id)
+            if db_user is None:
+                msg = f"Unable to locate user {self.id} while saving token"
+                raise ValueError(msg)
+            db_user.factorio_token = token
+            session.commit()
+            session.refresh(db_user)
+            self.factorio_token_encrypted = db_user.factorio_token_encrypted
+
 
     def add_server(self: Self, server: Server) -> None:
         if server.name in self.servers:
@@ -178,7 +215,16 @@ class User(Base, UserMixin):
             raise ValueError(msg)
         self._servers[server.name].remove()
 
+def _ensure_user_schema() -> None:
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns(User.__tablename__)}
+    if "factorio_token" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN factorio_token BLOB"))
+
+
 Base().metadata.create_all(engine)
+_ensure_user_schema()
 
 
 def main() -> None:

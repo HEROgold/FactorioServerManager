@@ -39,7 +39,7 @@ async def login() -> str | Response:
                 return "Login failed"
             if resp.get("email-authentication-required"):
                 return "Email authentication required"
-            user.factorio_token = token
+            user.persist_factorio_token(token)
             login_user(user)
             return redirect(_next)
         return "Login failed"

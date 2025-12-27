@@ -70,7 +70,7 @@ class FactorioInterface:
         username_or_email: str,
         password: str,
         email_authentication_code: str | None = None,
-    ) -> dict:
+    ) -> dict[str, str]:
         """Log in the user with the given username and password, and optionally an email code.
 
         Parameters
