@@ -1,0 +1,70 @@
+{% if error %}
+<div class="mod-alert">{{ error }}</div>
+{% elif not query %}
+<div class="mod-placeholder">
+    <p>Type at least one character to start exploring mods.</p>
+</div>
+{% elif not results %}
+<div class="mod-placeholder">
+    <p>No mods matched “{{ query }}”. Try a different keyword.</p>
+</div>
+{% else %}
+<div class="mod-search-grid">
+    {% for mod in results %}
+    <article
+        class="mod-card"
+        hx-get="{{ url_for('mods.detail', name=server.name, mod_name=mod.name) }}"
+        hx-target="#mod-detail-content"
+        hx-swap="innerHTML"
+        hx-indicator="#mod-detail-indicator"
+    >
+        {% if mod.thumbnail %}
+        <div class="mod-card-thumb" role="presentation" style="background-image: url('{{ mod.thumbnail }}');"></div>
+        {% else %}
+        <div class="mod-card-thumb mod-card-thumb-empty" role="presentation"></div>
+        {% endif %}
+        <div class="mod-card-body">
+            <h4>{{ mod.title }}</h4>
+            <p>{{ mod.summary or 'No summary provided yet.' }}</p>
+            <div class="mod-card-meta">
+                <span>{{ mod.owner or 'Unknown creator' }}</span>
+                {% if mod.latest_release.version %}
+                <span>v{{ mod.latest_release.version }}</span>
+                {% endif %}
+                {% if mod.compatibility %}
+                <span>Factorio {{ mod.compatibility }}</span>
+                {% endif %}
+                <span>{{ '{:,}'.format(mod.downloads) }} downloads</span>
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% if pagination.has_prev or pagination.has_next %}
+<div class="mod-pagination">
+    {% if pagination.has_prev %}
+    <button
+        class="button button-ghost"
+        hx-get="{{ url_for('mods.search', name=server.name) }}?q={{ query|urlencode }}&page={{ pagination.page - 1 }}"
+        hx-target="#mod-search-results"
+        hx-swap="innerHTML"
+        hx-indicator="#mod-search-indicator"
+    >
+        Previous
+    </button>
+    {% endif %}
+    <span>Page {{ pagination.page }}</span>
+    {% if pagination.has_next %}
+    <button
+        class="button button-ghost"
+        hx-get="{{ url_for('mods.search', name=server.name) }}?q={{ query|urlencode }}&page={{ pagination.page + 1 }}"
+        hx-target="#mod-search-results"
+        hx-swap="innerHTML"
+        hx-indicator="#mod-search-indicator"
+    >
+        Next
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}

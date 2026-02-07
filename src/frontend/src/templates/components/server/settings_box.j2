@@ -1,0 +1,16 @@
+<div class="panel-inset-lighter mb12">
+  <form method="post" action="{{ url_for('server.update', name=server_name) }}">
+    <h3>Settings (WIP), not functional yet!</h3>
+    {{ form.hidden_tag() }}
+    <table style="width: 100%;">
+      <tbody>
+        {% for field in form if field.widget.input_type != "hidden" %}
+        <tr>
+          <td style="padding: 1%;"><strong>{{ field.label }}</strong></td>
+          <td style="padding: 1%; width: 90%;">{{ field }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+</div>

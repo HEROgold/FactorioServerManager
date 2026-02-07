@@ -1,0 +1,15 @@
+{% extends "base.j2" %}
+
+{% block title %}404{% endblock %}
+
+{% block content %}
+<div class="container-inner">
+    <div class="panel">
+        <h1>404</h1>
+        <p>Page not found.</p>
+        <div class="panel-inset-lighter">
+            <p>{{ error.args }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

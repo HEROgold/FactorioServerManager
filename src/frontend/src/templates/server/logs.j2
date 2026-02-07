@@ -1,0 +1,39 @@
+{% extends "base.j2" %}
+
+{% block title %}{{ server.name }} Logs{% endblock %}
+
+{% block content %}
+<div class="container-inner">
+  <div class="panel mb64 flex flex-column">
+    <div class="flex" style="align-items: center; gap: 16px; flex-wrap: wrap;">
+      <div class="flex flex-column" style="gap: 4px;">
+        <h2 class="mb0">{{ server.name }} Logs</h2>
+        <p class="mt0 mb0">Inspect the most recent Factorio server output.</p>
+      </div>
+      <div class="server-subnav" style="margin-left: auto;">
+        <a class="button button-ghost" href="{{ url_for('server.index', name=server.name) }}">Back to Server</a>
+      </div>
+    </div>
+    <div class="panel-inset-lighter mt24" style="padding: 24px;">
+      <div class="log-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+        <section>
+          <h3 class="mt0">Current Session</h3>
+          {% if current_log %}
+          <pre class="log-window" style="background: #111; color: #d7d7d7; padding: 16px; border-radius: 6px; max-height: 540px; overflow: auto; font-size: 0.85rem;">{{ current_log }}</pre>
+          {% else %}
+          <p class="mb0">No log data available for the current session.</p>
+          {% endif %}
+        </section>
+        <section>
+          <h3 class="mt0">Previous Session</h3>
+          {% if previous_log %}
+          <pre class="log-window" style="background: #111; color: #d7d7d7; padding: 16px; border-radius: 6px; max-height: 540px; overflow: auto; font-size: 0.85rem;">{{ previous_log }}</pre>
+          {% else %}
+          <p class="mb0">No stored logs from the previous session.</p>
+          {% endif %}
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
