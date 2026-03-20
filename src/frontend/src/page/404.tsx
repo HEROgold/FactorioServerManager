@@ -1,4 +1,4 @@
-import Container from "@/templates/Container";
+import Container from "@/components/Container";
 import Panel from "@/templates/Panel";
 
 interface Props {

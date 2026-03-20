@@ -14,9 +14,9 @@ interface Props {
  */
 function LoggedInView({user}: Props) {
   return <>
-    <a href="{{url_for('dashboard.index')}}">{ user.display_name }</a>
+    <a href="/servers">{ user.display_name }</a>
     <Separator color={"#7dcaed"} />
-    <a href="{{url_for('login.logout')}}">Log out</a>
+    <a href="/logout">Log out</a>
   </>
 }
 
@@ -24,7 +24,7 @@ function LoggedInView({user}: Props) {
  * View for when a user still has to log in
  */
 function HasToLogInView() {
-  return <a href="{{url_for('login.login')}}">Log in</a>
+  return <a href="/login">Log in</a>
 }
 
 export default function Navbar({user}: Props) {
@@ -35,7 +35,7 @@ export default function Navbar({user}: Props) {
       <div className="top-bar-inner">
         <div className="sites links flex-items-baseline">
           <ul>
-            <li><a href="{{ url_for('dashboard.index')}}">Dashboard</a></li>
+            <li><a href="/servers">Dashboard</a></li>
           </ul>
         </div>
         <div className="user-controls links flex flex-items-baseline flex-end">

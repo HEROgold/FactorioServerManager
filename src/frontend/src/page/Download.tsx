@@ -1,6 +1,7 @@
 import { DownloadForm } from "@/forms/Download";
-import NoScript from "./noscript";
-import Panel from "./Panel";
+import NoScript from "../components/NoScript";
+import Panel from "../templates/Panel";
+import Layout from "../templates/Layout";
 
 function Test() {
   return <>
@@ -19,19 +20,19 @@ export default function Download() {
 
   return <>
     <title>Dashboard</title>
-    <NoScript />
-    <div className="container-inner">
-      <div id="flashed-messages" className="small-center"></div>
-      <div className="medium-center">
-        <div className="panel mb64 pb0">
-          {categories.map(
-            (category) => (
-              <Test />
-            )
-          )}
+    <Layout>
+      <div className="container-inner">
+        <div id="flashed-messages" className="small-center"></div>
+        <div className="medium-center">
+          <div className="panel mb64 pb0">
+            {categories.map(
+              (category) => (
+                <Test />
+              )
+            )}
+          </div>
         </div>
-      </div>
-    </div >
-
+      </div >
+    </Layout>
   </>
 }

@@ -1,8 +1,10 @@
-import { LoginForm } from "@/forms/login"
+import { LoginForm } from "@/forms/Login"
+import Layout from "../templates/Layout"
 
 
 export default function Login() {
   return <>
+  <Layout>
     <title>Login</title>
 
     <div className="container-inner">
@@ -12,6 +14,6 @@ export default function Login() {
           <LoginForm />
       </div>
     </div>
-
+  </Layout>
   </>
 }

@@ -8,13 +8,11 @@ import {
 import CSRF from "./CSRF";
 import { SubmitButton } from "./SubmitButton";
 import Panel from "@/templates/Panel";
-import type { Children } from "@/interfaces/children";
 
 export interface LoginData {
   email: string;
   password: string;
   email_auth_code?: string;
-  next?: string;
 }
 
 interface InputProps {
@@ -53,14 +51,9 @@ function EmailInput() {
   return <GenericInput type="email" required={true} />;
 }
 
-function DescriptionList({children}: Children) {
-  return <dl>{children}</dl>
-}
-
-export function LoginForm() {
+export function LoginForm(data: LoginData) {
   const [searchParams] = useSearchParams();
   const actionData = useActionData() as { error?: string } | undefined;
-  const navigation = useNavigation();
 
   const next = searchParams.get("next") || "";
 
@@ -76,7 +69,7 @@ export function LoginForm() {
               <label htmlFor="email">Email</label>
             </dt>
             <dd style={{ width: "90%" }}>
-              <EmailInput />
+              <EmailInput />{data.email}
             </dd>
           </div>
 
@@ -85,7 +78,7 @@ export function LoginForm() {
               <label htmlFor="password">Password</label>
             </dt>
             <dd style={{ width: "90%" }}>
-              <PasswordInput />
+              <PasswordInput />{data.password}
             </dd>
           </div>
 
@@ -94,7 +87,7 @@ export function LoginForm() {
               <label htmlFor="email_auth_code">Email Auth Code</label>
             </dt>
             <dd style={{ width: "200%" }}>
-              <EmailAuthCodeInput />
+              <EmailAuthCodeInput />{data.email_auth_code}
             </dd>
           </div>
         </dl>
@@ -102,7 +95,7 @@ export function LoginForm() {
 
       {actionData?.error && <p style={{ color: "red" }}>{actionData.error}</p>}
 
-      <SubmitButton isSubmitting={navigation.state === "submitting"} />
+      <SubmitButton/>
     </Form>
   );
 }

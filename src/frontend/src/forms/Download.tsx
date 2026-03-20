@@ -1,10 +1,8 @@
 import { Form, useNavigation } from "react-router-dom"
 import CSRF from "./CSRF"
 import { SubmitButton } from "./SubmitButton"
+import type { Build, Distro, Version } from "@/types/GameVersion"
 
-type Build = ""
-type Distro = ""
-type Version = ""
 
 interface DownloadData {
   build: Build
@@ -25,7 +23,7 @@ export function DownloadForm(data: DownloadData) {
       <input type="text" name="build">{data.build}</input>
       <input type="text" name="distro">{data.distro}</input>
       <input type="text" name="version">{data.version}</input>
-      <SubmitButton isSubmitting={navigation.state === "submitting"} />
+      <SubmitButton/>
     </Form>
   </>
 }

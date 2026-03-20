@@ -27,7 +27,7 @@
     {% if releases %}
     <form
         class="mod-install-form"
-        hx-post="{{ url_for('mods.install', name=server.name) }}"
+        hx-post={`/servers/${name}/mods/install/${mod_id}`}
         hx-target="#installed-mods"
         hx-swap="innerHTML"
         hx-indicator="#mods-installed-indicator"

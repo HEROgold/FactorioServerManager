@@ -1,5 +1,4 @@
 import type { Children } from "@/interfaces/children";
-import type { ReactNode } from "react";
 
 type PanelType = "inset-lighter"
 

@@ -1,9 +1,11 @@
-import Header from "@/templates/header";
-import Footer from "@/templates/footer";
-import Navbar, { type User } from "@/templates/navbar";
+import Container from "@/components/Container";
+import Footer from "@/components/Footer";
+import { Head } from "@/components/Head";
+import Header from "@/components/header";
+import type { User } from "@/components/Navbar";
+import Navbar from "@/components/Navbar";
+import NoScript from "@/components/NoScript";
 import type { ReactNode } from "react";
-import { Head } from "./Head";
-import Container from "@/templates/Container";
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,6 +23,7 @@ export default function Layout({ children }: LayoutProps) {
     <html lang="en">
       <Head />
       <body>
+      <NoScript />
         <div className="content">
           <Navbar user={user}/>
           <Header />

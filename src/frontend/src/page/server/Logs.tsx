@@ -11,7 +11,7 @@
         <p class="mt0 mb0">Inspect the most recent Factorio server output.</p>
       </div>
       <div class="server-subnav" style="margin-left: auto;">
-        <a class="button button-ghost" href="{{ url_for('server.index', name=server.name) }}">Back to Server</a>
+        <a class="button button-ghost" href={`/servers/${name}`}>Back to Server</a>
       </div>
     </div>
     <div class="panel-inset-lighter mt24" style="padding: 24px;">

@@ -12,7 +12,7 @@
           <h2 class="mt0 mb0">{{ server.name }} Loadout</h2>
           <p class="mt0">Review the mods currently packaged with this server.</p>
         </div>
-        <a class="button button-ghost" style="margin-left: auto;" href="{{ url_for('server.index', name=server.name) }}">Back to Server</a>
+        <a class="button button-ghost" style="margin-left: auto;" href={`/servers/${name}`}>Back to Server</a>
       </div>
       <div class="panel-inset-lighter mt24" style="padding: 24px;">
         <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">

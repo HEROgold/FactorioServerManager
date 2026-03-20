@@ -13,7 +13,7 @@
     {% for mod in results %}
     <article
         class="mod-card"
-        hx-get="{{ url_for('mods.detail', name=server.name, mod_name=mod.name) }}"
+        hx-get={`/servers/${name}/mods/${modName}`}
         hx-target="#mod-detail-content"
         hx-swap="innerHTML"
         hx-indicator="#mod-detail-indicator"

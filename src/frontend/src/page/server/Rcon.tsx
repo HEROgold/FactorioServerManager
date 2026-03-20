@@ -11,8 +11,8 @@
         <p class="mt0 mb0">Use these credentials to connect with any RCON client.</p>
       </div>
       <div class="server-subnav" style="margin-left: auto; display: flex; gap: 12px;">
-        <a class="button button-ghost" href="{{ url_for('server.index', name=server.name) }}">Back to Server</a>
-        <a class="button button-ghost" href="{{ url_for('server.logs', name=server.name) }}">View Logs</a>
+        <a class="button button-ghost" href={`/servers/${name}`}>Back to Server</a>
+        <a class="button button-ghost" href={`/servers/${name}/logs`}">View Logs</a>
       </div>
     </div>
     <div class="panel-inset-lighter mt24" style="padding: 24px; display: grid; gap: 32px;">
@@ -51,6 +51,5 @@
       </section>
     </div>
   </div>
-</div>
-<script src="{{ url_for('static', filename='js/clipboard.js') }}"></script>
+</div
 {% endblock %}
