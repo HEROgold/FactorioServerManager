@@ -9,15 +9,15 @@
     "start": "NODE_ENV=production bun src/index.ts"
   },
   "dependencies": {
-    "react": "^19",
-    "react-dom": "^19",
-    "react-router-dom": "^7.13.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.2",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "daisyui": "^5.5.19"
   }
 }

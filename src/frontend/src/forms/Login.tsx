@@ -1,13 +1,12 @@
 import type { HTMLInputTypeAttribute, ReactElement } from "react";
 import {
-  Form,
   useSearchParams,
   useActionData,
-  useNavigation,
 } from "react-router-dom";
 import CSRF from "./CSRF";
 import { SubmitButton } from "./SubmitButton";
 import Panel from "@/templates/Panel";
+import Input from "@/components/tags/Input";
 
 export interface LoginData {
   email: string;
@@ -23,7 +22,7 @@ interface InputProps {
 
 function GenericInput(props: InputProps) {
   return (
-    <input
+    <Input
       id={props.type}
       name={props.type}
       type={props.type}
@@ -51,14 +50,14 @@ function EmailInput() {
   return <GenericInput type="email" required={true} />;
 }
 
-export function LoginForm(data: LoginData) {
+export function LoginForm(): ReactElement {
   const [searchParams] = useSearchParams();
   const actionData = useActionData() as { error?: string } | undefined;
 
   const next = searchParams.get("next") || "";
 
   return (
-    <Form method="post">
+    <form method="post">
       <CSRF />
       <input type="hidden" name="next" value={next} />
 
@@ -69,7 +68,7 @@ export function LoginForm(data: LoginData) {
               <label htmlFor="email">Email</label>
             </dt>
             <dd style={{ width: "90%" }}>
-              <EmailInput />{data.email}
+              <EmailInput />
             </dd>
           </div>
 
@@ -78,7 +77,7 @@ export function LoginForm(data: LoginData) {
               <label htmlFor="password">Password</label>
             </dt>
             <dd style={{ width: "90%" }}>
-              <PasswordInput />{data.password}
+              <PasswordInput />
             </dd>
           </div>
 
@@ -87,7 +86,7 @@ export function LoginForm(data: LoginData) {
               <label htmlFor="email_auth_code">Email Auth Code</label>
             </dt>
             <dd style={{ width: "200%" }}>
-              <EmailAuthCodeInput />{data.email_auth_code}
+              <EmailAuthCodeInput />
             </dd>
           </div>
         </dl>
@@ -95,7 +94,7 @@ export function LoginForm(data: LoginData) {
 
       {actionData?.error && <p style={{ color: "red" }}>{actionData.error}</p>}
 
-      <SubmitButton/>
-    </Form>
+      <SubmitButton idle="Log in" busy="Logging in..." />
+    </form>
   );
 }

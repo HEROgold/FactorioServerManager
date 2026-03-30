@@ -48,7 +48,7 @@ export default function Manage() {
 
   return <>
     <title>{name}</title>
-    <Layout>
+    <Layout title="Manage Server">
       <div className="container-inner">
         <div id="flashed-messages" className="small-center"></div>
         <div className="medium-center">

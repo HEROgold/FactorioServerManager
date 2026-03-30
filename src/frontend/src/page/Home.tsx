@@ -1,10 +1,14 @@
-import Layout from "../templates/Layout";
+import { useUser } from "@/contexts/UserContext";
+import { useNavigate, useNavigation } from "react-router-dom";
 
-export const HomePage = () => {
-  return (
-    <Layout title="Home - Factorio Style">
-      <h1>Welkom op de pagina</h1>
-      <button hx-get="/api/data">Htmx actie</button>
-    </Layout>
-  );
+export default function HomePage() {
+  const user = useUser();
+  const navigate = useNavigate();
+
+  if (!user) {
+    navigate("/login")
+  } else {
+    navigate("/servers")
+  }
+  return <></>
 };

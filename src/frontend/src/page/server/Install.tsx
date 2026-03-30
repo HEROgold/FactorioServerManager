@@ -5,7 +5,7 @@ import InstallForm from "@/forms/Install"
 
 export default function Install() {
   return <>
-    <Layout>
+    <Layout title="Install Server">
       <div className="container-inner">
         <div id="flashed-messages" className="small-center"></div>
         <NoScript />

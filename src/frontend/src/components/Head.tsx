@@ -2,10 +2,17 @@ interface Props {
   title?: string;
 }
 
+
+export function useTitle(): [string, (title: string) => void] {
+    return [document.title, (title: string) => { document.title = title }];
+}
+
 export function Head({ title = "Factorio Server Manager" }: Props) {
+  const [_, setTitle] = useTitle()
+  setTitle(title)
+
   return (
-    <head>
-      <title>{title}</title>
+    <>
       <meta charSet="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <script
@@ -14,6 +21,6 @@ export function Head({ title = "Factorio Server Manager" }: Props) {
         crossOrigin="anonymous"
       ></script>
       <link rel="stylesheet" href="/static/css/main.css" />
-    </head>
+    </>
   );
 }

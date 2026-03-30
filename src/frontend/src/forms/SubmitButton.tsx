@@ -1,9 +1,8 @@
-import { useNavigation } from "react-router-dom";
+import { useState } from "react";
 
 
-export function SubmitButton() {
-  const navigation = useNavigation()
-  const isSubmitting = navigation.state === "submitting"
+export function SubmitButton({ busy, idle }: { busy: string; idle: string }) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   return <>
   <div className="text-right">
@@ -11,8 +10,9 @@ export function SubmitButton() {
       type="submit"
       className="button-green-right"
       disabled={isSubmitting}
+      onClick={() => setIsSubmitting(true)}
     >
-      {isSubmitting ? "Logging in..." : "Log in"}
+      {isSubmitting ? busy : idle}
     </button>
   </div>
   </>;

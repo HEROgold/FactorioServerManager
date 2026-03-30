@@ -1,5 +1,4 @@
 
-import { Form, useNavigation } from "react-router-dom"
 import CSRF from "./CSRF"
 import { SubmitButton } from "./SubmitButton"
 
@@ -47,7 +46,7 @@ interface ManageServerForm {
  */
 export default function ManageServerForm({ data }: { data: ManageServerForm }) {
   return (
-    <Form method="post" action="settings/update" className="space-y-6">
+    <form method="post" action="settings/update" className="space-y-6">
       <CSRF />
 
       {/* Network & Identity */}
@@ -117,7 +116,7 @@ export default function ManageServerForm({ data }: { data: ManageServerForm }) {
         </label>
       </fieldset>
 
-      <SubmitButton />
-    </Form>
+      <SubmitButton busy="Saving..." idle="Save Changes" />
+    </form>
   );
 }

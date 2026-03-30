@@ -1,7 +1,8 @@
 import type { Version } from "@/types/GameVersion"
-import { Form, useNavigation, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import CSRF from "./CSRF"
 import { SubmitButton } from "./SubmitButton"
+import Input from "@/components/tags/Input"
 
 interface InstallData {
   name: string
@@ -13,12 +14,12 @@ export default function InstallForm({ version = "latest", port = 1234 }: Install
   const { name } = useParams()
 
   return <>
-    <Form method="post" action={`/servers/${name}/install`}>
+    <form method="post" action={`/servers/${name}/install`}>
       <CSRF />
-      <input type="text" name="name">{name}</input>
-      <input type="text" name="version">{version}</input>
-      <input type="text" name="port">{port}</input>
-      <SubmitButton/>
-    </Form>
+      <Input type="text" name="name" placeholder={name} />
+      <Input type="text" name="version" placeholder={version} />
+      <Input type="number" name="port" placeholder={`${port}`} />
+      <SubmitButton busy="Installing..." idle="Install" />
+    </form>
   </>
 }

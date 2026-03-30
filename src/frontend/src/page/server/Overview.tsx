@@ -15,7 +15,7 @@ export default function Overview() {
 
   return <>
     <title>Dashboard</title>
-    <Layout>
+    <Layout title="Dashboard">
       <div className="container-inner">
         <div id="flashed-messages" className="small-center"></div>
         <div className="medium-center">

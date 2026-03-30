@@ -1,0 +1,36 @@
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
+
+WORKDIR /app
+
+# Install system build deps required by some Python packages
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential gcc libffi-dev libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy pyproject and source first for layered build
+COPY pyproject.toml ./
+COPY src ./src
+
+# Copy the uv runtime from the official astral/uv image so we don't need to
+# install it via pip. This provides `/uv`, `/uvx`, and `uv` in `/bin/`.
+COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+
+# Use uv to sync dependencies declared in pyproject.toml into the uv venv,
+# then install the project into that venv.
+RUN uv sync || true
+RUN uv run pip install --no-cache-dir -e .
+
+# Copy remaining project files
+COPY . .
+
+EXPOSE 5000
+
+# Use `uv` from astral.sh to run the app. This runs the provided command
+# within the uv runtime. We invoke the module runner so any module-level
+# args in the package behave the same as `python -m FSM`.
+CMD ["uv", "run", "python", "-m", "FSM"]
