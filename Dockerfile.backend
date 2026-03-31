@@ -20,17 +20,17 @@ COPY src ./src
 # install it via pip. This provides `/uv`, `/uvx`, and `uv` in `/bin/`.
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
+# Copy project files
+COPY . .
+
 # Use uv to sync dependencies declared in pyproject.toml into the uv venv,
 # then install the project into that venv.
 RUN uv sync || true
 RUN uv run pip install --no-cache-dir -e .
 
-# Copy remaining project files
-COPY . .
 
-EXPOSE 5000
+EXPOSE 8000
 
-# Use `uv` from astral.sh to run the app. This runs the provided command
-# within the uv runtime. We invoke the module runner so any module-level
-# args in the package behave the same as `python -m FSM`.
-CMD ["uv", "run", "python", "-m", "FSM"]
+# Run the FastAPI backend only. Use the `uv` runtime to run `uvicorn`
+# and point at the FastAPI app object in `FSM.api.main:app`.
+CMD ["uv", "run", "python", "-m", "uvicorn", "FSM.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

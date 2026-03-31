@@ -1,11 +1,19 @@
+"""FastAPI application entry for the FSM API."""
+
 from pathlib import Path
-import os
+from typing import Any, cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from FSM.logging_utils import get_logger
+
+logger = get_logger(__name__)
+
+
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
     app = FastAPI()
     origins = [
         "http://localhost:3000",
@@ -19,20 +27,24 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Mount static and templates are used by routers directly (templates dir path shown below)
+    # Mount static files used by some routers
     static_path = Path(__file__).resolve().parents[1] / "static"
     if static_path.exists():
         app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-    # include routers lazily to avoid import cycles
+    # Include routers lazily to avoid import cycles during staged migration.
     try:
-        from .routers import dashboard, mods
+        from .routers import dashboard, login, mods, server  # noqa: PLC0415
 
         app.include_router(dashboard.router)
         app.include_router(mods.router)
-    except Exception:
-        # allow import failures during staged migration
-        pass
+        app.include_router(server.router)
+        app.include_router(login.router)
+    except Exception as err:  # noqa: BLE001 - staged migration import failures handled intentionally
+        logger.debug(
+            "Router import failed during staged migration; continuing",
+            exc_info=err,
+        )
 
     return app
 
@@ -43,4 +55,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.FSM.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("FSM.api.main:app", host="0.0.0.0", port=8000, reload=True)  # noqa: S104

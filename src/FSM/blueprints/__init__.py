@@ -17,5 +17,5 @@ all_blueprints = [
 __all__ = [
     str(i.name)
     for i in all_blueprints
-] # type: ignore[ReportUnsupportedDunderAll]
+]
 # fmt: on

@@ -5,7 +5,7 @@ from typing import Literal
 from flask import redirect, render_template, request, url_for
 from werkzeug import Response
 
-from . import blueprints  # type: ignore[no-stub-file]
+from . import blueprints
 from ._types import Website
 
 app = Website(__name__)

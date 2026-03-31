@@ -42,10 +42,10 @@ class AutoPlaceControls(TypedDict):
 
 
 class CliffSettings(TypedDict):
-    name = "cliff"
-    cliff_elevation_0: int = 10
-    cliff_elevation_interval: int = 40
-    richness: 1
+    name: Literal["cliff"]
+    cliff_elevation_0: int
+    cliff_elevation_interval: int
+    richness: int
 
 class PropertyExpressionNames(TypedDict):
     pass
@@ -65,7 +65,7 @@ class MapGenSettings(TypedDict):
     cliff_settings: CliffSettings
     property_expression_names: PropertyExpressionNames
     starting_points: list[Coordinates]
-    seed: None | int = None
+    seed: NotRequired[int | None]
 
 class DifficultySettings(TypedDict):
     recipe_difficulty: int
@@ -173,14 +173,14 @@ class MapSettings(TypedDict):
     unit_group: UnitGroup
     steering: Steering
     path_finder: PathFinder
-    max_failed_behavior_count: int = 3
+    max_failed_behavior_count: int
 
 
 class ServerSettings(TypedDict):
     name: str
     description: str
     tags: list[str]
-    max_players: int = 0
+    max_players: int
     visibility: Literal["public", "lan"]
     username: str # Required when visibility is set to public
     password: str # Required when visibility is set to public
@@ -194,9 +194,9 @@ class ServerSettings(TypedDict):
     max_heartbeats_per_second: int
     ignore_player_limit_for_returning_players: bool
     allow_commands: Literal["true", "false", "admins-only"]
-    autosave_interval: 10
-    autosave_slots: 5
-    afk_autokick_interval: 0
+    autosave_interval: int
+    autosave_slots: int
+    afk_autokick_interval: int
     auto_pause: bool
     only_admins_can_pause_the_game: bool
     autosave_only_on_server: bool

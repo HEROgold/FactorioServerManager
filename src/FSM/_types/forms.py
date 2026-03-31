@@ -3,7 +3,7 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from flask_wtf import FlaskForm  # type: ignore[stub]
+from flask_wtf import FlaskForm
 from wtforms import (
     BooleanField,
     IntegerField,

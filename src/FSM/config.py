@@ -11,7 +11,7 @@ CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
 TOML_FILE = PROJECT_DIR / "pyproject.toml"
 
-Config.set_parser(ConfigParser())
+# confkit will auto-select a parser based on file extension; avoid explicit set_parser
 Config.set_file(PROJECT_DIR/"config.ini")
 
 # Users may edit these Config(x) values in config.ini to customize their setup.

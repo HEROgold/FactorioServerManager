@@ -34,7 +34,7 @@ class FactorioInterface:
             html = await resp.text()
             soup = BeautifulSoup(html, "html.parser")
             if tag := soup.find("input", {"name": "csrf_token"}):
-                return tag.get("value") # type: ignore[ReportReturnType]
+                return tag.get("value")
 
             msg = "Could not find csrf token"
             raise ValueError(msg)

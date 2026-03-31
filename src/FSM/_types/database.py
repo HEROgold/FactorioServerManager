@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import random
-from logging.handlers import RotatingFileHandler
 from typing import Self
 
 from cryptography.fernet import InvalidToken
@@ -26,12 +25,10 @@ from sqlalchemy.orm import (
 from FSM._types import FactorioInterface
 from FSM._types.data import Server
 from FSM.config import DATABASE_PATH, SERVERS_DIRECTORY
+from FSM.logging_utils import get_logger
 from FSM.security import decrypt_factorio_token, encrypt_factorio_token
 
-logger: logging.Logger = logging.getLogger("sqlalchemy.engine")
-handler = RotatingFileHandler(filename="sqlalchemy.log", backupCount=7, encoding="utf-8")
-handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
-logger.addHandler(handler)
+logger: logging.Logger = get_logger("sqlalchemy.engine")
 logger.setLevel(logging.DEBUG)
 
 
@@ -96,7 +93,7 @@ class User(Base, UserMixin):
 
     @property
     def display_name(self: Self) -> str:
-        return self._display_name if self._display_name else self.email
+        return self._display_name or self.email
 
     @classmethod
     def get_by_user_id(cls, user_id: int) -> Self | None:
@@ -122,7 +119,7 @@ class User(Base, UserMixin):
 
         Args:
         ----
-            email (int): The email for the user.
+            email (str): The email for the user.
 
         """
         with Session(engine) as session:
