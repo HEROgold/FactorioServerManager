@@ -1,12 +1,11 @@
 """Database models for the application."""
 
-import hashlib
 import logging
-import random
 from typing import Self
 
+import bcrypt
 from cryptography.fernet import InvalidToken
-from flask_login import UserMixin  # pyright: ignore[reportMissingTypeStubs]
+from flask_login import UserMixin
 from sqlalchemy import (
     Integer,
     LargeBinary,
@@ -158,10 +157,7 @@ class User(Base, UserMixin):
         :class:`str`
 
         """
-        random.seed(password)
-        salt = str(random.random() * random.random())  # noqa: S311
-        random.seed(None)
-        return hashlib.sha256((password + salt).encode()).hexdigest()
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
     def check_password(self: Self, password: str | None) -> bool:
         """Check if the user's stored password matches a given password.
@@ -178,7 +174,7 @@ class User(Base, UserMixin):
         """
         if password is None:
             return False
-        return self.password == self.encrypt_password(password)
+        return bcrypt.checkpw(password.encode(), self.password.encode())
 
     @property
     def servers(self: Self) -> dict[str, Server]:

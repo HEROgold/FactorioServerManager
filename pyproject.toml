@@ -19,6 +19,7 @@ dependencies = [
     "docker>=7.1.0",
     "sentry-sdk>=2.57.0",
     "fastapi>=0.135.3",
+    "bcrypt>=5.0.0",
 ]
 
 [build-system]
