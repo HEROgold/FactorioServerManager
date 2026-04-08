@@ -7,7 +7,18 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import * as Sentry from "@sentry/react";
 import { App } from "./App";
+
+Sentry.init({
+  dsn:
+    (typeof Bun !== "undefined" && (Bun as any).env?.SENTRY_DSN) ??
+    (import.meta as any).env?.SENTRY_DSN ??
+    (import.meta as any).env?.SENTRY_DSN,
+  // Setting this option to true will send default PII data to Sentry.
+  // For example, automatic IP address collection on events
+  sendDefaultPii: true,
+});
 
 const elem = document.getElementById("root")!;
 const app = (
