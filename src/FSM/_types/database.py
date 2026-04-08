@@ -1,6 +1,7 @@
 """Database models for the application."""
 
 import logging
+from logging import getLogger
 from typing import Self
 
 import bcrypt
@@ -24,10 +25,9 @@ from sqlalchemy.orm import (
 from FSM._types import FactorioInterface
 from FSM._types.data import Server
 from FSM.config import DATABASE_PATH, SERVERS_DIRECTORY
-from FSM.logging_utils import get_logger
 from FSM.security import decrypt_factorio_token, encrypt_factorio_token
 
-logger: logging.Logger = get_logger("sqlalchemy.engine")
+logger: logging.Logger = getLogger("database")
 logger.setLevel(logging.DEBUG)
 
 

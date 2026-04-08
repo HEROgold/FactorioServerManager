@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
-from fsm.api.config import app_config
+from FSM.api.config import app_config
 from FSM.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -60,9 +60,3 @@ sentry_sdk.init(
 
 app = create_app()
 app = SentryAsgiMiddleware(app)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("FSM.api.main:app", host=app_config.host, port=app_config.port, reload=app_config.reload)

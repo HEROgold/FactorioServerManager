@@ -26,21 +26,3 @@ def _local_get_logger(name: str | None = None) -> logging.Logger:
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
     return logger
-
-
-try:
-    import herogold
-
-    _herogold_get_logger = getattr(getattr(herogold, "logging", herogold), "get_logger", None)
-
-    def get_logger(name: str | None = None) -> logging.Logger:
-        if _herogold_get_logger:
-            try:
-                return _herogold_get_logger(name)
-            except Exception:
-                return _local_get_logger(name)
-        return _local_get_logger(name)
-
-except Exception:
-    def get_logger(name: str | None = None) -> logging.Logger:
-        return _local_get_logger(name)

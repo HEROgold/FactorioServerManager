@@ -7,7 +7,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./src/FSM/servers:/app/src/FSM/servers
+      - ./src/fsm/servers:/app/src/FSM/servers
     restart: unless-stopped
     depends_on:
       - frontend
