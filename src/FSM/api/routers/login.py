@@ -7,7 +7,6 @@ from typing import Annotated
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 
-from FSM._types import FactorioInterface
 from FSM._types.database import User
 from FSM.api.deps import create_session_token
 
@@ -22,9 +21,6 @@ async def login(
     """Authenticate with Factorio and create a session cookie."""
     # Reuse existing User helpers to fetch or create the user record
     user = User.fetch_by_email(email)
-    # instantiate FactorioInterface from the package
-    fi = FactorioInterface()
-    user.fi = fi
 
     # Attempt to obtain a Factorio auth token (same flow as the Flask app)
     resp = await user.fi.get_auth_token(email, password)

@@ -90,6 +90,12 @@ class User(Base, UserMixin):
             return
         self.factorio_token_encrypted = encrypt_factorio_token(token)
 
+    @property
+    def fi(self: Self) -> FactorioInterface:
+        """Return a FactorioInterface instance authenticated with the user's token."""
+        if not self._fi:
+            self._fi = FactorioInterface()
+        return self._fi
 
     @property
     def display_name(self: Self) -> str:
