@@ -9,4 +9,4 @@ src/FSM/downloads*
 src/FSM/servers*
 /.factorio_token.key
 /.flask_secret.key
-src/FSM/config.ini
+*.ini

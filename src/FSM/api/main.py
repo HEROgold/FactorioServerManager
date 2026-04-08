@@ -1,12 +1,14 @@
 """FastAPI application entry for the FSM API."""
 
 from pathlib import Path
-from typing import Any, cast
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
+from fsm.api.config import app_config
 from FSM.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -49,10 +51,18 @@ def create_app() -> FastAPI:
     return app
 
 
+# Initialize Sentry for ASGI (FastAPI) and wrap the app with Sentry middleware.
+# We set `send_default_pii=True` to capture basic request user info.
+sentry_sdk.init(
+    dsn=app_config.sentry_dsn,
+    send_default_pii=True,
+)
+
 app = create_app()
+app = SentryAsgiMiddleware(app)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("FSM.api.main:app", host="0.0.0.0", port=8000, reload=True)  # noqa: S104
+    uvicorn.run("FSM.api.main:app", host=app_config.host, port=app_config.port, reload=app_config.reload)

@@ -2,7 +2,7 @@ FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src
+    PYTHONPATH=/app/src/fsm
 
 WORKDIR /app
 
@@ -14,23 +14,17 @@ RUN apt-get update \
 
 # Copy pyproject and source first for layered build
 COPY pyproject.toml ./
-COPY src ./src
+COPY src/fsm ./
 
 # Copy the uv runtime from the official astral/uv image so we don't need to
 # install it via pip. This provides `/uv`, `/uvx`, and `uv` in `/bin/`.
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
-# Copy project files
-COPY . .
-
 # Use uv to sync dependencies declared in pyproject.toml into the uv venv,
 # then install the project into that venv.
 RUN uv sync || true
-RUN uv run pip install --no-cache-dir -e .
 
 
 EXPOSE 8000
 
-# Run the FastAPI backend only. Use the `uv` runtime to run `uvicorn`
-# and point at the FastAPI app object in `FSM.api.main:app`.
-CMD ["uv", "run", "python", "-m", "uvicorn", "FSM.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvx", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
