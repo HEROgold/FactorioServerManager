@@ -38,14 +38,14 @@ export default function StatusBox({ server }: StatusBoxProps) {
       });
       if (!response.ok) throw new Error('Action failed');
     } catch (err) {
-      console.error(`Fout bij ${action}:`, err);
+      console.error(`Error on ${action}:`, err);
     }
   };
 
   const copyToClipboard = (): void => {
     const text = `${server.ip}:${server.port}`;
     navigator.clipboard.writeText(text)
-      .then(() => alert('IP:Port gekopieerd!'))
+      .then(() => alert('IP:Port copied!'))
       .catch(err => console.error('Copy failed', err));
   };
 
