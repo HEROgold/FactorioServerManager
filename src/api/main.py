@@ -1,17 +1,17 @@
 """FastAPI application entry for the fsm API."""
-
+from logging import getLogger
 from pathlib import Path
 
 import sentry_sdk
+import uvicorn.config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
+from herogold.log import StreamHandler
 
 from api.config import app_config
-from fsm.logging_utils import get_logger
 
-logger = get_logger(__name__)
+logger = getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
         "http://127.0.0.1:3000",
     ]
     app.add_middleware(
-        CORSMiddleware,
+        CORSMiddleware,  # ty:ignore[invalid-argument-type]
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
@@ -50,13 +50,35 @@ def create_app() -> FastAPI:
 
     return app
 
+logger = getLogger(__name__)
+logger.addHandler(StreamHandler())
 
-# Initialize Sentry for ASGI (FastAPI) and wrap the app with Sentry middleware.
-# We set `send_default_pii=True` to capture basic request user info.
 sentry_sdk.init(
-    dsn=app_config.sentry_dsn,
+    dsn="https://b43620319948689547199679efe43956@o4509360059252736.ingest.de.sentry.io/4511185780277328",
+    # Add data like request headers and IP for users, if applicable;
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # To collect profiles for all profile sessions,
+    # set `profile_session_sample_rate` to 1.0.
+    profile_session_sample_rate=1.0,
+    # Profiles will be automatically collected while
+    # there is an active span.
+    profile_lifecycle="trace",
+    environment=app_config.environment,
 )
 
 app = create_app()
-app = SentryAsgiMiddleware(app)
+
+@app.get("/sentry-debug")
+async def trigger_error() -> float:
+    return 1 / 0
+
+def main() -> None:
+    uvicorn.run(app, host=app_config.host, port=app_config.port)
+
+
+if __name__ == "__main__":
+    main()
