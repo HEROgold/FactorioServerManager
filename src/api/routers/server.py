@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from fsm.api.deps import get_current_user
 
-from FSM._types.data import Server as DataServer
-from FSM.api.deps import get_current_user
-from FSM.scripts import sanitize_str
+from fsm._types.data import Server as DataServer
+from fsm.scripts import sanitize_str
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from FSM._types.database import User
+    from fsm._types.database import User
 
 router = APIRouter()
 

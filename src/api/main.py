@@ -1,4 +1,4 @@
-"""FastAPI application entry for the FSM API."""
+"""FastAPI application entry for the fsm API."""
 
 from pathlib import Path
 
@@ -6,10 +6,10 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fsm.api.config import app_config
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
-from FSM.api.config import app_config
-from FSM.logging_utils import get_logger
+from fsm.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

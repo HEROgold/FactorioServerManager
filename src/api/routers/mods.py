@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import JSONResponse
-
-from FSM.api.deps import get_current_user
+from fsm.api.deps import get_current_user
 
 if TYPE_CHECKING:
-    from FSM._types.database import User
+    from fsm._types.database import User
 
 router = APIRouter(prefix="/server/{name}/mods")
 

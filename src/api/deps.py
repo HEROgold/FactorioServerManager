@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, Request, status
 from herogold.orm.constants import session
 from jose import JWTError, jwt
 
-from FSM._types.database import User
+from fsm._types.database import User
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -20,7 +20,7 @@ def get_session() -> Session:
     """Get a database session for the current request."""
     return session
 
-SECRET = os.environ.get("FSM_SECRET", "replace-me-with-env-secret")
+SECRET = os.environ.get("fsm_SECRET", "replace-me-with-env-secret")
 ALGO = "HS256"
 COOKIE_NAME = "fsm_session"
 

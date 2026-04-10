@@ -1,11 +1,11 @@
-""""Configuration for the FSM API."""
+""""Configuration for the fsm API."""
 from pathlib import Path
 
 from confkit import Config as BaseConfig
 
 
 class Config(BaseConfig):
-    """Namespaced configuration for the FSM API."""
+    """Namespaced configuration for the fsm API."""
 
 Config.set_file(Path("api_config.ini"))
 

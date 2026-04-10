@@ -1,4 +1,4 @@
-"""FastAPI API package for FSM."""
+"""FastAPI API package for fsm."""
 
 
 from .main import app
