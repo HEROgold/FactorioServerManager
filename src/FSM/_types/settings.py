@@ -1,9 +1,11 @@
 import json
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from FSM._types.dicts import AutoPlace, Coordinates, SteerSettings
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fsm._types.dicts import AutoPlace, Coordinates, SteerSettings
 
 
 @dataclass

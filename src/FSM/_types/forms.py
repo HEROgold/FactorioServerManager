@@ -1,5 +1,4 @@
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,7 +13,10 @@ from wtforms import (
 )
 from wtforms.validators import DataRequired, Email
 
-from FSM.config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
+from fsm.config import ARCHIVE_URL, LOWER_PORT_LIMIT, UPPER_PORT_LIMIT
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 def get_all_download_versions() -> list[str]:

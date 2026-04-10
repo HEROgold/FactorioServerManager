@@ -1,11 +1,13 @@
-from os import PathLike
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from flask import Flask
 from flask_login import LoginManager  # pyright: ignore[reportMissingTypeStubs]
 
-from FSM._types.database import User
-from FSM.config import SECRET_KEY
+from fsm._types.database import User
+from fsm.config import SECRET_KEY
+
+if TYPE_CHECKING:
+    from os import PathLike
 
 
 class Website(Flask):

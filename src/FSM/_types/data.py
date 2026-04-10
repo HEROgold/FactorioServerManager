@@ -12,17 +12,17 @@ from typing import TYPE_CHECKING, Any, Self
 import docker
 from docker.errors import DockerException, NotFound
 
-from FSM._types.enums import DockerStates
-from FSM._types.settings import MapGenerationSettings, MapSettings, ServerSettings
-from FSM.config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY, AppConfig
+from fsm._types.enums import DockerStates
+from fsm._types.settings import MapGenerationSettings, MapSettings, ServerSettings
+from fsm.config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY, AppConfig
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from docker.models.containers import Container
 
-    from FSM._types.database import User
-    from FSM._types.dicts import ServerModEntry
+    from fsm._types.database import User
+    from fsm._types.dicts import ServerModEntry
 
 
 try:

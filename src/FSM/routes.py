@@ -1,12 +1,14 @@
 """The module where some app level routes are defined."""
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from flask import redirect, render_template, request, url_for
-from werkzeug import Response
 
 from . import blueprints
 from ._types import Website
+
+if TYPE_CHECKING:
+    from werkzeug import Response
 
 app = Website(__name__)
 

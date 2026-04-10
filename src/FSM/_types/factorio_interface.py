@@ -1,10 +1,9 @@
-from pathlib import Path
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 from bs4 import BeautifulSoup
 
-from FSM.config import (
+from fsm.config import (
     API_VERSION,
     LOGIN_API,
     LOGIN_URL,
@@ -12,6 +11,9 @@ from FSM.config import (
     AppConfig,
     HTTPConfig,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 MOD_PORTAL_BASE = "https://mods.factorio.com"
 

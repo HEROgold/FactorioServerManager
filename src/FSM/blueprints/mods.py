@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from flask import Blueprint, Response, abort, make_response, render_template, request
 from flask_login import current_user
 
-from FSM.scripts import require_login
+from fsm.scripts import require_login
 
 PORTAL_ASSET_BASE = "https://mods-data.factorio.com"
 
 if TYPE_CHECKING:
-    from FSM._types.data import Server
-    from FSM._types.database import User
+    from fsm._types.data import Server
 
 
 bp = Blueprint("mods", __name__, url_prefix="/server/<string:name>/mods")
@@ -25,7 +24,7 @@ bp.before_request(require_login)
 
 def _get_server_or_404(name: str) -> Server:
     try:
-        return cast(User, current_user).servers[name]
+        return current_user.servers[name]
     except KeyError as e:
         raise abort(404, description="Server not found") from e
 
@@ -88,8 +87,7 @@ def _install_response(server: Server, trigger: dict[str, Any]) -> Response:
 @bp.route("/")
 async def index(name: str) -> str:
     server = _get_server_or_404(name)
-    user = cast(User, current_user)
-    token_missing = getattr(user, "factorio_token", None) is None
+    token_missing = getattr(current_user, "factorio_token", None) is None
     return render_template(
         "server/mods/mod_manager.j2",
         server=server,
@@ -103,7 +101,6 @@ async def index(name: str) -> str:
 @bp.get("/search")
 async def search(name: str) -> str:
     server = _get_server_or_404(name)
-    user = cast(User, current_user)
     query = (request.args.get("q") or "").strip()
     page = max(int(request.args.get("page", 1) or 1), 1)
     pagination = {"page": page, "has_prev": page > 1, "has_next": False}
@@ -111,7 +108,7 @@ async def search(name: str) -> str:
     error: str | None = None
     if query:
         try:
-            payload = await user.fi.search_mods(
+            payload = await current_user.fi.search_mods(
                 query=query,
                 page=page,
                 factorio_version=server.factorio_version_line,
@@ -147,13 +144,12 @@ async def search(name: str) -> str:
 @bp.get("/detail/<string:mod_name>")
 async def detail(name: str, mod_name: str) -> str:
     server = _get_server_or_404(name)
-    user = cast(User, current_user)
-    token_missing = getattr(user, "factorio_token", None) is None
+    token_missing = getattr(current_user, "factorio_token", None) is None
     error: str | None = None
     releases: list[dict[str, Any]] = []
     mod_payload: dict[str, Any] = {}
     try:
-        mod_payload = await user.fi.get_mod_full(mod_name)
+        mod_payload = await current_user.fi.get_mod_full(mod_name)
     except aiohttp.ClientError:
         error = "Unable to load mod details from the Factorio portal."
     if mod_payload:
@@ -178,16 +174,15 @@ async def detail(name: str, mod_name: str) -> str:
 @bp.post("/install")
 async def install(name: str) -> Response:
     server = _get_server_or_404(name)
-    user = cast(User, current_user)
     mod_name = (request.form.get("mod_name") or "").strip()
     version = (request.form.get("version") or "").strip()
     if not mod_name or not version:
         abort(400, description="Missing mod name or version")
-    factorio_token = getattr(user, "factorio_token", None)
-    if not factorio_token or not user.email:
+    factorio_token = getattr(current_user, "factorio_token", None)
+    if not factorio_token or not current_user.email:
         return Response("Factorio login required before downloading mods.", status=400)
     try:
-        mod_payload = await user.fi.get_mod_full(mod_name)
+        mod_payload = await current_user.fi.get_mod_full(mod_name)
     except aiohttp.ClientError:
         return Response("Unable to reach the Factorio mod portal.", status=502)
     release = next((rel for rel in mod_payload.get("releases", []) if rel.get("version") == version), None)
@@ -200,10 +195,10 @@ async def install(name: str) -> Response:
     destination = server.mods / file_name
     server.remove_mod_archives(mod_name)
     try:
-        await user.fi.download_mod_release(
+        await current_user.fi.download_mod_release(
             download_url=download_url,
             destination=destination,
-            username=user.email,
+            username=current_user.email,
             token=factorio_token,
         )
     except ValueError as exc:

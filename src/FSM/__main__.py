@@ -1,4 +1,4 @@
-from .app import app
+from fsm.app import app
 
 
 def main() -> None:

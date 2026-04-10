@@ -1,9 +1,8 @@
 """Blueprint for server management."""
 
 import contextlib
-from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn, cast
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import docker.errors
 from flask import (
@@ -17,14 +16,14 @@ from flask import (
 from flask_login import current_user
 from werkzeug import Response
 
-from FSM._types.data import Server
-from FSM._types.forms import InstallForm, ManageServerForm, get_available_port
-from FSM._types.settings import ServerSettings
-from FSM.config import AppConfig
-from FSM.scripts import require_login, sanitize_str
+from fsm._types.data import Server
+from fsm._types.forms import InstallForm, ManageServerForm, get_available_port
+from fsm._types.settings import ServerSettings
+from fsm.config import AppConfig
+from fsm.scripts import require_login, sanitize_str
 
 if TYPE_CHECKING:
-    from FSM._types.database import User
+    from collections.abc import Generator
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
@@ -37,8 +36,7 @@ LOG_TAIL_BYTES = 200_000
 
 def get_live_status(name: str) -> str:
     """Get the status of a server. without using cached data."""
-    user = cast(User, current_user)
-    return Server(name, user).status
+    return Server(name, current_user).status
 
 
 def _read_log_tail(log_path: Path, limit: int = LOG_TAIL_BYTES) -> str:
@@ -55,8 +53,7 @@ def _read_log_tail(log_path: Path, limit: int = LOG_TAIL_BYTES) -> str:
 @bp.route(prefix)
 async def index(name: str) -> str:
     """Manage a server page."""
-    user = cast(User, current_user)
-    server = user.servers[name]
+    server = current_user.servers[name]
     settings = ServerSettings.read(server.custom_settings_file)
 
     form = ManageServerForm(**settings.__dict__)
@@ -66,8 +63,7 @@ async def index(name: str) -> str:
 @bp.route(prefix+"/logs")
 async def logs(name: str) -> str:
     """Render the log viewer for the selected server."""
-    user = cast(User, current_user)
-    server = user.servers[name]
+    server = current_user.servers[name]
     current_log = _read_log_tail(server.current_log_file)
     previous_log = _read_log_tail(server.previous_log_file)
     return render_template(
@@ -100,21 +96,19 @@ async def create(name: str) -> Response:
     """Create a server."""
     version = request.form["version"]
     name = sanitize_str(name)
-    user = cast(User, current_user)
 
-    server = Server(name, user)
+    server = Server(name, current_user)
     server.settings.port = int(request.form["port"])
-    user.add_server(server)
+    current_user.add_server(server)
 
-    server = user.servers[name]
+    server = current_user.servers[name]
     await server.create(version)
     return redirect(url_for(".index", name=name))
 
 @bp.route(prefix+"/update", methods=["POST"])
 async def update(name: str) -> Response:
     """Update a server."""
-    user = cast(User, current_user)
-    server = user.servers[name]
+    server = current_user.servers[name]
     form = ManageServerForm(request.form)
     server.settings = ServerSettings(**form.data)
     server.settings.write(server.custom_settings_file)
@@ -124,8 +118,7 @@ async def update(name: str) -> Response:
 @bp.route(prefix+"/delete", methods=["GET", "POST"])
 async def delete(name: str) -> Response:
     """Delete a server."""
-    user = cast(User, current_user)
-    server = user.servers[name]
+    server = current_user.servers[name]
     with contextlib.suppress(docker.errors.NotFound):
         server.remove()
     if request.headers.get("HX-Request") == "true":
@@ -138,16 +131,14 @@ async def delete(name: str) -> Response:
 @bp.route(prefix+"/start", methods=["POST"])
 async def start(name: str) -> Response:
     """Start a server through a http request."""
-    user = cast(User, current_user)
-    await user.servers[name].start()
+    await current_user.servers[name].start()
     return Response(status=200)
 
 
 @bp.route(prefix+"/stop", methods=["POST"])
 async def stop(name: str) -> Response:
     """Stop a server through a http request."""
-    user = cast(User, current_user)
-    await user.servers[name].stop()
+    await current_user.servers[name].stop()
     return Response(status=200)
 
 
@@ -155,8 +146,8 @@ async def stop(name: str) -> Response:
 async def restart(name: str) -> Response:
     """Restart a server through a http request."""
     try:
-        user = cast(User, current_user)
-        await user.servers[name].restart()
+
+        await current_user.servers[name].restart()
     except RuntimeError as e:
         return Response(status=400, response=str(e))
     return Response(status=200)
@@ -182,8 +173,7 @@ def status(name: str) -> Response:
 @bp.route(prefix+"/rcon", methods=["GET"])
 async def rcon(name: str) -> Response:
     """Redirect directly to the server's exposed RCON endpoint."""
-    user = cast(User, current_user)
-    server = user.servers[name]
+    server = current_user.servers[name]
     host = server.ip
     port = AppConfig.RCON_PORT
     return redirect(f"http://{host}:{port}")

@@ -1,17 +1,19 @@
 """Blueprint for login page."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Blueprint, redirect, render_template, request, url_for
 from flask_login import (  # pyright: ignore[reportMissingTypeStubs]
     login_user,
     logout_user,
 )
-from werkzeug import Response
 
-from FSM._types import FactorioInterface
-from FSM._types.database import User
-from FSM._types.forms import LoginForm
+from fsm._types.database import User
+from fsm._types.forms import LoginForm
+
+if TYPE_CHECKING:
+    from werkzeug import Response
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")
@@ -30,8 +32,6 @@ async def login() -> str | Response:
     if request.method == "POST":
         _next = request.form.get("next") or dashboard_index
         user = User.fetch_by_email(request.form["email"])
-        fi = FactorioInterface()
-        user.fi = fi
 
         if resp := await user.fi.get_auth_token(request.form["email"], request.form["password"]):
             token = resp.get("token")

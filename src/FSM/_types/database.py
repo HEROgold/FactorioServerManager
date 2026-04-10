@@ -22,10 +22,10 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from FSM._types import FactorioInterface
-from FSM._types.data import Server
-from FSM.config import DATABASE_PATH, SERVERS_DIRECTORY
-from FSM.security import decrypt_factorio_token, encrypt_factorio_token
+from fsm._types import FactorioInterface
+from fsm._types.data import Server
+from fsm.config import DATABASE_PATH, SERVERS_DIRECTORY
+from fsm.security import decrypt_factorio_token, encrypt_factorio_token
 
 logger: logging.Logger = getLogger("database")
 logger.setLevel(logging.DEBUG)
@@ -92,7 +92,7 @@ class User(Base, UserMixin):
     @property
     def fi(self: Self) -> FactorioInterface:
         """Return a FactorioInterface instance authenticated with the user's token."""
-        if not self._fi:
+        if not hasattr(self, "_fi") or self._fi is None:
             self._fi = FactorioInterface()
         return self._fi
 
