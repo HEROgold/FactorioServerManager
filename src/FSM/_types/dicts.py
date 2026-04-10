@@ -1,36 +1,44 @@
-from typing import Literal, NotRequired, TypedDict
+from typing import Literal
+
+from pydantic.dataclasses import dataclass
 
 
-class Route(TypedDict):
+@dataclass
+class Route:
     name: str
     path: str
 
-class ServerModEntry(TypedDict):
+@dataclass
+class ServerModEntry:
     name: str
     enabled: bool
-    version: NotRequired[str]
+    version: str | None = None
 
 
-class SteerSettings(TypedDict):
+@dataclass
+class SteerSettings:
     radius: float
     separation_force: float
     separation_factor: float
     force_unit_fuzzy_goto_behavior: bool
 
 
-class AutoPlace(TypedDict):
+@dataclass
+class AutoPlace:
     frequency: int
     size: int
     richness: int
 
 
-class Coordinates(TypedDict):
+@dataclass
+class Coordinates:
     x: int
     y: int
 
 
 
-class AutoPlaceControls(TypedDict):
+@dataclass
+class AutoPlaceControls:
     coal: AutoPlace
     stone: AutoPlace
     copperore: AutoPlace
@@ -41,20 +49,23 @@ class AutoPlaceControls(TypedDict):
     enemybase: AutoPlace
 
 
-class CliffSettings(TypedDict):
+@dataclass
+class CliffSettings:
     name: Literal["cliff"]
     cliff_elevation_0: int
     cliff_elevation_interval: int
     richness: int
 
-class PropertyExpressionNames(TypedDict):
+@dataclass
+class PropertyExpressionNames:
     pass
     # "control-setting:moisture:frequency:multiplier": "1"
     # "control-setting:moisture:bias": "0"
     # "control-setting:aux:frequency:multiplier": "1"
     # "control-setting:aux:bias": "0"
 
-class MapGenSettings(TypedDict):
+@dataclass
+class MapGenSettings:
     terrain_segmentation: int
     water: int
     width: int
@@ -65,15 +76,17 @@ class MapGenSettings(TypedDict):
     cliff_settings: CliffSettings
     property_expression_names: PropertyExpressionNames
     starting_points: list[Coordinates]
-    seed: NotRequired[int | None]
+    seed: int | None = None
 
-class DifficultySettings(TypedDict):
+@dataclass
+class DifficultySettings:
     recipe_difficulty: int
     technology_difficulty: int
     technology_price_multiplier: int
     research_queue_setting: Literal["after-victory", "always", "never"]
 
-class PollutionSettings(TypedDict):
+@dataclass
+class PollutionSettings:
     enabled: bool
     _comment_min_to_diffuse_1: str
     _comment_min_to_diffuse_2: str
@@ -89,13 +102,15 @@ class PollutionSettings(TypedDict):
     max_pollution_to_restore_trees: int
     enemy_attack_pollution_consumption_modifier: int
 
-class EnemyEvolutionSettings(TypedDict):
+@dataclass
+class EnemyEvolutionSettings:
     enabled: bool
     time_factor: float
     destroy_factor: float
     pollution_factor: float
 
-class EnemyExpansionSettings(TypedDict):
+@dataclass
+class EnemyExpansionSettings:
     enabled: bool
     min_base_spacing: int
     max_expansion_distance: int
@@ -111,7 +126,8 @@ class EnemyExpansionSettings(TypedDict):
     min_expansion_cooldown: int
     max_expansion_cooldown: int
 
-class UnitGroup(TypedDict):
+@dataclass
+class UnitGroup:
     min_group_gathering_time: int
     max_group_gathering_time: int
     max_wait_time_for_late_members: int
@@ -126,11 +142,13 @@ class UnitGroup(TypedDict):
     max_gathering_unit_groups: int
     max_unit_group_size: int
 
-class Steering(TypedDict):
+@dataclass
+class Steering:
     default: SteerSettings
     moving: SteerSettings
 
-class PathFinder(TypedDict):
+@dataclass
+class PathFinder:
     fwd2bwd_ratio: int
     goal_pressure_ratio: int
     max_steps_worked_per_tick: int
@@ -165,7 +183,8 @@ class PathFinder(TypedDict):
     overload_multipliers: list[int]
     negative_path_cache_delay_interval: int
 
-class MapSettings(TypedDict):
+@dataclass
+class MapSettings:
     difficulty_settings: DifficultySettings
     pollution: PollutionSettings
     enemy_evolution: EnemyEvolutionSettings
@@ -176,7 +195,8 @@ class MapSettings(TypedDict):
     max_failed_behavior_count: int
 
 
-class ServerSettings(TypedDict):
+@dataclass
+class ServerSettings:
     name: str
     description: str
     tags: list[str]

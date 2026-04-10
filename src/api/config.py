@@ -18,6 +18,12 @@ class AppConfig:
     reload = Config(default=False)
     environment = Config("production")
 
-app_config = AppConfig()
+class SessionConfig:
+    """Security-related configuration."""
 
-__all__ = ["Config", "app_config"]
+    secret = Config("secret")
+    algorithm = Config("HS256")
+    cookie_name = Config("fsm_session")
+
+app_config = AppConfig()
+session_config = SessionConfig()

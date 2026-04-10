@@ -1,8 +1,7 @@
 """Blueprint for server management."""
-
 import contextlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 import docker.errors
 from flask import (
@@ -13,7 +12,7 @@ from flask import (
     stream_with_context,
     url_for,
 )
-from flask_login import current_user
+from flask_login import current_user as user
 from werkzeug import Response
 
 from fsm._types.data import Server
@@ -24,6 +23,10 @@ from fsm.scripts import require_login, sanitize_str
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from fsm._types.database import User
+
+current_user = cast("User", user)
 
 this_filename = Path(__file__).name.split(".")[0]
 bp = Blueprint(this_filename, __name__, url_prefix=f"/{this_filename}")

@@ -6,36 +6,24 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from api.deps import get_current_user
 
 if TYPE_CHECKING:
+    from fsm._types.data import Server
     from fsm._types.database import User
 
 router = APIRouter(prefix="/dashboard")
 
+class DashboardResponse(BaseModel):
+    """Data model for dashboard response."""
+
+    servers: list[Server]
 
 @router.get("/")
 async def index(
     current_user: Annotated[User, Depends(get_current_user)],
-) -> dict:
+) -> DashboardResponse:
     """Return server overview for the current user as JSON (API-only)."""
-    servers = (
-        list(current_user.servers.values())
-        if getattr(current_user, "servers", None)
-        else []
-    )
-    return {
-        "servers": [
-            {
-                "name": s.name,
-                "port": s.port,
-                "factorio_version": s.factorio_version,
-            }
-            for s in servers
-        ],
-        "user": {
-            "id": getattr(current_user, "id", None),
-            "email": getattr(current_user, "email", None),
-        },
-    }
+    return DashboardResponse(servers=list(current_user.servers.values()))

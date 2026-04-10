@@ -1,4 +1,4 @@
-from .factorio_interface import FactorioInterface
+from .factorio_interface import FactorioBridge
 from .website import Website
 
 # fmt off

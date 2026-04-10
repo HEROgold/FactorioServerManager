@@ -22,7 +22,7 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from fsm._types import FactorioInterface
+from fsm._types import FactorioBridge
 from fsm._types.data import Server
 from fsm.config import DATABASE_PATH, SERVERS_DIRECTORY
 from fsm.security import decrypt_factorio_token, encrypt_factorio_token
@@ -58,13 +58,13 @@ class User(Base, UserMixin):
     )
 
     @property
-    def fi(self: Self) -> FactorioInterface:
+    def fi(self: Self) -> FactorioBridge:
         if getattr(self, "_fi", None) is None:
-            self._fi = FactorioInterface()
+            self._fi = FactorioBridge()
         return self._fi
 
     @fi.setter
-    def fi(self: Self, fi: FactorioInterface) -> None:
+    def fi(self: Self, fi: FactorioBridge) -> None:
         self._fi = fi
 
     @property
@@ -90,10 +90,10 @@ class User(Base, UserMixin):
         self.factorio_token_encrypted = encrypt_factorio_token(token)
 
     @property
-    def fi(self: Self) -> FactorioInterface:
+    def fi(self: Self) -> FactorioBridge:
         """Return a FactorioInterface instance authenticated with the user's token."""
         if not hasattr(self, "_fi") or self._fi is None:
-            self._fi = FactorioInterface()
+            self._fi = FactorioBridge()
         return self._fi
 
     @property

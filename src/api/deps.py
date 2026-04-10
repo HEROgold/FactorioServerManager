@@ -3,7 +3,6 @@
 Includes session token creation and current-user resolution helpers.
 """
 
-import os
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
@@ -11,18 +10,16 @@ from fastapi import Depends, HTTPException, Request, status
 from herogold.orm.constants import session
 from jose import JWTError, jwt
 
+from api.config import session_config
 from fsm._types.database import User
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+
 def get_session() -> Session:
     """Get a database session for the current request."""
     return session
-
-SECRET = os.environ.get("fsm_SECRET", "replace-me-with-env-secret")
-ALGO = "HS256"
-COOKIE_NAME = "fsm_session"
 
 
 def create_session_token(user_id: int, expires_minutes: int = 60) -> str:
@@ -32,7 +29,7 @@ def create_session_token(user_id: int, expires_minutes: int = 60) -> str:
     """
     exp = datetime.now(tz=UTC) + timedelta(minutes=expires_minutes)
     payload = {"sub": str(user_id), "exp": exp}
-    return jwt.encode(payload, SECRET, algorithm=ALGO)
+    return jwt.encode(payload, session_config.secret, algorithm=session_config.algorithm)
 
 
 def get_current_user(
@@ -43,14 +40,14 @@ def get_current_user(
 
     Raises an HTTP 401 when the session is missing or invalid.
     """
-    token = request.cookies.get(COOKIE_NAME)
+    token = request.cookies.get(session_config.cookie_name)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
     try:
-        data = jwt.decode(token, SECRET, algorithms=[ALGO])
+        data = jwt.decode(token, session_config.secret, algorithms=[session_config.algorithm])
         sub = data.get("sub")
         try:
             uid = int(sub)

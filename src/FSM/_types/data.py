@@ -7,22 +7,22 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from threading import Thread
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 import docker
 from docker.errors import DockerException, NotFound
 
+from fsm._types.dicts import ServerModEntry
 from fsm._types.enums import DockerStates
 from fsm._types.settings import MapGenerationSettings, MapSettings, ServerSettings
 from fsm.config import DOCKER_CONTAINER_PREFIX, SERVERS_DIRECTORY, AppConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterable
 
     from docker.models.containers import Container
 
     from fsm._types.database import User
-    from fsm._types.dicts import ServerModEntry
 
 
 try:
@@ -31,6 +31,21 @@ except DockerException as exc:
     msg = "Docker daemon unavailable. Start Docker Desktop and rerun the Factorio Server Manager."
     raise RuntimeError(msg) from exc
 
+@dataclass
+class ModDescription:
+    name: str
+    enabled: bool
+    version: str
+    archives: list[ModArchive]
+    has_archive: bool
+    is_core: bool
+
+@dataclass
+class ModArchive:
+    version: str
+    filename: str
+    size_bytes: int
+    size_label: str
 
 @dataclass
 class Server:
@@ -126,33 +141,34 @@ class Server:
             self.write_mod_list(mods)
         return mods
 
-    def write_mod_list(self: Self, mods: list[ServerModEntry]) -> None:
+    def write_mod_list(self: Self, mods: Iterable[ServerModEntry]) -> None:
+        """Write the given list of mods to the mods-list.json file."""
         self.ensure_mods_workspace()
         normalized: list[ServerModEntry] = list(mods)
-        if not any(mod.get("name") == "base" for mod in normalized):
-            normalized.insert(0, {"name": "base", "enabled": True})
+        if not any(mod.name == "base" for mod in normalized):
+            normalized.insert(0, ServerModEntry(name="base", enabled=True))
         with self.mods_list.open("w") as f:
             json.dump({"mods": normalized}, f, indent=2)
 
     def upsert_mod_entry(self: Self, name: str, *, enabled: bool, version: str | None = None) -> None:
         mods = self.read_mod_list()
         for mod in mods:
-            if mod["name"] == name:
-                mod["enabled"] = enabled
+            if mod.name == name:
+                mod.enabled = enabled
                 if version:
-                    mod["version"] = version
+                    mod.version = version
                 else:
-                    mod.pop("version", None)
+                    mod.version = None
                 break
         else:
-            entry: ServerModEntry = {"name": name, "enabled": enabled}
+            entry = ServerModEntry(name=name, enabled=enabled)
             if version:
-                entry["version"] = version
+                entry.version = version
             mods.append(entry)
         self.write_mod_list(mods)
 
     def remove_mod_entry(self: Self, name: str) -> None:
-        mods = [mod for mod in self.read_mod_list() if mod["name"] != name]
+        mods = [mod for mod in self.read_mod_list() if mod.name != name]
         self.write_mod_list(mods)
 
     def remove_mod_archives(self: Self, name: str) -> None:
@@ -161,10 +177,11 @@ class Server:
         for archive in self.mods.glob(f"{name}_*.zip"):
             archive.unlink(missing_ok=True)
 
-    def _discover_mod_archives(self: Self) -> dict[str, list[dict[str, Any]]]:
-        archives: dict[str, list[dict[str, Any]]] = {}
+    def _discover_mod_archives(self: Self) -> dict[str, list[ModArchive]]:
         if not self.mods.exists():
-            return archives
+            return {}
+
+        archives: dict[str, list[ModArchive]] = {}
         for archive in self.mods.glob("*.zip"):
             parsed = self._split_mod_archive_name(archive.name)
             if not parsed:
@@ -172,12 +189,12 @@ class Server:
             mod_name, version = parsed
             size_bytes = archive.stat().st_size
             archives.setdefault(mod_name, []).append(
-                {
-                    "version": version,
-                    "filename": archive.name,
-                    "size_bytes": size_bytes,
-                    "size_label": f"{size_bytes / 1048576:.1f} MB",
-                },
+                ModArchive(
+                    version=version,
+                    filename=archive.name,
+                    size_bytes=size_bytes,
+                    size_label=f"{size_bytes / 1048576:.1f} MB",
+                ),
             )
         return archives
 
@@ -201,25 +218,25 @@ class Server:
                 parts.append(0)
         return tuple(parts)
 
-    def describe_mods(self: Self) -> list[dict[str, Any]]:
+    def describe_mods(self: Self) -> list[ModDescription]:
         entries = self.read_mod_list()
         archives = self._discover_mod_archives()
-        described: list[dict[str, Any]] = []
+        described: list[ModDescription] = []
         for entry in entries:
-            mod_archives = archives.get(entry["name"], [])
-            mod_archives.sort(key=lambda item: self._version_key(item["version"]), reverse=True)
-            resolved_version = entry.get("version")
+            mod_archives = archives.get(entry.name, [])
+            mod_archives.sort(key=lambda item: self._version_key(item.version), reverse=True)
+            resolved_version = entry.version
             if not resolved_version and mod_archives:
-                resolved_version = mod_archives[0]["version"]
+                resolved_version = mod_archives[0].version
             described.append(
-                {
-                    "name": entry["name"],
-                    "enabled": entry["enabled"],
-                    "version": resolved_version,
-                    "archives": mod_archives,
-                    "has_archive": bool(mod_archives),
-                    "is_core": entry["name"] == "base",
-                },
+                ModDescription(
+                    name=entry.name,
+                    enabled=entry.enabled,
+                    version=resolved_version,
+                    archives=mod_archives,
+                    has_archive=bool(mod_archives),
+                    is_core=entry.name == "base",
+                ),
             )
         return described
 
@@ -228,8 +245,8 @@ class Server:
 
     def get_active_mods(self: Self) -> Generator[str]:
         for mod in self.get_installed_mods():
-            if mod["enabled"]:
-                yield mod["name"]
+            if mod.enabled:
+                yield mod.name
 
     @property
     def saves(self: Self) -> Path:
@@ -311,7 +328,7 @@ class Server:
         return None
 
     @property
-    def factorio_version(self: Self) -> str | None:
+    def factorio_version(self: Self) -> str:
         if self._version:
             return self._version
         if version := self._read_persisted_version():
@@ -320,7 +337,8 @@ class Server:
         if version := self._version_from_container():
             self._version = version
             return version
-        return None
+        msg = "Version not set and could not be determined from persisted data or container"
+        raise AttributeError(msg)
 
     @property
     def factorio_version_line(self: Self) -> str | None:

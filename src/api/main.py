@@ -36,12 +36,13 @@ def create_app() -> FastAPI:
 
     # Include routers lazily to avoid import cycles during staged migration.
     try:
-        from .routers import dashboard, login, mods, server  # noqa: PLC0415
+        from .routers import dashboard, login, mods, server, version  # noqa: PLC0415
 
         app.include_router(dashboard.router)
         app.include_router(mods.router)
         app.include_router(server.router)
         app.include_router(login.router)
+        app.include_router(version.router)
     except Exception as err:  # noqa: BLE001 - staged migration import failures handled intentionally
         logger.debug(
             "Router import failed during staged migration; continuing",

@@ -14,17 +14,17 @@ RUN apt-get update \
 
 # Copy project metadata and lockfile for reproducible dependency resolution
 COPY pyproject.toml uv.lock README.md ./
-# Copy backend source as an uppercase package path so `from FSM ...` works.
-COPY src/fsm ./src/FSM
+# Copy backend source as an uppercase package path so `from fsm ...` works.
+COPY src/fsm ./src/fsm
 
 # Copy the uv runtime from the official astral/uv image so we don't need to
 # install it via pip. This provides `/uv`, `/uvx`, and `uv` in `/bin/`.
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
-# Sync dependencies only; source is executed directly from /app/src/FSM.
+# Sync dependencies only; source is executed directly from /app/src/fsm.
 RUN uv sync --locked --no-install-project
 
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--no-sync", "uvicorn", "FSM.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--no-sync", "uvicorn", "fsm.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
