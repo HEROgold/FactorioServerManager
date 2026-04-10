@@ -6,8 +6,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
-from fsm.api.deps import create_session_token
 
+from api.deps import create_session_token
 from fsm._types.database import User
 
 router = APIRouter()

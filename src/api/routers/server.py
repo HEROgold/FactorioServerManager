@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from fsm.api.deps import get_current_user
 
+from api.deps import get_current_user
 from fsm._types.data import Server as DataServer
 from fsm.scripts import sanitize_str
 

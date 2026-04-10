@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import JSONResponse
-from fsm.api.deps import get_current_user
+
+from api.deps import get_current_user
 
 if TYPE_CHECKING:
     from fsm._types.database import User

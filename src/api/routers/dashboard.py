@@ -6,7 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends
-from fsm.api.deps import get_current_user
+
+from api.deps import get_current_user
 
 if TYPE_CHECKING:
     from fsm._types.database import User
