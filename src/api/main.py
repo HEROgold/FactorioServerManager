@@ -72,11 +72,8 @@ sentry_sdk.init(
 
 app = create_app()
 
-@app.get("/sentry-debug")
-async def trigger_error() -> float:
-    return 1 / 0
-
 def main() -> None:
+    """Run the FastAPI application."""
     uvicorn.run(app, host=app_config.host, port=app_config.port)
 
 
