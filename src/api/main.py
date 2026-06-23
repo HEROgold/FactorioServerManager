@@ -17,6 +17,8 @@ logger = getLogger(__name__)
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI()
+    app.router.prefix = "/api"
+
     origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",

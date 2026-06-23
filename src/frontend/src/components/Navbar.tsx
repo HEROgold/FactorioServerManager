@@ -12,7 +12,22 @@ function LoggedInView({ user }: Props) {
   return <>
     <a href="/servers">{user.display_name}</a>
     <Separator color={"#7dcaed"} />
-    <a href="/logout">Log out</a>
+    <form method="post" action="/api/logout" style={{ display: "inline" }}>
+      <button
+        type="submit"
+        style={{
+          background: "none",
+          border: "none",
+          color: "inherit",
+          cursor: "pointer",
+          font: "inherit",
+          padding: 0,
+          textDecoration: "underline",
+        }}
+      >
+        Log out
+      </button>
+    </form>
   </>
 }
 

@@ -16,6 +16,8 @@ export interface LoginData {
 
 interface InputProps {
   type: HTMLInputTypeAttribute;
+  id?: string;
+  name?: string;
   placeholder?: string;
   required?: boolean;
 }
@@ -23,8 +25,8 @@ interface InputProps {
 function GenericInput(props: InputProps) {
   return (
     <Input
-      id={props.type}
-      name={props.type}
+      id={props.id ?? props.type}
+      name={props.name ?? props.type}
       type={props.type}
       placeholder={props.placeholder}
       required={props.required}
@@ -36,6 +38,8 @@ function EmailAuthCodeInput() {
   return (
     <GenericInput
       type="text"
+      id="email_auth_code"
+      name="email_auth_code"
       placeholder="Email Auth Code"
       required={false}
     />
@@ -57,7 +61,7 @@ export function LoginForm(): ReactElement {
   const next = searchParams.get("next") || "";
 
   return (
-    <form method="post">
+    <form method="post" action="/api/login">
       <CSRF />
       <input type="hidden" name="next" value={next} />
 

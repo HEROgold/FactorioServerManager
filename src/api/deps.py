@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from herogold.orm.constants import session
-from jose import JWTError, jwt
 
 from api.config import session_config
 from fsm._types.database import User
