@@ -13,7 +13,7 @@ from api.constants import PROJECT_DIRECTORY
 if TYPE_CHECKING:
     from pathlib import Path
 
-TOKEN_KEY_ENV: Final[str] = "FSM_TOKEN_KEY"
+TOKEN_KEY_ENV: Final[str] = "FSM_TOKEN_KEY"  # noqa: S105
 TOKEN_KEY_FILE: Final[Path] = PROJECT_DIRECTORY / ".factorio_token.key"
 
 logger = logging.getLogger(__name__)

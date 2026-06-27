@@ -15,6 +15,24 @@ data:
     SERVER_BACKEND = kubernetes
     K8S_NAMESPACE = fsm
     PUBLIC_IP = 127.0.0.1
+    MOD_SHARED_ROOT = /mnt/mod-cache
+---
+# Shared, deduplicated mod store. Holds each mod+version zip once plus every
+# server's hardlinked mods directory; mounted RW by the backend and per-server
+# (subPath) into each Factorio pod at /factorio/mods.
+# NOTE: ReadWriteOnce for the local kind/local-path provisioner (it rejects RWX).
+# A real cluster with an RWX storage class (NFS/CephFS) should use ReadWriteMany
+# so backend + Factorio pods can share it across nodes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fsm-mod-cache
+  namespace: fsm
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -69,12 +87,19 @@ spec:
         - name: backend
           image: fsm-backend:dev
           imagePullPolicy: Never
+          # confkit rewrites config.ini in place at import, so copy the
+          # (read-only) ConfigMap into the writable image path before launching.
+          command: ["/bin/sh", "-c"]
+          args:
+            - cp /config/config.ini /app/src/api/config.ini &&
+              exec uv run --no-sync uvicorn api.main:app --host 0.0.0.0 --port 8000
           ports:
             - containerPort: 8000
           volumeMounts:
             - name: config
-              mountPath: /app/src/api/config.ini
-              subPath: config.ini
+              mountPath: /config
+            - name: mod-cache
+              mountPath: /mnt/mod-cache
           readinessProbe:
             httpGet: { path: /openapi.json, port: 8000 }
             initialDelaySeconds: 5
@@ -83,6 +108,9 @@ spec:
         - name: config
           configMap:
             name: fsm-config
+        - name: mod-cache
+          persistentVolumeClaim:
+            claimName: fsm-mod-cache
 ---
 apiVersion: v1
 kind: Service

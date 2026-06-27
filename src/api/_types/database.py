@@ -3,7 +3,6 @@ import logging
 from logging import getLogger
 from typing import Self
 
-import bcrypt
 import httpxyz
 from cryptography.fernet import InvalidToken
 from sqlalchemy import (
@@ -21,9 +20,9 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from api._types import FactorioBridge
-from api._types.data import Server
+from api._types import FactorioInterface
 from api._types.factorio_interface import ModsInterface
+from api._types.server.core import Server
 from api.constants import DATABASE_PATH, SERVERS_DIRECTORY, HTTPConfig
 from api.security import decrypt_factorio_token, encrypt_factorio_token
 
@@ -75,13 +74,13 @@ class User(Base):
     )
 
     @property
-    def fi(self: Self) -> FactorioBridge:
+    def fi(self: Self) -> FactorioInterface:
         if getattr(self, "_fi", None) is None:
-            self._fi = FactorioBridge(client, mods)
+            self._fi = FactorioInterface(client, mods)
         return self._fi
 
     @fi.setter
-    def fi(self: Self, fi: FactorioBridge) -> None:
+    def fi(self: Self, fi: FactorioInterface) -> None:
         self._fi = fi
 
     @property
@@ -107,10 +106,10 @@ class User(Base):
         self.factorio_token_encrypted = encrypt_factorio_token(token)
 
     @property
-    def fi(self: Self) -> FactorioBridge:
+    def fi(self: Self) -> FactorioInterface:
         """Return a FactorioInterface instance authenticated with the user's token."""
         if not hasattr(self, "_fi") or self._fi is None:
-            self._fi = FactorioBridge(client, mods)
+            self._fi = FactorioInterface(client, mods)
         return self._fi
 
     @property
@@ -127,14 +126,14 @@ class User(Base):
 
         """
         with Session(engine) as session:
-            logger.debug(f"Looking for user {email=}")
+            logger.debug("Looking for user %s", email)
 
             if user := session.query(cls).where(cls.email == email).first():
-                logger.debug(f"Returning user {email=}")
+                logger.debug("Returning user %s", email)
                 session.expunge(user)
                 return user
 
-            logger.debug(f"Creating user {email=}")
+            logger.debug("Creating user %s", email)
             user = cls(email=email)
             session.add(user)
             session.commit()

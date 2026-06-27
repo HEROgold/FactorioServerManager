@@ -8,6 +8,7 @@ Starting/stopping scales the Deployment between 1 and 0 replicas.
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
@@ -25,6 +26,13 @@ if TYPE_CHECKING:
 GAME_CONTAINER_PORT = 34197
 RCON_CONTAINER_PORT = 27015
 _NOT_FOUND = 404
+
+# Cluster-wide ReadWriteMany volume holding the deduplicated mod store and every
+# server's mods directory. Each server's mods are hardlinks into the store, and
+# the per-server directory is mounted into the pod at /factorio/mods so the game
+# loads exactly those mods while the bytes are stored once for the whole cluster.
+MOD_CACHE_PVC = "fsm-mod-cache"
+MOD_CACHE_VOLUME = "mod-cache"
 
 
 class K8sBackend(ServerBackend):
@@ -54,6 +62,24 @@ class K8sBackend(ServerBackend):
         self._load()
         return client.CoreV1Api()
 
+    # -- naming --------------------------------------------------------
+    @staticmethod
+    def _name(spec: ServerSpec) -> str:
+        """RFC 1123 resource name for this server.
+
+        ``spec.identifier`` (the Docker container name) contains underscores,
+        which Kubernetes rejects in resource names, so coerce it to a valid
+        lowercase DNS subdomain. Deterministic, so create/start/stop/remove all
+        resolve to the same resource.
+        """
+        name = re.sub(r"[^a-z0-9.-]", "-", spec.identifier.lower())
+        name = re.sub(r"-{2,}", "-", name).strip("-.")
+        return name or "fsm-server"
+
+    @classmethod
+    def _pvc_name(cls, spec: ServerSpec) -> str:
+        return f"{cls._name(spec)}-data"
+
     # -- manifest builders ---------------------------------------------
     @staticmethod
     def _labels(spec: ServerSpec) -> dict[str, str]:
@@ -61,7 +87,7 @@ class K8sBackend(ServerBackend):
 
     def _pvc(self, spec: ServerSpec) -> client.V1PersistentVolumeClaim:
         return client.V1PersistentVolumeClaim(
-            metadata=client.V1ObjectMeta(name=f"{spec.identifier}-data", labels=self._labels(spec)),
+            metadata=client.V1ObjectMeta(name=self._pvc_name(spec), labels=self._labels(spec)),
             spec=client.V1PersistentVolumeClaimSpec(
                 access_modes=["ReadWriteOnce"],
                 resources=client.V1ResourceRequirements(requests={"storage": "10Gi"}),
@@ -70,6 +96,10 @@ class K8sBackend(ServerBackend):
 
     def _deployment(self, spec: ServerSpec) -> client.V1Deployment:
         labels = self._labels(spec)
+        # Per-server mods live inside the shared store volume; mounting that
+        # subPath at /factorio/mods exposes only this server's hardlinks while the
+        # underlying bytes are deduplicated across the whole cluster.
+        mods_sub_path = f"servers/{spec.data_dir.parent.name}/{spec.name}/mods"
         container = client.V1Container(
             name="factorio",
             image=f"{AppConfig.FACTORIO_IMAGE}:{spec.version}",
@@ -77,7 +107,14 @@ class K8sBackend(ServerBackend):
                 client.V1ContainerPort(container_port=GAME_CONTAINER_PORT, protocol="UDP"),
                 client.V1ContainerPort(container_port=RCON_CONTAINER_PORT, protocol="TCP"),
             ],
-            volume_mounts=[client.V1VolumeMount(name="data", mount_path="/factorio")],
+            volume_mounts=[
+                client.V1VolumeMount(name="data", mount_path="/factorio"),
+                client.V1VolumeMount(
+                    name=MOD_CACHE_VOLUME,
+                    mount_path="/factorio/mods",
+                    sub_path=mods_sub_path,
+                ),
+            ],
         )
         pod_spec = client.V1PodSpec(
             containers=[container],
@@ -85,13 +122,19 @@ class K8sBackend(ServerBackend):
                 client.V1Volume(
                     name="data",
                     persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                        claim_name=f"{spec.identifier}-data",
+                        claim_name=self._pvc_name(spec),
+                    ),
+                ),
+                client.V1Volume(
+                    name=MOD_CACHE_VOLUME,
+                    persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                        claim_name=MOD_CACHE_PVC,
                     ),
                 ),
             ],
         )
         return client.V1Deployment(
-            metadata=client.V1ObjectMeta(name=spec.identifier, labels=labels),
+            metadata=client.V1ObjectMeta(name=self._name(spec), labels=labels),
             spec=client.V1DeploymentSpec(
                 replicas=1,
                 selector=client.V1LabelSelector(match_labels=labels),
@@ -104,7 +147,7 @@ class K8sBackend(ServerBackend):
 
     def _service(self, spec: ServerSpec) -> client.V1Service:
         return client.V1Service(
-            metadata=client.V1ObjectMeta(name=spec.identifier, labels=self._labels(spec)),
+            metadata=client.V1ObjectMeta(name=self._name(spec), labels=self._labels(spec)),
             spec=client.V1ServiceSpec(
                 type="LoadBalancer",
                 selector=self._labels(spec),
@@ -126,10 +169,10 @@ class K8sBackend(ServerBackend):
         await asyncio.to_thread(_create)
 
     async def start(self, spec: ServerSpec) -> None:
-        await asyncio.to_thread(self._scale, spec.identifier, 1)
+        await asyncio.to_thread(self._scale, self._name(spec), 1)
 
     async def stop(self, spec: ServerSpec) -> None:
-        await asyncio.to_thread(self._scale, spec.identifier, 0)
+        await asyncio.to_thread(self._scale, self._name(spec), 0)
 
     async def restart(self, spec: ServerSpec) -> None:
         def _restart() -> None:
@@ -141,7 +184,7 @@ class K8sBackend(ServerBackend):
                     },
                 },
             }
-            self._apps.patch_namespaced_deployment(spec.identifier, self._namespace, patch)
+            self._apps.patch_namespaced_deployment(self._name(spec), self._namespace, patch)
 
         await asyncio.to_thread(_restart)
 
@@ -149,9 +192,9 @@ class K8sBackend(ServerBackend):
         def _remove() -> None:
             ns = self._namespace
             for delete in (
-                lambda: self._apps.delete_namespaced_deployment(spec.identifier, ns),
-                lambda: self._core.delete_namespaced_service(spec.identifier, ns),
-                lambda: self._core.delete_namespaced_persistent_volume_claim(f"{spec.identifier}-data", ns),
+                lambda: self._apps.delete_namespaced_deployment(self._name(spec), ns),
+                lambda: self._core.delete_namespaced_service(self._name(spec), ns),
+                lambda: self._core.delete_namespaced_persistent_volume_claim(self._pvc_name(spec), ns),
             ):
                 try:
                     delete()
@@ -170,7 +213,7 @@ class K8sBackend(ServerBackend):
 
     def status(self, spec: ServerSpec) -> str:
         try:
-            result = self._apps.read_namespaced_deployment(spec.identifier, self._namespace)
+            result = self._apps.read_namespaced_deployment(self._name(spec), self._namespace)
         except ApiException as exc:
             if exc.status == _NOT_FOUND:
                 return DockerStates.UNKNOWN.value

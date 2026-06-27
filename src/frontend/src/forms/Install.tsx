@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { SubmitButton } from "./SubmitButton"
 import Input from "@/components/tags/Input"
 import Select from "@/components/tags/Select"
+import LoginRequired from "@/components/LoginRequired"
 import { useAvailableVersions } from "@/contexts/AvailableVersion"
 import { apiFetch } from "@/api"
 
@@ -19,6 +20,7 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
   const { versions, loading, hasError } = useAvailableVersions()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [unauthorized, setUnauthorized] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<string>("")
 
   // The select is controlled so the default survives the async versions load.
@@ -53,6 +55,11 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
       const res = await apiFetch(`/api/server/${encodeURIComponent(serverName)}/create?${params.toString()}`, {
         method: "POST",
       })
+      if (res.status === 401) {
+        setUnauthorized(true)
+        setSubmitting(false)
+        return
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.detail || `Install failed: ${res.status}`)
@@ -62,6 +69,10 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
       setError(err instanceof Error ? err.message : "Install failed")
       setSubmitting(false)
     }
+  }
+
+  if (unauthorized) {
+    return <LoginRequired message="Please log in to create a server." />
   }
 
   return (

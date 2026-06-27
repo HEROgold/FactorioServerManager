@@ -8,8 +8,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, SecretStr
 
-from api.deps import create_session_token
 from api._types.database import User
+from api.deps import create_session_token
 
 if TYPE_CHECKING:
     from api._types.factorio_interface import AuthToken

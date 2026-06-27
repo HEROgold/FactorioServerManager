@@ -6,7 +6,12 @@ export interface InstalledMod {
   version: string | null;
   has_archive: boolean;
   is_core: boolean;
+  /** Loadable by the game: has a downloadable archive or ships bundled with it. */
+  playable: boolean;
 }
+
+/** Releases fetched lazily per mod for the per-card version dropdown. */
+export type ReleasesByMod = Record<string, ModRelease[]>;
 
 export interface ModsIndexResponse {
   installed_mods: InstalledMod[];

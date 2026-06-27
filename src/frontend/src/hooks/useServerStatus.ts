@@ -13,7 +13,8 @@ export function useServerStatus(name: string, initial?: string | null): string {
     const onUpdate = (event: MessageEvent) => setStatus(event.data);
     es.addEventListener("serverStatusUpdate", onUpdate);
     es.onmessage = onUpdate;
-    es.onerror = () => es.close();
+    // Don't close on error: let EventSource auto-reconnect after a transient
+    // failure, otherwise the status light freezes permanently.
 
     return () => {
       es.removeEventListener("serverStatusUpdate", onUpdate);

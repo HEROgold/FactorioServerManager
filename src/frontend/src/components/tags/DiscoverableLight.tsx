@@ -1,20 +1,10 @@
 import { useEffect, useState } from "react";
 import { getJSON } from "@/api";
+import Light, { type Tone } from "./Light";
 
 interface Reachability {
   discoverable: boolean | null;
   reason: string | null;
-}
-
-type Tone = "green" | "orange" | "grey";
-
-function Indicator({ tone, label, title }: { tone: Tone; label: string; title: string }) {
-  return (
-    <span className="status-indicator">
-      <span className={`status-light status-light-${tone}`} role="img" aria-label={title} title={title} />
-      <span className="status-indicator-label">{label}</span>
-    </span>
-  );
 }
 
 // Reports whether the server is *actually* publicly discoverable by asking the
@@ -48,16 +38,22 @@ export default function DiscoverableLight({ name }: { name: string }) {
     };
   }, [name]);
 
+  let tone: Tone = "grey";
+  let label = "Unknown";
+  let title = state?.reason ?? "Reachability unknown";
+
   if (checking && !state) {
-    return <Indicator tone="grey" label="Checking…" title="Checking public reachability…" />;
+    title = "Checking public reachability…";
+    label = "Checking…";
+  } else if (state?.discoverable === true) {
+    tone = "green";
+    label = "Discoverable";
+    title = state.reason ?? "Listed in the public game browser";
+  } else if (state?.discoverable === false) {
+    tone = "orange";
+    label = "Not discoverable";
+    title = state.reason ?? "Not publicly reachable";
   }
 
-  const discoverable = state?.discoverable;
-  if (discoverable === true) {
-    return <Indicator tone="green" label="Discoverable" title={state?.reason ?? "Listed in the public game browser"} />;
-  }
-  if (discoverable === false) {
-    return <Indicator tone="orange" label="Not discoverable" title={state?.reason ?? "Not publicly reachable"} />;
-  }
-  return <Indicator tone="grey" label="Unknown" title={state?.reason ?? "Reachability unknown"} />;
+  return <Light tone={tone} label={label} title={title} />;
 }

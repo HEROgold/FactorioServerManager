@@ -13,7 +13,16 @@ fields so the exact Factorio key names are preserved on disk.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
-from typing import TYPE_CHECKING, Any, Self, Union, cast, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Self,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from api._types.json_parser import JsonParser
 
@@ -82,7 +91,7 @@ class Visibility:
 
 
 @dataclass
-class ServerSettings(JsonSettings):
+class GameSettings(JsonSettings):
     name: str = ""
     description: str = ""
     tags: list[str] = field(default_factory=list)
@@ -111,6 +120,20 @@ class ServerSettings(JsonSettings):
     minimum_segment_size_peer_count: int = 20
     maximum_segment_size: int = 100
     maximum_segment_size_peer_count: int = 10
+
+
+# --------------------------------------------------------------------------
+# manager.json (Factorio Server Manager metadata — NOT a Factorio config file)
+# --------------------------------------------------------------------------
+@dataclass
+class ServerMetadata(JsonSettings):
+    """Per-server manager metadata: opt-in public display + which fields show."""
+
+    public_display: bool = False
+    show_name: bool = True
+    show_status: bool = True
+    show_reachability: bool = True
+    show_ip: bool = False
 
 
 # --------------------------------------------------------------------------

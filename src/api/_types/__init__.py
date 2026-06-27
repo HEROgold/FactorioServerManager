@@ -1,7 +1,6 @@
 """Domain types for the fsm API."""
 
 from .factorio_interface import FactorioInterface
-from .factorio_interface import FactorioInterface as FactorioBridge
 
 
 class Version(str):
@@ -11,7 +10,6 @@ class Version(str):
 
 
 __all__ = [
-    "FactorioBridge",
     "FactorioInterface",
     "Version",
 ]

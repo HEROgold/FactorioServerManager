@@ -13,11 +13,12 @@ import httpxyz
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api._types import mod_store
 from api._types.database import User
 from api.deps import get_current_user
 
 if TYPE_CHECKING:
-    from api._types.data import Server
+    from api._types.server import Server
 
 PORTAL_ASSET_BASE = "https://mods-data.factorio.com"
 
@@ -102,7 +103,7 @@ async def index(
     """Return the installed mods plus context for the mod manager UI."""
     server = _get_server_or_404(current_user, name)
     return {
-        "installed_mods": server.describe_mods(),
+        "installed_mods": server.mods.describe(),
         "factorio_version": _safe_version_line(server) and server.factorio_version,
         "factorio_version_line": _safe_version_line(server),
         "token_missing": current_user.factorio_token is None,
@@ -207,21 +208,25 @@ async def install(
     file_name = release.get("file_name")
     if not download_url or not file_name:
         raise HTTPException(status_code=400, detail="Release metadata is incomplete.")
-    destination = server.mods / file_name
-    server.remove_mod_archives(body.mod_name)
-    try:
-        await current_user.fi.mods.download_release(
-            download_url=download_url,
-            destination=destination,
-            username=current_user.email,
-            token=factorio_token,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except httpxyz.HTTPError as err:
-        raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
-    server.upsert_mod_entry(body.mod_name, enabled=True, version=body.version)
-    return {"installed_mods": server.describe_mods(), "action": "installed", "name": body.mod_name}
+    # Replace any version this server already had, then ensure the bytes exist in
+    # the shared store exactly once before linking them into this server.
+    server.mods.remove_archives(body.mod_name)
+    store_file = mod_store.store_path(body.mod_name, file_name)
+    if not store_file.exists():
+        try:
+            await current_user.fi.mods.download_release(
+                download_url=download_url,
+                destination=store_file,
+                username=current_user.email,
+                token=factorio_token,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except httpxyz.HTTPError as err:
+            raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
+    server.mods.link_from_store(body.mod_name, file_name)
+    server.mods.upsert(body.mod_name, enabled=True, version=body.version)
+    return {"installed_mods": server.mods.describe(), "action": "installed", "name": body.mod_name}
 
 
 @router.post("/server/{name}/mods/state")
@@ -234,9 +239,9 @@ async def toggle_state(
     server = _get_server_or_404(current_user, name)
     if body.mod_name == "base":
         raise HTTPException(status_code=400, detail="The base mod cannot be disabled.")
-    server.upsert_mod_entry(body.mod_name, enabled=body.enabled)
+    server.mods.upsert(body.mod_name, enabled=body.enabled)
     action = "enabled" if body.enabled else "disabled"
-    return {"installed_mods": server.describe_mods(), "action": action, "name": body.mod_name}
+    return {"installed_mods": server.mods.describe(), "action": action, "name": body.mod_name}
 
 
 @router.delete("/server/{name}/mods/{mod_name}")
@@ -247,8 +252,8 @@ async def remove(
 ) -> dict:
     """Remove a mod and its archives."""
     server = _get_server_or_404(current_user, name)
-    if mod_name == "base":
-        raise HTTPException(status_code=400, detail="The base mod cannot be removed.")
-    server.remove_mod_entry(mod_name)
-    server.remove_mod_archives(mod_name)
-    return {"installed_mods": server.describe_mods(), "action": "removed", "name": mod_name}
+    if server.mods.is_bundled(mod_name):
+        raise HTTPException(status_code=400, detail="Bundled game mods cannot be removed.")
+    server.mods.remove_entry(mod_name)
+    server.mods.remove_archives(mod_name)
+    return {"installed_mods": server.mods.describe(), "action": "removed", "name": mod_name}

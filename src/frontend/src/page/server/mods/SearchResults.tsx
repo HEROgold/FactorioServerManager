@@ -1,25 +1,38 @@
 import Placeholder from "@/components/tags/Placeholder";
-import Card from "@/components/tags/Card";
 import ButtonGhost from "@/components/tags/ButtonGhost";
-import type { SearchResponse, SearchResult } from "./types";
+import ModTable from "./ModTable";
+import type { InstalledMod, ModRelease, SearchResponse, SearchResult } from "./types";
 
 interface Props {
   data: SearchResponse | null;
   query: string;
   loading: boolean;
-  onSelect: (modName: string) => void;
+  installedByName: Map<string, InstalledMod>;
+  installDisabled: boolean;
+  onInstall: (modName: string, version: string) => void | Promise<void>;
+  onToggle: (mod: InstalledMod) => void;
+  onRemove: (mod: InstalledMod) => void;
+  loadReleases: (modName: string) => Promise<ModRelease[]>;
   onPage: (page: number) => void;
 }
 
-export default function SearchResults({ data, query, loading, onSelect, onPage }: Props) {
+export default function SearchResults({
+  data,
+  query,
+  loading,
+  installedByName,
+  installDisabled,
+  onInstall,
+  onToggle,
+  onRemove,
+  loadReleases,
+  onPage,
+}: Props) {
   if (loading) {
     return <Placeholder><p>Searching…</p></Placeholder>;
   }
   if (data?.error) {
     return <Placeholder alert>{data.error}</Placeholder>;
-  }
-  if (!query) {
-    return <Placeholder><p>Type at least one character to start exploring mods.</p></Placeholder>;
   }
   if (!data || data.results.length === 0) {
     return <Placeholder><p>No mods matched “{query}”. Try a different keyword.</p></Placeholder>;
@@ -29,33 +42,27 @@ export default function SearchResults({ data, query, loading, onSelect, onPage }
 
   return (
     <>
-      <div className="mod-search-grid">
-        {results.map((mod: SearchResult) => (
-          <Card
-            key={mod.name}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect(mod.name)}
-            onKeyDown={(e) => { if (e.key === "Enter") onSelect(mod.name); }}
-          >
-            {mod.thumbnail ? (
-              <div className="mod-card-thumb" role="presentation" style={{ backgroundImage: `url('${mod.thumbnail}')` }} />
-            ) : (
-              <div className="mod-card-thumb mod-card-thumb-empty" role="presentation" />
-            )}
-            <div className="mod-card-body">
-              <h4>{mod.title}</h4>
-              <p>{mod.summary || "No summary provided yet."}</p>
-              <div className="mod-card-meta">
-                <span>{mod.owner || "Unknown creator"}</span>
-                {mod.latest_release?.version ? <span>v{mod.latest_release.version}</span> : null}
-                {mod.compatibility ? <span>Factorio {mod.compatibility}</span> : null}
-                <span>{mod.downloads.toLocaleString()} downloads</span>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <ModTable
+        mode="download"
+        rows={results.map((mod: SearchResult) => ({
+          mod: {
+            name: mod.name,
+            title: mod.title,
+            summary: mod.summary,
+            owner: mod.owner,
+            downloads: mod.downloads,
+            thumbnail: mod.thumbnail,
+            latestVersion: mod.latest_release?.version ?? null,
+            compatibility: mod.compatibility,
+          },
+          installed: installedByName.get(mod.name),
+        }))}
+        installDisabled={installDisabled}
+        onInstall={onInstall}
+        onToggle={onToggle}
+        onRemove={onRemove}
+        loadReleases={loadReleases}
+      />
       {(pagination.has_prev || pagination.has_next) && (
         <div className="mod-pagination">
           {pagination.has_prev && (

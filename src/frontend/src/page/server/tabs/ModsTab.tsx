@@ -1,31 +1,41 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getJSON, sendJSON } from "@/api";
 import Input from "@/components/tags/Input";
 import Button from "@/components/tags/Button";
-import InstalledList from "../mods/InstalledList";
+import Placeholder from "@/components/tags/Placeholder";
+import ModTable from "../mods/ModTable";
 import SearchResults from "../mods/SearchResults";
-import Detail from "../mods/Detail";
 import type {
-  DetailResponse,
   InstalledMod,
+  ModRelease,
   ModsIndexResponse,
   MutationResponse,
   SearchResponse,
 } from "../mods/types";
 
+const SUBTABS = ["installed", "download"] as const;
+type SubTab = (typeof SUBTABS)[number];
+const SUBTAB_LABELS: Record<SubTab, string> = {
+  installed: "Installed",
+  download: "Download",
+};
+
 // Mod-manager body, rendered as the Mods tab of the unified server-detail page.
+// Split into two sub-tabs: "Installed" manages local mods, "Download" searches
+// the Factorio mod portal. Each tab is a single table — one row per mod.
 export default function ModsTab({ name }: { name: string }) {
   const [index, setIndex] = useState<ModsIndexResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [subTab, setSubTab] = useState<SubTab>("installed");
+
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState<SearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
 
-  const [detail, setDetail] = useState<DetailResponse | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  // Per-mod release lists, fetched lazily for the per-row version dropdowns.
+  const releasesCache = useRef<Map<string, ModRelease[]>>(new Map());
 
   const loadIndex = useCallback(async () => {
     try {
@@ -56,25 +66,20 @@ export default function ModsTab({ name }: { name: string }) {
   const handleSearchSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmittedQuery(query);
-    setPage(1);
     void runSearch(query, 1);
   };
 
   const handlePage = (p: number) => {
-    setPage(p);
     void runSearch(submittedQuery, p);
   };
 
-  const handleSelect = async (modName: string) => {
-    setDetailLoading(true);
-    try {
-      setDetail(await getJSON<DetailResponse>(`/api/server/${name}/mods/detail/${modName}`));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load mod detail");
-    } finally {
-      setDetailLoading(false);
-    }
-  };
+  const loadReleases = useCallback(async (modName: string): Promise<ModRelease[]> => {
+    const cached = releasesCache.current.get(modName);
+    if (cached) return cached;
+    const res = await getJSON<{ releases: ModRelease[] }>(`/api/server/${name}/mods/detail/${modName}`);
+    releasesCache.current.set(modName, res.releases);
+    return res.releases;
+  }, [name]);
 
   const applyMutation = (res: MutationResponse) => {
     setIndex((prev) => (prev ? { ...prev, installed_mods: res.installed_mods } : prev));
@@ -111,7 +116,12 @@ export default function ModsTab({ name }: { name: string }) {
     }
   };
 
-  const installed = index?.installed_mods ?? [];
+  const installed = useMemo(() => index?.installed_mods ?? [], [index]);
+  const installedByName = useMemo(
+    () => new Map(installed.map((mod) => [mod.name, mod])),
+    [installed],
+  );
+  const tokenMissing = index?.token_missing ?? false;
 
   return (
     <div>
@@ -122,40 +132,66 @@ export default function ModsTab({ name }: { name: string }) {
           <span>Factorio version: <strong>{index?.factorio_version || "Unknown"}</strong></span>
           <span>Total mods: <strong>{installed.length}</strong></span>
         </div>
-        <hr />
-        <div id="installed-mods">
-          <InstalledList mods={installed} onToggle={handleToggle} onRemove={handleRemove} />
-        </div>
-      </div>
 
-      <div className="panel-inset-lighter mt24">
-        <h3 className="mt0">Browse the Mod Portal</h3>
-        <form onSubmit={handleSearchSubmit} className="mod-search-bar" style={{ display: "flex", gap: "8px" }}>
-          <Input
-            type="search"
-            name="q"
-            placeholder="Search mods…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ flex: 1 }}
+        <nav className="server-tabs mod-subtabs">
+          {SUBTABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`server-tab${tab === subTab ? " active" : ""}`}
+              onClick={() => setSubTab(tab)}
+            >
+              {SUBTAB_LABELS[tab]}
+            </button>
+          ))}
+        </nav>
+
+        {subTab === "download" ? (
+          <>
+            <form onSubmit={handleSearchSubmit} className="mod-search-bar" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              <Input
+                type="search"
+                name="q"
+                placeholder="Search the mod portal…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <Button type="submit">Search</Button>
+            </form>
+            {submittedQuery ? (
+              <SearchResults
+                data={search}
+                query={submittedQuery}
+                loading={searching}
+                installedByName={installedByName}
+                installDisabled={tokenMissing}
+                onInstall={handleInstall}
+                onToggle={handleToggle}
+                onRemove={handleRemove}
+                loadReleases={loadReleases}
+                onPage={handlePage}
+              />
+            ) : (
+              <Placeholder><p>Search the Factorio mod portal above to add new mods.</p></Placeholder>
+            )}
+          </>
+        ) : installed.length === 0 ? (
+          <Placeholder><p>No mods installed yet. Use the Download tab to add some.</p></Placeholder>
+        ) : (
+          <ModTable
+            mode="installed"
+            rows={installed.map((mod) => ({
+              mod: { name: mod.name, title: mod.name, latestVersion: mod.version },
+              installed: mod,
+            }))}
+            installDisabled={tokenMissing}
+            onInstall={handleInstall}
+            onToggle={handleToggle}
+            onRemove={handleRemove}
+            loadReleases={loadReleases}
           />
-          <Button type="submit">Search</Button>
-        </form>
-
-        <div className="mod-portal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", marginTop: "16px" }}>
-          <div id="mod-search-results">
-            <SearchResults
-              data={search}
-              query={submittedQuery}
-              loading={searching}
-              onSelect={handleSelect}
-              onPage={handlePage}
-            />
-          </div>
-          <div id="mod-detail-content">
-            <Detail data={detail} loading={detailLoading} onInstall={handleInstall} />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

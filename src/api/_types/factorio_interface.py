@@ -1,8 +1,6 @@
-from httpxyz import AsyncClient
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
-import httpxyz
 from bs4 import BeautifulSoup, Tag
 from herogold.log import LoggerMixin
 from pydantic.dataclasses import dataclass
@@ -15,11 +13,13 @@ from api.constants import (
     LOGIN_URL,
     MODS_API_URL,
     AppConfig,
-    HTTPConfig,
 )
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    import httpxyz
+    from httpxyz import AsyncClient
 
 MOD_PORTAL_BASE = "https://mods.factorio.com"
 
@@ -183,11 +183,19 @@ class ModsInterface(LoggerMixin):
             url = f"{MOD_PORTAL_BASE}{download_url}"
         params = {"username": username, "token": token}
         destination.parent.mkdir(parents=True, exist_ok=True)
-        async with self.client.stream("GET", url, params=params, timeout=120.0) as resp:
-            resp.raise_for_status()
-            with destination.open("wb") as f:
-                async for chunk in resp.aiter_bytes(32768):
-                    f.write(chunk)
+        # Stream to a temporary sibling and atomically swap it into place so a
+        # crash mid-download can never leave a truncated zip in the shared store.
+        partial = destination.with_name(destination.name + ".part")
+        try:
+            async with self.client.stream("GET", url, params=params, timeout=120.0) as resp:
+                resp.raise_for_status()
+                with partial.open("wb") as f:
+                    async for chunk in resp.aiter_bytes(32768):
+                        f.write(chunk)
+            partial.replace(destination)
+        except BaseException:
+            partial.unlink(missing_ok=True)
+            raise
         return destination
 
 class FactorioInterface(LoggerMixin):

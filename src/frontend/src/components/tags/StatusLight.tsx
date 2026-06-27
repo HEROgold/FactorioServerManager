@@ -1,4 +1,4 @@
-type Tone = "green" | "red" | "blue" | "grey";
+import Light, { type Tone } from "./Light";
 
 interface Props {
   status: string | null | undefined;
@@ -32,23 +32,5 @@ function toneFor(status: string | null | undefined): { tone: Tone; pulse: boolea
 export default function StatusLight({ status, showLabel = false }: Props) {
   const { tone, pulse } = toneFor(status);
   const label = status || "unknown";
-  const dot = (
-    <span
-      className={`status-light status-light-${tone}${pulse ? " status-light-pulse" : ""}`}
-      role="img"
-      aria-label={`Status: ${label}`}
-      title={label}
-    />
-  );
-
-  if (!showLabel) {
-    return dot;
-  }
-
-  return (
-    <span className="status-indicator">
-      {dot}
-      <span className="status-indicator-label">{label}</span>
-    </span>
-  );
+  return <Light tone={tone} pulse={pulse} title={`Status: ${label}`} label={showLabel ? label : undefined} />;
 }

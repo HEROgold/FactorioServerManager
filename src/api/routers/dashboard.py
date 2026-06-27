@@ -9,9 +9,10 @@ from pydantic import BaseModel
 
 from api._types.database import User
 from api.deps import get_current_user
+from api.routers.server import _load_settings, fetch_public_game_names
 
 if TYPE_CHECKING:
-    from api._types.data import Server
+    from api._types.server import Server
 
 router = APIRouter(prefix="/dashboard")
 
@@ -22,6 +23,7 @@ class ServerSummary(BaseModel):
     name: str
     port: int | None = None
     status: str | None = None
+    reachable: bool | None = None
 
 
 class DashboardResponse(BaseModel):
@@ -30,7 +32,7 @@ class DashboardResponse(BaseModel):
     servers: list[ServerSummary]
 
 
-def _summarize(server: Server) -> ServerSummary:
+def _summarize(server: Server, public_names: set[str] | None) -> ServerSummary:
     try:
         port = server.port
     except (AttributeError, OSError, ValueError):
@@ -39,7 +41,11 @@ def _summarize(server: Server) -> ServerSummary:
         status = server.status
     except (AttributeError, OSError):
         status = None
-    return ServerSummary(name=server.name, port=port, status=status)
+    reachable: bool | None = None
+    if public_names is not None:
+        settings = _load_settings(server)
+        reachable = (settings.name or server.name) in public_names
+    return ServerSummary(name=server.name, port=port, status=status, reachable=reachable)
 
 
 @router.get("/")
@@ -47,4 +53,14 @@ async def index(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> DashboardResponse:
     """Return server overview for the current user as JSON."""
-    return DashboardResponse(servers=[_summarize(s) for s in current_user.servers.values()])
+    servers = list(current_user.servers.values())
+
+    # One matchmaking fetch for the whole dashboard (using the user's creds).
+    public_names: set[str] | None = None
+    for server in servers:
+        settings = _load_settings(server)
+        if settings.username and settings.token:
+            public_names = await fetch_public_game_names(settings.username, settings.token)
+            break
+
+    return DashboardResponse(servers=[_summarize(s, public_names) for s in servers])

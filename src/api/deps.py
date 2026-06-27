@@ -3,9 +3,8 @@
 Includes session token creation and current-user resolution helpers.
 """
 
-from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
@@ -13,6 +12,9 @@ from sqlalchemy.orm import Session
 
 from api._types.database import User, engine
 from api.config import session_config
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 def get_session() -> Generator[Session]:

@@ -1,5 +1,9 @@
 """FastAPI application entry for the fsm API."""
+import socket
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from logging import getLogger
+from os import environ
 from pathlib import Path
 
 import sentry_sdk
@@ -14,10 +18,27 @@ from api.logging_security import configure_secure_logging, scrub_event
 
 logger = getLogger(__name__)
 
+# When running locally the backend binds a random free port (see main()). It
+# publishes that port here so the Bun dev server can proxy /api to the live
+# backend. Written while the server is up, removed on shutdown — never stale.
+PORT_FILE = Path(__file__).resolve().parents[2] / ".fsm-backend-port"
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    """Publish the bound port for the dev proxy while the server is alive."""
+    port = getattr(app.state, "bound_port", None)
+    if port is not None:
+        PORT_FILE.write_text(str(port))
+    try:
+        yield
+    finally:
+        PORT_FILE.unlink(missing_ok=True)
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI()
+    app = FastAPI(lifespan=_lifespan)
     app.router.prefix = "/api"
 
     origins = [
@@ -75,9 +96,23 @@ sentry_sdk.init(
 
 app = create_app()
 
+def _free_port(host: str) -> int:
+    """Ask the OS for an unused port so local runs never collide on 8000."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind((host, 0))
+        return probe.getsockname()[1]
+
+
 def main() -> None:
-    """Run the FastAPI application."""
-    uvicorn.run(app, host=app_config.host, port=app_config.port)
+    """Run the FastAPI application on a free port, published for the dev proxy."""
+    host = app_config.host
+    # Drop any port file left behind by an unclean exit so readers never see a
+    # stale port before the lifespan publishes the fresh one.
+    PORT_FILE.unlink(missing_ok=True)
+    # FSM_PORT pins the port (CI / scripts); otherwise grab a random free one.
+    port = int(environ["FSM_PORT"]) if environ.get("FSM_PORT") else _free_port(host)
+    app.state.bound_port = port
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter
 
 from api._types import Version
-from api.constants import ARCHIVE_URL
+from api.constants import ARCHIVE_URL, DEFAULT_VERSION
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -34,4 +34,4 @@ async def fetch_versions() -> Generator[Version]:
 @router.get("/versions")
 async def get_all_download_versions() -> list[str]:
     """Get all versions."""
-    return [Version("latest"), Version("stable"), *await fetch_versions()]
+    return [Version("latest"), Version(DEFAULT_VERSION), *await fetch_versions()]

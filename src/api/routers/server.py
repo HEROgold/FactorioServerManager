@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
-import time
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Annotated
 
@@ -12,18 +12,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from api._types.data import Server as DataServer
+from sqlalchemy.orm import Session
+
 from api._types.database import User
 from api._types.enums import DockerStates
 from api._types.rcon import RconError
 from api._types.rcon import execute as rcon_execute
-from api._types.settings import ServerSettings
-from api.constants import AppConfig
-from api.deps import get_current_user
+from api._types.server import Server as DataServer
+from api._types.settings import GameSettings, ServerMetadata
+from api.constants import SERVERS_DIRECTORY, AppConfig
+from api.deps import get_current_user, get_session
 from api.utils import sanitize_str
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import AsyncGenerator
     from pathlib import Path
 
 router = APIRouter()
@@ -32,6 +34,34 @@ LOG_TAIL_BYTES = 200_000
 
 # Factorio matchmaking endpoint listing all currently public games.
 MATCHMAKING_URL = "https://multiplayer.factorio.com/get-games"
+
+# Headers that keep Server-Sent-Events flowing through proxies/uvicorn without
+# buffering or caching.
+SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
+async def fetch_public_game_names(username: str, token: str) -> set[str] | None:
+    """Names of all currently-listed public Factorio games, or None on failure.
+
+    One matchmaking call returns the whole global list, so callers can fetch it
+    once and match many servers against it.
+    """
+    if not username or not token:
+        return None
+    try:
+        async with httpxyz.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(MATCHMAKING_URL, params={"username": username, "token": token})
+            resp.raise_for_status()
+            games = resp.json()
+    except Exception:  # noqa: BLE001 - any failure means we just can't tell
+        return None
+    if not isinstance(games, list):
+        return None
+    return {g["name"] for g in games if isinstance(g, dict) and isinstance(g.get("name"), str)}
 
 
 def _get_server_or_404(user: User, name: str) -> DataServer:
@@ -58,10 +88,26 @@ def _safe_version(server: DataServer) -> str | None:
         return None
 
 
-def _load_settings(server: DataServer) -> ServerSettings:
-    if server.server_settings_file.exists():
-        return ServerSettings.read(server.server_settings_file)
-    return ServerSettings(name=server.name)
+def _load_settings(server: DataServer) -> GameSettings:
+    if server.files.server_settings.exists():
+        return GameSettings.read(server.files.server_settings)
+    return GameSettings(name=server.name)
+
+
+def _load_meta(server: DataServer) -> ServerMetadata:
+    if server.files.manager_meta.exists():
+        return ServerMetadata.read(server.files.manager_meta)
+    return ServerMetadata()
+
+
+class PublicDisplayPayload(BaseModel):
+    """Manager metadata: opt-in public display and which fields are exposed."""
+
+    public_display: bool | None = None
+    show_name: bool | None = None
+    show_status: bool | None = None
+    show_reachability: bool | None = None
+    show_ip: bool | None = None
 
 
 class SettingsPayload(BaseModel):
@@ -95,6 +141,8 @@ class SettingsPayload(BaseModel):
     only_admins_can_pause_the_game: bool | None = None
     autosave_only_on_server: bool | None = None
     non_blocking_saving: bool | None = None
+    # Manager metadata (persisted separately from Factorio server-settings.json).
+    public_display: PublicDisplayPayload | None = None
 
 
 @router.get("/server/{name}")
@@ -110,7 +158,7 @@ async def get_server(
         "ip": server.ip,
         "status": server.status,
         "factorio_version": _safe_version(server),
-        "mods": server.describe_mods(),
+        "mods": server.mods.describe(),
     }
 
 
@@ -121,7 +169,7 @@ async def get_settings(
 ) -> dict:
     """Return the current server settings as JSON."""
     server = _get_server_or_404(current_user, name)
-    return asdict(_load_settings(server))
+    return {**asdict(_load_settings(server)), "public_display": asdict(_load_meta(server))}
 
 
 @router.patch("/server/{name}/settings")
@@ -134,15 +182,25 @@ async def update_settings(
     server = _get_server_or_404(current_user, name)
     settings = _load_settings(server)
     provided = payload.model_dump(exclude_unset=True)
+
+    # Manager metadata is stored separately from Factorio's server-settings.json.
+    meta_provided = provided.pop("public_display", None)
+    if meta_provided is not None:
+        meta = _load_meta(server)
+        for field_name, value in meta_provided.items():
+            if value is not None:
+                setattr(meta, field_name, value)
+        meta.write(server.files.manager_meta)
+
     if "visibility_public" in provided:
         settings.visibility.public = provided.pop("visibility_public")
     if "visibility_lan" in provided:
         settings.visibility.lan = provided.pop("visibility_lan")
     for field_name, value in provided.items():
         setattr(settings, field_name, value)
-    server.settings = settings
-    settings.write(server.server_settings_file)
-    return asdict(settings)
+    server.settings.game = settings
+    settings.write(server.files.server_settings)
+    return {**asdict(settings), "public_display": asdict(_load_meta(server))}
 
 
 @router.post("/server/{name}/create", status_code=201)
@@ -154,9 +212,7 @@ async def create_server(
 ) -> dict:
     """Create a new Factorio server for the current user."""
     name = sanitize_str(name)
-    server = DataServer(name, current_user)
-    if port is not None:
-        server.port = port
+    server = DataServer(name, current_user, port)
     current_user.add_server(server)
     server = current_user.servers[name]
     await server.create(version)
@@ -222,8 +278,8 @@ async def get_logs(
     """Return current and previous logs (tail-limited) for the named server."""
     server = _get_server_or_404(current_user, name)
     return {
-        "current_log": _read_log_tail(server.current_log_file),
-        "previous_log": _read_log_tail(server.previous_log_file),
+        "current_log": _read_log_tail(server.files.current_log),
+        "previous_log": _read_log_tail(server.files.previous_log),
     }
 
 
@@ -234,16 +290,16 @@ async def logs_stream(
 ) -> StreamingResponse:
     """Live-tail the current log file as a Server-Sent-Events stream."""
     server = _get_server_or_404(current_user, name)
-    log_path = server.current_log_file
+    log_path = server.files.current_log
 
-    def generate() -> Generator[str]:
+    async def generate() -> AsyncGenerator[str]:
         # Start from the end of the file; the frontend seeds its own backlog via
         # the one-shot /logs endpoint, so here we only emit newly appended lines.
         last_size = log_path.stat().st_size if log_path.exists() else 0
         while True:
             try:
                 if not log_path.exists():
-                    time.sleep(1.0)
+                    await asyncio.sleep(1.0)
                     continue
                 size = log_path.stat().st_size
                 if size < last_size:
@@ -257,11 +313,11 @@ async def logs_stream(
                     for line in chunk.splitlines():
                         yield f"data: {line}\n\n"
                 else:
-                    time.sleep(0.5)
+                    await asyncio.sleep(0.5)
             except OSError:
-                time.sleep(1.0)
+                await asyncio.sleep(1.0)
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
 @router.get("/server/{name}/rcon")
@@ -311,7 +367,8 @@ async def rcon_send(
         ) from err
 
     try:
-        response = await rcon_execute(server.ip, AppConfig.RCON_PORT, password, command)
+        async with asyncio.timeout(AppConfig.TIMEOUT_RCON):
+            response = await rcon_execute(server.ip, AppConfig.RCON_PORT, password, command)
     except RconError as err:
         raise HTTPException(status_code=502, detail=str(err)) from err
     return {"response": response}
@@ -335,26 +392,72 @@ async def reachable(
     if not settings.username or not settings.token:
         return {"discoverable": False, "reason": "No Factorio account credentials configured"}
 
-    try:
-        async with httpxyz.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                MATCHMAKING_URL,
-                params={"username": settings.username, "token": settings.token},
-            )
-            resp.raise_for_status()
-            games = resp.json()
-    except Exception:  # noqa: BLE001 - any failure means we just can't tell
+    names = await fetch_public_game_names(settings.username, settings.token)
+    if names is None:
         return {"discoverable": None, "reason": "Could not reach the Factorio matchmaking service"}
 
-    if not isinstance(games, list):
-        return {"discoverable": None, "reason": "Unexpected matchmaking response"}
-
     target = settings.name or server.name
-    listed = any(isinstance(game, dict) and game.get("name") == target for game in games)
+    listed = target in names
     return {
         "discoverable": listed,
         "reason": None if listed else "Server is not listed in the public game browser",
     }
+
+
+@router.get("/servers/public")
+async def public_servers(db: Annotated[Session, Depends(get_session)]) -> dict:
+    """List opt-in public servers across all users. No authentication required.
+
+    Each server exposes only the fields its owner enabled; owner identity is
+    never returned.
+    """
+    entries: list[tuple[DataServer, ServerMetadata, GameSettings]] = []
+    if SERVERS_DIRECTORY.exists():
+        for user_dir in SERVERS_DIRECTORY.iterdir():
+            if not user_dir.is_dir() or not user_dir.name.isdigit():
+                continue
+            user = db.get(User, int(user_dir.name))
+            if user is None:
+                continue
+            for server in user.servers.values():
+                meta = _load_meta(server)
+                if meta.public_display:
+                    entries.append((server, meta, _load_settings(server)))
+
+    # One matchmaking fetch covers every server: use the first available creds.
+    names: set[str] | None = None
+    for _server, _meta, settings in entries:
+        if settings.username and settings.token:
+            names = await fetch_public_game_names(settings.username, settings.token)
+            break
+
+    result: list[dict] = []
+    for server, meta, settings in entries:
+        status: str | None = None
+        if meta.show_status:
+            try:
+                status = server.status
+            except (AttributeError, OSError):
+                status = None
+        address: str | None = None
+        if meta.show_ip:
+            try:
+                address = f"{server.ip}:{server.port}"
+            except (AttributeError, OSError, ValueError):
+                address = None
+        reachable: bool | None = None
+        if meta.show_reachability and names is not None:
+            reachable = (settings.name or server.name) in names
+        result.append(
+            {
+                "name": (settings.name or server.name) if meta.show_name else None,
+                "status": status,
+                "address": address,
+                "reachable": reachable,
+            },
+        )
+
+    return {"servers": result}
 
 
 @router.get("/server/{name}/status")
@@ -363,7 +466,7 @@ async def status_stream(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> StreamingResponse:
     """Server status Server-Sent-Events stream."""
-    def generate() -> Generator[str]:
+    async def generate() -> AsyncGenerator[str]:
         previous_status = None
         while True:
             try:
@@ -371,10 +474,10 @@ async def status_stream(
             except (KeyError, AttributeError):
                 status = "unknown"
             if status and status == previous_status:
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
                 continue
             previous_status = status
             yield "event: serverStatusUpdate\n"
             yield f"data: {status}\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)

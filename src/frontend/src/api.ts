@@ -14,6 +14,21 @@ export function apiUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
 
+/** Error carrying the HTTP status so callers can branch (e.g. 401 -> login). */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+/** True when an error is an unauthenticated (401) ApiError. */
+export function isUnauthorized(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 401;
+}
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(apiUrl(path), { credentials: "include", ...init });
 }
@@ -21,7 +36,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 export async function getJSON<T>(path: string): Promise<T> {
   const res = await apiFetch(path);
   if (!res.ok) {
-    throw new Error(`GET ${path} failed: ${res.status}`);
+    throw new ApiError(`GET ${path} failed: ${res.status}`, res.status);
   }
   return (await res.json()) as T;
 }
@@ -46,7 +61,7 @@ export async function sendJSON<T = unknown>(
     } catch {
       /* ignore non-JSON error bodies */
     }
-    throw new Error(detail);
+    throw new ApiError(detail, res.status);
   }
   if (res.status === 204) {
     return undefined as T;

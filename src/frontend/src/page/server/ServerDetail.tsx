@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Layout from "@/templates/Layout";
 import StatusLight from "@/components/tags/StatusLight";
+import LoginRequired from "@/components/LoginRequired";
 import { useServerStatus } from "@/hooks/useServerStatus";
-import { getJSON } from "@/api";
+import { getJSON, isUnauthorized } from "@/api";
 import type { ManageServerData } from "@/forms/Settings";
 import ManageTab from "./tabs/ManageTab";
 import SettingsTab from "./tabs/SettingsTab";
@@ -41,6 +42,7 @@ export default function ServerDetail() {
   const [detail, setDetail] = useState<ServerDetailData | null>(null);
   const [settings, setSettings] = useState<ManageServerData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   // Log buffer lives here (not in LogsTab) so a manual "Clear" survives tab
   // switches — LogsTab unmounts when you leave the Logs tab.
@@ -71,13 +73,32 @@ export default function ServerDetail() {
         setDetail(d);
         setSettings(s);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load server");
+        if (isUnauthorized(err)) {
+          setUnauthorized(true);
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load server");
+        }
       }
     })();
   }, [name, navigate]);
 
   if (!name) {
     return null;
+  }
+
+  if (unauthorized) {
+    return (
+      <>
+        <title>{name}</title>
+        <Layout title="Manage Server">
+          <div className="container-inner">
+            <div className="medium-center">
+              <LoginRequired message="Please log in to manage this server." />
+            </div>
+          </div>
+        </Layout>
+      </>
+    );
   }
 
   // Switching tabs only updates the query string — no page navigation/reload.

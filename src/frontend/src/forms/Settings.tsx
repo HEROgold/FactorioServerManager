@@ -12,6 +12,23 @@ interface Visibility {
   lan: boolean;
 }
 
+/** Manager metadata (public-display opt-in), stored separately from Factorio settings. */
+export interface PublicDisplay {
+  public_display: boolean;
+  show_name: boolean;
+  show_status: boolean;
+  show_reachability: boolean;
+  show_ip: boolean;
+}
+
+const PUBLIC_DISPLAY_DEFAULT: PublicDisplay = {
+  public_display: false,
+  show_name: true,
+  show_status: true,
+  show_reachability: true,
+  show_ip: false,
+};
+
 /** Mirrors the Factorio 2.1 server-settings.json returned by GET /api/server/:name/settings. */
 export interface ManageServerData {
   name: string;
@@ -42,6 +59,7 @@ export interface ManageServerData {
   minimum_segment_size_peer_count: number;
   maximum_segment_size: number;
   maximum_segment_size_peer_count: number;
+  public_display?: PublicDisplay;
 }
 
 interface Props {
@@ -76,6 +94,13 @@ function collect(form: HTMLFormElement) {
     only_admins_can_pause_the_game: bool("only_admins_can_pause_the_game"),
     autosave_only_on_server: bool("autosave_only_on_server"),
     non_blocking_saving: bool("non_blocking_saving"),
+    public_display: {
+      public_display: bool("pd_public_display"),
+      show_name: bool("pd_show_name"),
+      show_status: bool("pd_show_status"),
+      show_reachability: bool("pd_show_reachability"),
+      show_ip: bool("pd_show_ip"),
+    },
   };
 }
 
@@ -85,6 +110,8 @@ export default function ManageServerForm({ name, data }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const pd = data.public_display ?? PUBLIC_DISPLAY_DEFAULT;
+  const [publicDisplay, setPublicDisplay] = useState(pd.public_display);
   const formRef = useRef<HTMLFormElement>(null);
   // Serialized snapshot of the pristine (or last-saved) form for dirty checks.
   const baselineRef = useRef<string>("");
@@ -165,6 +192,20 @@ export default function ManageServerForm({ name, data }: Props) {
         <div className="field">
           <label htmlFor="game_password">Game Password</label>
           <Input type="password" id="game_password" name="game_password" defaultValue={data.game_password} />
+        </div>
+
+        <hr />
+        <Checkbox
+          name="pd_public_display"
+          checked={publicDisplay}
+          onChange={(e) => setPublicDisplay(e.target.checked)}
+          label="Display this server publicly on the manager"
+        />
+        <div style={{ paddingLeft: 24, opacity: publicDisplay ? 1 : 0.5 }}>
+          <Checkbox name="pd_show_name" defaultChecked={pd.show_name} disabled={!publicDisplay} label="Show name" />
+          <Checkbox name="pd_show_status" defaultChecked={pd.show_status} disabled={!publicDisplay} label="Show status light" />
+          <Checkbox name="pd_show_reachability" defaultChecked={pd.show_reachability} disabled={!publicDisplay} label="Show reachability light" />
+          <Checkbox name="pd_show_ip" defaultChecked={pd.show_ip} disabled={!publicDisplay} label="Show IP address" />
         </div>
       </Fieldset>
 

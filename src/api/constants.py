@@ -9,6 +9,7 @@ from confkit import Config
 CONFIG_FILE = Path(__file__)
 PROJECT_DIR = CONFIG_FILE.parent
 TOML_FILE = PROJECT_DIR / "pyproject.toml"
+DEFAULT_VERSION = "stable"
 
 # confkit will auto-select a parser based on file extension; avoid explicit set_parser
 Config.set_file(PROJECT_DIR/"config.ini")
@@ -28,6 +29,13 @@ class AppConfig:
     # Container image used for Factorio servers.
     FACTORIO_IMAGE = Config("factoriotools/factorio")
 
+    # Kubernetes only: in-API mount path of the shared ReadWriteMany mod-cache
+    # volume. Empty when unset (Docker uses MOD_STORE_DIRECTORY instead).
+    MOD_SHARED_ROOT = Config(default="")
+
+    # Timeout for RCON connections and commands, in seconds.
+    TIMEOUT_RCON = Config(5)
+
 
 class HTTPConfig:
     """HTTP configuration settings."""
@@ -41,6 +49,12 @@ PROJECT_DIRECTORY = PROJECT_DIR
 SERVERS_DIRECTORY = PROJECT_DIR / "servers"
 DOWNLOADS_DIRECTORY = PROJECT_DIR / "downloads"
 SAVES_DIRECTORY = PROJECT_DIR / "saves"
+
+# Shared, deduplicated mod store (Docker/host). Each mod+version zip is downloaded
+# once here and hardlinked into every server that uses it. Mod zips are immutable,
+# so the bytes are safe to share. The Kubernetes equivalent lives under the shared
+# volume at AppConfig.MOD_SHARED_ROOT.
+MOD_STORE_DIRECTORY = SERVERS_DIRECTORY / ".mod-store"
 
 DATABASE_PATH = PROJECT_DIR / "database.db"
 
