@@ -8,23 +8,138 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "aiohttp>=3.13.4",
+    "httpxyz>=0.31.2",
+    "h2>=4.0.0",
     "beautifulsoup4>=4.14.3",
     "confkit>=1.3.1",
     "cryptography>=46.0.6",
-    "flask[async]>=3.1.3",
-    "flask-login>=0.6.3",
-    "flask-wtf>=1.2.2",
     "sqlalchemy>=2.0.48",
     "docker>=7.1.0",
+    "kubernetes>=31.0.0",
     "sentry-sdk>=2.57.0",
     "fastapi>=0.135.3",
     "bcrypt>=5.0.0",
     "herogold>=2.0.2",
     "uvicorn>=0.44.0",
-    "jose>=1.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "email-validator>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.55",
+    "pyrefly>=1.1.1",
+    "types-docker>=7.1.0",
 ]
 
 [build-system]
 requires = ["uv_build>=0.8.14,<0.9.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "api"
+module-root = "src"
+
+[tool.ty.environment]
+python-version = "3.14"
+root = ["src"]
+
+[tool.ty.terminal]
+# Treat warnings as hard failures so nothing slips through.
+error-on-warning = true
+
+[tool.ty.rules]
+# Strictest: escalate optional/implicit issues to errors.
+possibly-unresolved-reference = "error"
+redundant-cast = "error"
+unused-ignore-comment = "error"
+
+[tool.pyrefly]
+project-includes = ["src/api"]
+search-path = ["src"]
+python-version = "3.14"
+# Strictest behaviour: type-check untyped defs and infer their return types.
+untyped-def-behavior = "check-and-infer-return-type"
+
+[tool.pyrefly.errors]
+implicit-import = true
+
+[tool.skylos]
+complexity = 10
+nesting = 3
+max_args = 5
+max_lines = 50
+god_file_max_lines = 500
+god_file_max_definitions = 40
+god_file_max_top_level_definitions = 25
+duplicate_strings = 3
+model = "gpt-4.1"
+exclude = []
+ignore = []
+
+[tool.skylos.masking]
+names = []
+decorators = []
+bases = []
+
+[tool.skylos.dead_code]
+entrypoints = []
+
+# [[tool.skylos.dead_code.entrypoints]]
+# type = "class"
+# name = "Main"
+# path = "**/main.py"
+# base_classes = ["Application"]
+# reason = "framework entrypoint"
+#
+# [[tool.skylos.dead_code.entrypoints]]
+# type = "method"
+# name = ["create", "pre_hook", "post_hook"]
+# parent = { name = "Main", base_classes = ["Application"] }
+# reason = "framework lifecycle method"
+
+[tool.skylos.templates]
+# security = ".skylos/templates/security.md"
+# quality = ".skylos/templates/quality.md"
+# security_audit = ".skylos/templates/security_audit.md"
+# review = ".skylos/templates/review.md"
+
+[tool.skylos.vibe]
+extra_phantom_names = []
+extra_phantom_decorators = []
+extra_credential_names = []
+extra_sensitive_file_keywords = []
+extra_network_timeout_calls = []
+
+[tool.skylos.architecture]
+strict = false
+# Q802/Q803 are file-level I/A/D architecture signals by default. Set this to
+# true only if those signals should block strict gates in this project.
+enforce_iad = false
+
+# [[tool.skylos.architecture.layers]]
+# name = "api"
+# patterns = ["app.api", "app.routes"]
+#
+# [[tool.skylos.architecture.layers]]
+# name = "domain"
+# patterns = ["app.domain", "app.models"]
+#
+# [[tool.skylos.architecture.rules]]
+# from = "domain"
+# deny = ["api"]
+
+[tool.skylos.whitelist]
+names = []
+
+[tool.skylos.whitelist.documented]
+
+[tool.skylos.whitelist.temporary]
+
+[tool.skylos.gate]
+fail_on_critical = true
+max_critical = 0 
+max_high = 5
+max_security = 0
+max_quality = 10
+strict = false

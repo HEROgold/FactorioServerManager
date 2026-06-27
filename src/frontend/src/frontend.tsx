@@ -15,9 +15,9 @@ Sentry.init({
     (typeof Bun !== "undefined" && (Bun as any).env?.SENTRY_DSN) ??
     (import.meta as any).env?.SENTRY_DSN ??
     (import.meta as any).env?.SENTRY_DSN,
-  // Setting this option to true will send default PII data to Sentry.
-  // For example, automatic IP address collection on events
-  sendDefaultPii: true,
+  // Keep PII out of Sentry: avoid collecting IPs and, more importantly, any
+  // login credentials that could be captured in breadcrumbs or session replays.
+  sendDefaultPii: false,
 });
 
 const elem = document.getElementById("root")!;

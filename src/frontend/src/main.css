@@ -2279,9 +2279,9 @@ select.button {
     background-image: url("data:image/svg+xml;utf8,<svg fill='black' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
     background-repeat: no-repeat;
     padding-right: 26px;
-    height: 5.5ex;
+    height: 36px;
     background-position-x: calc(100% - 5px);
-    background-position-y: 6px;
+    background-position-y: center;
     font-weight: normal;
     font-family: 'Titillium Web', sans-serif
 }
@@ -2331,34 +2331,39 @@ button::-moz-focus-inner {
     box-shadow: inset 0px 4px 2.5px -2.5px #111, inset 2px 0px 2px 0px #323232, inset -2px 0px 2px 0px #323232, inset 0px -1px 1px 0px #fff, inset 0px -4px 2px -2px #8e8e8e, 0px 0px 4px 1px #2e2521
 }
 
-.checkbox-label .checkbox:hover,
-.checkbox-label .checkbox.hover,
-.checkbox-label .checkbox:active,
-.checkbox-label .checkbox.active,
-.checkbox-label input:focus~.checkbox {
+/* Hover/press highlight is driven by the whole label: the invisible <input>
+   overlay sits on top of the .checkbox span and would otherwise swallow its
+   own :hover/:active. Focus deliberately does NOT fill orange (that made the
+   box stay orange after clicking, since the input keeps focus). */
+.checkbox-label:hover input:not(:disabled)~.checkbox,
+.checkbox-label .checkbox.hover {
     background: #e39827;
     box-shadow: inset 0px 4px 2px -2px #412a07, inset 2px 0px 2px 0px #5a3c10, inset -2px 0px 2px 0px #5a3c10, inset 0px -2px 2px 0px #d0ae79, inset 0px -2px 4px 0px #c78627, 0px 0px 4px 1px #786b4f
 }
 
-.checkbox-label .checkbox:active,
+.checkbox-label:active input:not(:disabled)~.checkbox,
 .checkbox-label .checkbox.active {
     background: #f3c98e;
     box-shadow: inset 0px 4px 2px -2px #412a07, inset 2px 0px 2px 0px #5a3c10, inset -2px 0px 2px 0px #5a3c10, inset 0px -2px 2px 0px #d0ae79, inset 0px -2px 4px 0px #c78627, inset 0px 1px 2.5px 4.5px #e39827, 0px 0px 4px 1px #786b4f
 }
 
-.checkbox-label .checkbox:disabled,
-.checkbox-label .checkbox.disabled {
-    background: #313031;
-    box-shadow: inset 0px 4px 2.5px -2.5px #111, inset 2px 0px 2px 0px #323232, inset -2px 0px 2px 0px #323232, inset 0px -1px 1px 0px #666, inset 0px -4px 2px -2px #8e8e8e, 0px 0px 4px 1px #2e2521
-}
-
+/* Checked = orange fill; the ::after rule draws the dark checkmark. */
 .checkbox-label input:checked~.checkbox {
     background: #e39827
 }
 
-.checkbox-label input:checked~.checkbox:active,
-.checkbox-label input:checked~.checkbox.active {
+.checkbox-label:active input:checked:not(:disabled)~.checkbox {
     background: #f3c98e
+}
+
+/* Disabled state is driven by the real input (a <span> can't be :disabled). */
+.checkbox-label input:disabled~.checkbox {
+    cursor: default
+}
+
+.checkbox-label input:disabled:not(:checked)~.checkbox {
+    background: #313031;
+    box-shadow: inset 0px 4px 2.5px -2.5px #111, inset 2px 0px 2px 0px #323232, inset -2px 0px 2px 0px #323232, inset 0px -1px 1px 0px #666, inset 0px -4px 2px -2px #8e8e8e, 0px 0px 4px 1px #2e2521
 }
 
 .checkbox-label .checkbox::after {
@@ -3725,3 +3730,209 @@ a.download i {
         font-size: 90%
     }
 }
+
+/* ===================================================================
+   App additions (React frontend) — components that replace the former
+   Tailwind/DaisyUI usage, plus the unified server-detail UI.
+   =================================================================== */
+
+/* --- Spinner (replaces DaisyUI loading-spinner) --- */
+.spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 230, 192, 0.25);
+    border-top-color: #ffa200;
+    border-radius: 50%;
+    animation: spinner-spin 0.8s linear infinite;
+    vertical-align: middle;
+}
+
+.spinner-xs { width: 12px; height: 12px; border-width: 2px }
+.spinner-sm { width: 18px; height: 18px; border-width: 2px }
+.spinner-md { width: 24px; height: 24px; border-width: 3px }
+.spinner-lg { width: 36px; height: 36px; border-width: 4px }
+.spinner-xl { width: 52px; height: 52px; border-width: 5px }
+
+@keyframes spinner-spin {
+    to { transform: rotate(360deg) }
+}
+
+/* --- Status light (Factorio control-panel style indicator dot) --- */
+.status-light {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #a6a6a6;
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.6), 0 0 4px 1px rgba(0, 0, 0, 0.5);
+    vertical-align: middle;
+}
+
+.status-light-green {
+    background: radial-gradient(circle at 35% 30%, #b6f0ba, #5eb663 60%, #2f7a34);
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.4), 0 0 6px 1px rgba(94, 182, 99, 0.8);
+}
+
+.status-light-red {
+    background: radial-gradient(circle at 35% 30%, #ffb1b1, #fe5a5a 60%, #8b0101);
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.4), 0 0 6px 1px rgba(254, 90, 90, 0.8);
+}
+
+.status-light-blue {
+    background: radial-gradient(circle at 35% 30%, #6fb0d0, #2f86ad 55%, #15445a);
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.55), 0 0 6px 1px rgba(47, 134, 173, 0.85);
+}
+
+.status-light-orange {
+    background: radial-gradient(circle at 35% 30%, #ffd9a0, #ffa200 55%, #b36b00);
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.4), 0 0 6px 1px rgba(255, 162, 0, 0.8);
+}
+
+.status-light-grey {
+    background: radial-gradient(circle at 35% 30%, #d6d6d6, #a6a6a6 60%, #5f5f5f);
+}
+
+.status-light-pulse {
+    animation: status-light-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes status-light-pulse {
+    0%, 100% { opacity: 1 }
+    50% { opacity: 0.4 }
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-indicator-label {
+    text-transform: capitalize;
+}
+
+/* Server list rows: align the status light with the server name. */
+.server-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+/* --- Server-detail tab bar --- */
+.server-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 16px 0 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.server-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #ffe6c0;
+    font-weight: 600;
+    font-size: 100%;
+    padding: 10px 18px;
+    cursor: pointer;
+    user-select: none;
+    font-family: inherit;
+}
+
+.server-tab:hover,
+.server-tab:focus {
+    color: #ffb347;
+    outline: none;
+}
+
+.server-tab.active {
+    color: #ffa200;
+    border-bottom-color: #ffa200;
+}
+
+.tab-panel {
+    margin-top: 8px;
+}
+
+/* --- Fieldset / legend (was rendering as a default UA fieldset) --- */
+fieldset {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+legend {
+    color: #ffe6c0;
+    font-weight: 900;
+    padding: 0 8px;
+    font-size: 110%;
+}
+
+/* --- Vertical form spacing (replaces Tailwind space-y-6) --- */
+.form-stack > * + * {
+    margin-top: 24px;
+}
+
+.field {
+    margin-bottom: 12px;
+}
+
+.field > label {
+    display: block;
+    margin-bottom: 4px;
+    color: #ffe6c0;
+}
+
+/* --- Live log window (Logs tab / Pre) --- */
+.log-window {
+    background: #0e0a07;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 540px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 90%;
+    line-height: 1.3;
+    color: #cfe9d4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* --- RCON console --- */
+.rcon-transcript {
+    background: #0e0a07;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 420px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 90%;
+    line-height: 1.35;
+    margin-bottom: 12px;
+}
+
+.rcon-entry { margin-bottom: 8px }
+.rcon-entry-cmd { color: #ffb347 }
+.rcon-entry-cmd::before { content: "> "; color: #7dcae5 }
+.rcon-entry-res { color: #cfe9d4; white-space: pre-wrap }
+.rcon-entry-err { color: #fe5a5a; white-space: pre-wrap }
+
+.rcon-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.rcon-form input {
+    flex: 1;
+}
+
+/* --- Spacing utility used in JSX but absent from the original sheet --- */
+.mt24 { margin-top: 24px !important }

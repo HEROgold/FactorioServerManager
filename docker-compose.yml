@@ -7,12 +7,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./src/fsm/servers:/app/src/fsm/servers
+      - ./src/api/servers:/app/src/api/servers
     restart: unless-stopped
     depends_on:
       - frontend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/openapi.json"]
       interval: 30s
       timeout: 10s
       retries: 3

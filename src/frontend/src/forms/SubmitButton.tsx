@@ -1,19 +1,17 @@
-import { useState } from "react";
-
-
-export function SubmitButton({ busy, idle }: { busy: string; idle: string }) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  return <>
-  <div className="text-right">
-    <button
-      type="submit"
-      className="button-green-right"
-      disabled={isSubmitting}
-      onClick={() => setIsSubmitting(true)}
-    >
-      {isSubmitting ? busy : idle}
-    </button>
-  </div>
-  </>;
+export function SubmitButton({
+  busy,
+  idle,
+  submitting = false,
+}: {
+  busy: string;
+  idle: string;
+  submitting?: boolean;
+}) {
+  return (
+    <div className="text-right">
+      <button type="submit" className="button-green-right" disabled={submitting}>
+        {submitting ? busy : idle}
+      </button>
+    </div>
+  );
 }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+import { apiFetch } from "@/api";
 import type { Version } from "@/types/GameVersion";
 
 interface AvailableVersionContextValue {
@@ -24,7 +25,7 @@ export function AvailableVersionProvider({ children }: { children: React.ReactNo
 	useEffect(() => {
 		(async () => {
 			try {
-				const res = await fetch("/api/versions", { credentials: "same-origin" });
+				const res = await apiFetch("/api/versions");
 				if (!res.ok) {
 					throw new Error("Failed to fetch versions");
 				}

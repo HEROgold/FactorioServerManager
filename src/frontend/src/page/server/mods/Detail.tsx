@@ -1,90 +1,115 @@
-{% if error %}
-<div class="mod-alert">{{ error }}</div>
-{% elif not mod %}
-<div class="mod-detail-placeholder">
-    <h4>No detail available.</h4>
-    <p>Select a mod from the search results to preview installable releases.</p>
-</div>
-{% else %}
-<article class="mod-detail-card">
-    <header>
+import { useState } from "react";
+import Card from "@/components/tags/Card";
+import Select from "@/components/tags/Select";
+import Button from "@/components/tags/Button";
+import Placeholder from "@/components/tags/Placeholder";
+import Section from "@/components/tags/Section";
+import type { DetailResponse, ModRelease } from "./types";
+
+interface Props {
+  data: DetailResponse | null;
+  loading: boolean;
+  onInstall: (modName: string, version: string) => Promise<void> | void;
+}
+
+function primaryRelease(releases: ModRelease[]): ModRelease | undefined {
+  return releases.find((r) => r.is_recommended) ?? releases[0];
+}
+
+export default function Detail({ data, loading, onInstall }: Props) {
+  const [selected, setSelected] = useState<string>("");
+
+  if (loading) {
+    return <div className="mod-detail-placeholder"><p>Loading mod…</p></div>;
+  }
+  if (data?.error) {
+    return <Placeholder alert>{data.error}</Placeholder>;
+  }
+  if (!data || !data.mod || !data.mod.name) {
+    return (
+      <div className="mod-detail-placeholder">
+        <h4>No detail available.</h4>
+        <p>Select a mod from the search results to preview installable releases.</p>
+      </div>
+    );
+  }
+
+  const { mod, releases, token_missing } = data;
+  const recommended = primaryRelease(releases);
+  const chosen = selected || recommended?.version || "";
+
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (mod.name && chosen) {
+      void onInstall(mod.name, chosen);
+    }
+  };
+
+  return (
+    <Card variant="detail">
+      <header>
         <div>
-            <p class="mod-eyebrow">{{ mod.category|title if mod.category else 'Mod' }}</p>
-            <h3>{{ mod.title or mod.name }}</h3>
-            <p>{{ mod.summary }}</p>
+          <p className="mod-eyebrow">{mod.category ? mod.category.replace(/\b\w/g, (c) => c.toUpperCase()) : "Mod"}</p>
+          <h3>{mod.title || mod.name}</h3>
+          <p>{mod.summary}</p>
         </div>
-        {% if mod.thumbnail %}
-        <div class="mod-detail-thumb" role="presentation" style="background-image: url('{{ mod.thumbnail }}');"></div>
-        {% endif %}
-    </header>
-    {% if mod.tags %}
-    <div class="mod-detail-tags">
-        {% for tag in mod.tags %}
-        <span class="mod-pill outline">{{ tag }}</span>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% if releases %}
-    <form
-        class="mod-install-form"
-        hx-post={`/servers/${name}/mods/install/${mod_id}`}
-        hx-target="#installed-mods"
-        hx-swap="innerHTML"
-        hx-indicator="#mods-installed-indicator"
-    >
-        <input type="hidden" name="mod_name" value="{{ mod.name }}">
-        <label>
-            <span>Choose release</span>
-            <select name="version">
-                {% for release in releases %}
-                <option value="{{ release.version }}" {% if release.is_recommended %}selected{% endif %}>
-                    v{{ release.version }} • Factorio {{ release.factorio_version or 'any' }} • {{ release.released_at }}
-                </option>
-                {% endfor %}
-            </select>
-        </label>
-        <button class="button" type="submit" {% if token_missing %}disabled{% endif %}>Install to server</button>
-    </form>
-    {% if token_missing %}
-    <p class="mod-token-warning">Log in with a Factorio account to download this mod.</p>
-    {% endif %}
-    <div class="mod-release-list">
-        {% for release in releases %}
-        <div class="mod-release-row{% if release.is_recommended %} recommended{% endif %}">
-            <strong>v{{ release.version }}</strong>
-            <span>Factorio {{ release.factorio_version or 'any' }}</span>
-            <span>{{ release.released_at }}</span>
-            {% if release.size_label %}
-            <span>{{ release.size_label }}</span>
-            {% endif %}
+        {mod.thumbnail ? (
+          <div className="mod-detail-thumb" role="presentation" style={{ backgroundImage: `url('${mod.thumbnail}')` }} />
+        ) : null}
+      </header>
+
+      {mod.tags && mod.tags.length > 0 && (
+        <div className="mod-detail-tags">
+          {mod.tags.map((tag) => (
+            <span key={tag} className="mod-pill outline">{tag}</span>
+          ))}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="mod-placeholder">
-        <p>No releases are available for this mod yet.</p>
-    </div>
-    {% endif %}
-    {% if releases %}
-    {% set ns = namespace(primary=None) %}
-    {% for release in releases %}
-        {% if release.is_recommended and ns.primary is none %}
-            {% set ns.primary = release %}
-        {% endif %}
-    {% endfor %}
-    {% if ns.primary is none %}
-        {% set ns.primary = releases[0] %}
-    {% endif %}
-    {% if ns.primary and ns.primary.dependencies %}
-    <section class="mod-dependencies">
-        <h4>Key dependencies</h4>
-        <ul>
-            {% for dep in ns.primary.dependencies[:6] %}
-            <li>{{ dep }}</li>
-            {% endfor %}
-        </ul>
-    </section>
-    {% endif %}
-    {% endif %}
-</article>
-{% endif %}
+      )}
+
+      {releases.length > 0 ? (
+        <>
+          <form className="mod-install-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Choose release</span>
+              <Select name="version" value={chosen} onChange={(e) => setSelected(e.target.value)}>
+                {releases.map((release) => (
+                  <option key={release.version} value={release.version}>
+                    v{release.version} • Factorio {release.factorio_version || "any"} • {release.released_at}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <Button className="button" type="submit" disabled={token_missing}>Install to server</Button>
+          </form>
+          {token_missing && (
+            <p className="mod-token-warning">Log in with a Factorio account to download this mod.</p>
+          )}
+          <div className="mod-release-list">
+            {releases.map((release) => (
+              <div key={release.version} className={`mod-release-row${release.is_recommended ? " recommended" : ""}`}>
+                <strong>v{release.version}</strong>
+                <span>Factorio {release.factorio_version || "any"}</span>
+                <span>{release.released_at}</span>
+                {release.size_label ? <span>{release.size_label}</span> : null}
+              </div>
+            ))}
+          </div>
+          {recommended && recommended.dependencies.length > 0 && (
+            <Section className="mod-dependencies">
+              <h4>Key dependencies</h4>
+              <ul>
+                {recommended.dependencies.slice(0, 6).map((dep) => (
+                  <li key={dep}>{dep}</li>
+                ))}
+              </ul>
+            </Section>
+          )}
+        </>
+      ) : (
+        <Placeholder>
+          <p>No releases are available for this mod yet.</p>
+        </Placeholder>
+      )}
+    </Card>
+  );
+}

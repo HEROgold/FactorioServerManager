@@ -1,30 +1,39 @@
-import { useNavigation } from "react-router-dom"
-import CSRF from "./CSRF"
-import { SubmitButton } from "./SubmitButton"
-import type { Build, Distro, Version } from "@/types/GameVersion"
-import Input from "@/components/tags/Input"
+import { useState } from "react"
+import { useAvailableVersions } from "@/contexts/AvailableVersion"
 
-
-interface DownloadData {
-  build: Build
-  distro: Distro
-  version: Version
-}
+const ARCHIVE_URL = "https://www.factorio.com/download/archive"
 
 /**
- * Submit the form, and start download the server version.
- * @returns 
+ * Lets the user browse the available Factorio versions (fetched from
+ * `/api/versions`) and jump to the official download archive.
  */
-export function DownloadForm(data: DownloadData) {
-  const navigation = useNavigation();
+export function DownloadForm() {
+  const { versions, loading, hasError } = useAvailableVersions()
+  const [selected, setSelected] = useState<string>("")
 
-  return <>
-    <form method="post" action="files/download_server">
-      <CSRF />
-      <input type="text" name="build" value={data.build} />
-      <input type="text" name="distro" value={data.distro} />
-      <input type="text" name="version" value={data.version} />
-      <SubmitButton busy="Downloading..." idle="Download" />
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); window.open(ARCHIVE_URL, "_blank", "noreferrer") }}
+      style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}
+    >
+      <select
+        name="version"
+        className="button"
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        disabled={loading || hasError}
+      >
+        {loading ? (
+          <option value="">Loading versions…</option>
+        ) : hasError ? (
+          <option value="">Versions unavailable</option>
+        ) : (
+          versions.map((version) => (
+            <option key={version} value={version}>{version}</option>
+          ))
+        )}
+      </select>
+      <button className="button" type="submit">Open Factorio Archive</button>
     </form>
-  </>
+  )
 }

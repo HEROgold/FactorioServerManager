@@ -2,7 +2,7 @@ export default function NoScript() {
   return <noscript>
     <div className="medium-center">
       <div className="panel alert alert-warning">
-        <button className="close-button" aria-label="Close alert" >
+        <button className="button button-ghost small" aria-label="Close alert" >
           <i className="fa-solid fa-xmark"></i>
         </button>
         <h2>Warning</h2>

@@ -1,5 +1,6 @@
 import type { User } from "@/contexts/UserContext";
 import Separator from "./Separator";
+import { apiFetch } from "@/api";
 
 interface Props {
   user: User
@@ -9,25 +10,33 @@ interface Props {
  * View for when user is already logged in
  */
 function LoggedInView({ user }: Props) {
+  const handleLogout = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } finally {
+      window.location.href = "/login";
+    }
+  };
+
   return <>
     <a href="/servers">{user.display_name}</a>
     <Separator color={"#7dcaed"} />
-    <form method="post" action="/api/logout" style={{ display: "inline" }}>
-      <button
-        type="submit"
-        style={{
-          background: "none",
-          border: "none",
-          color: "inherit",
-          cursor: "pointer",
-          font: "inherit",
-          padding: 0,
-          textDecoration: "underline",
-        }}
-      >
-        Log out
-      </button>
-    </form>
+    <button
+      type="button"
+      onClick={handleLogout}
+      style={{
+        background: "none",
+        border: "none",
+        color: "inherit",
+        cursor: "pointer",
+        font: "inherit",
+        padding: 0,
+        textDecoration: "underline",
+      }}
+    >
+      Log out
+    </button>
   </>
 }
 

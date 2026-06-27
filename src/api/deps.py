@@ -3,22 +3,22 @@
 Includes session token creation and current-user resolution helpers.
 """
 
+from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from herogold.orm.constants import session
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
 
+from api._types.database import User, engine
 from api.config import session_config
-from fsm._types.database import User
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
-def get_session() -> Session:
-    """Get a database session for the current request."""
-    return session
+def get_session() -> Generator[Session]:
+    """Yield a database session bound to the SQLite engine for the request."""
+    with Session(engine) as session:
+        yield session
 
 
 def create_session_token(user_id: int, expires_minutes: int = 60) -> str:
@@ -47,19 +47,19 @@ def get_current_user(
         )
     try:
         data = jwt.decode(token, session_config.secret, algorithms=[session_config.algorithm])
-        sub = data.get("sub")
-        try:
-            uid = int(sub)
-        except (TypeError, ValueError) as err:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session",
-            ) from err
-    except (JWTError, ValueError) as err:
+    except JWTError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid session",
         ) from err
+
+    sub = data.get("sub")
+    if not isinstance(sub, str) or not sub.lstrip("-").isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session",
+        )
+    uid = int(sub)
 
     user = db.get(User, uid)
     if not user:

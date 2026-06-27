@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Factorio-style cog favicon: orange gear on dark control-panel background -->
+  <rect width="64" height="64" rx="10" fill="#201810"/>
+  <g fill="#ffa200">
+    <!-- gear teeth + body, built from a 12-tooth cog path -->
+    <path d="M32 7l3.2 1.3 1.1 5.4 4.6 1.9 4.1-3.6 5 5-3.6 4.1 1.9 4.6 5.4 1.1L60 32l-1.3 3.2-5.4 1.1-1.9 4.6 3.6 4.1-5 5-4.1-3.6-4.6 1.9-1.1 5.4L32 60l-3.2-1.3-1.1-5.4-4.6-1.9-4.1 3.6-5-5 3.6-4.1-1.9-4.6-5.4-1.1L4 32l1.3-3.2 5.4-1.1 1.9-4.6-3.6-4.1 5-5 4.1 3.6 4.6-1.9 1.1-5.4z"/>
+  </g>
+  <circle cx="32" cy="32" r="11" fill="#201810"/>
+  <circle cx="32" cy="32" r="6" fill="#5eb663"/>
+</svg>

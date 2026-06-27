@@ -1,14 +1,17 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
-import { useNavigate, useNavigation } from "react-router-dom";
 
 export default function HomePage() {
-  const user = useUser();
+  const { user, loading } = useUser();
   const navigate = useNavigate();
 
-  if (!user) {
-    navigate("/login")
-  } else {
-    navigate("/servers")
-  }
-  return <></>
-};
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    navigate(user?.authenticated ? "/servers" : "/login");
+  }, [loading, user, navigate]);
+
+  return <></>;
+}

@@ -5,8 +5,9 @@ __pycache__
 *.db
 *.sqlite
 *.sqlite3
-src/FSM/downloads*
-src/FSM/servers*
+src/api/downloads*
+src/api/servers*
+src/api/saves*
 /.factorio_token.key
 /.flask_secret.key
 *.ini

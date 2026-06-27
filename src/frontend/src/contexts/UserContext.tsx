@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { apiFetch } from "@/api";
 
 export interface User {
   authenticated: boolean;
@@ -38,7 +39,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // leave user as null (not authenticated).
     (async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "same-origin" });
+        const res = await apiFetch("/api/me");
         if (res.ok) {
           const data = await res.json();
           setUser({ authenticated: true, display_name: data.display_name ?? data.username ?? undefined });

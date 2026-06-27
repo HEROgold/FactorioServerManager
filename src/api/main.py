@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from herogold.log import StreamHandler
 
 from api.config import app_config
+from api.logging_security import configure_secure_logging, scrub_event
 
 logger = getLogger(__name__)
 
@@ -24,7 +25,7 @@ def create_app() -> FastAPI:
         "http://127.0.0.1:3000",
     ]
     app.add_middleware(
-        CORSMiddleware,  # ty:ignore[invalid-argument-type]
+        CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
@@ -36,31 +37,30 @@ def create_app() -> FastAPI:
     if static_path.exists():
         app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-    # Include routers lazily to avoid import cycles during staged migration.
-    try:
-        from .routers import dashboard, login, mods, server, version  # noqa: PLC0415
+    from .routers import dashboard, login, mods, server, user, version  # noqa: PLC0415
 
-        app.include_router(dashboard.router)
-        app.include_router(mods.router)
-        app.include_router(server.router)
-        app.include_router(login.router)
-        app.include_router(version.router)
-    except Exception as err:  # noqa: BLE001 - staged migration import failures handled intentionally
-        logger.debug(
-            "Router import failed during staged migration; continuing",
-            exc_info=err,
-        )
+    app.include_router(dashboard.router)
+    app.include_router(mods.router)
+    app.include_router(server.router)
+    app.include_router(login.router)
+    app.include_router(user.router)
+    app.include_router(version.router)
 
     return app
 
 logger = getLogger(__name__)
 logger.addHandler(StreamHandler())
 
+# Keep secrets (session cookies, Factorio tokens, passwords) out of logs.
+configure_secure_logging()
+
 sentry_sdk.init(
     dsn="https://b43620319948689547199679efe43956@o4509360059252736.ingest.de.sentry.io/4511185780277328",
-    # Add data like request headers and IP for users, if applicable;
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-    send_default_pii=True,
+    # Do NOT attach request headers/cookies/IPs: they would leak the session
+    # cookie and Factorio credentials. scrub_event removes anything sensitive
+    # that still slips through.
+    send_default_pii=False,
+    before_send=scrub_event,
     # Set traces_sample_rate to 1.0 to capture 100%
     # of transactions for tracing.
     traces_sample_rate=1.0,

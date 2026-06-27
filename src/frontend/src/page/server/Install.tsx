@@ -12,7 +12,7 @@ export default function Install() {
           <div id="flashed-messages" className="small-center"></div>
           <NoScript />
           <div className="medium-center">
-            <div className="panel mb64 pb0 m0 flex grow flex-column">
+            <div className="panel mb64 pb0 m0 flex flex-grow flex-column">
               <h2>Server Manager</h2>
               <div className="panel-inset-lighter mb12">
                 <h3>Install</h3>
