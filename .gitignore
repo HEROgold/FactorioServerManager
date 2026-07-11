@@ -11,3 +11,4 @@ src/api/saves*
 /.factorio_token.key
 /.flask_secret.key
 *.ini
+!.github/
