@@ -29,6 +29,17 @@ export function isUnauthorized(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401;
 }
 
+/** Name of the readable cookie holding the double-submit CSRF token. */
+const CSRF_COOKIE = "fsm_csrf";
+
+/** Read the current CSRF token from the (non-HttpOnly) session cookie, if any. */
+function csrfToken(): string | undefined {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
+  );
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(apiUrl(path), { credentials: "include", ...init });
 }
@@ -46,9 +57,16 @@ export async function sendJSON<T = unknown>(
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
 ): Promise<T> {
+  // Attach the double-submit CSRF token; the backend rejects cookie-authed
+  // state changes whose X-CSRF-Token header does not match the fsm_csrf cookie.
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const token = csrfToken();
+  if (token) headers["X-CSRF-Token"] = token;
+
   const res = await apiFetch(path, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {

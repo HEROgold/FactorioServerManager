@@ -50,7 +50,13 @@ class DockerBackend(ServerBackend):
             self._client.containers.create(
                 image=f"{image}:{spec.version}",
                 detach=True,
-                ports={"34197/udp": spec.game_port, "27015/tcp": spec.rcon_port},
+                ports={
+                    "34197/udp": spec.game_port,
+                    # Publish RCON on the configured host interface only
+                    # (loopback by default) so the console port is not exposed
+                    # on a public interface.
+                    "27015/tcp": (AppConfig.RCON_BIND_HOST, spec.rcon_port),
+                },
                 volumes=[f"{spec.data_dir}:/factorio"],
                 name=spec.identifier,
                 restart_policy={"Name": "on-failure", "MaximumRetryCount": 2},

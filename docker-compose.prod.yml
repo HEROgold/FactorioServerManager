@@ -9,21 +9,50 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 
 services:
+  # Least-privilege gateway to the host Docker daemon. The backend talks to
+  # THIS instead of mounting the raw socket, so a compromise of the backend
+  # cannot run arbitrary Docker API calls (raw socket access is host-root
+  # equivalent). Only the container/image operations FSM needs are allowed.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      # Allow the endpoints DockerBackend uses: create/start/stop/restart/remove
+      # containers and pull images. Everything else stays denied by default.
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
+    depends_on:
+      - docker-socket-proxy
     networks:
       - internal
+    # Run unprivileged. Must match the Dockerfile's FSM_UID:FSM_GID and the
+    # ownership of the host data dirs / config.ini / database.db (see README).
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       # Secret keys are read from the environment (fall back to on-disk key
       # files only if unset). Keep these in .env, never in the image.
       FSM_SECRET_KEY: ${FSM_SECRET_KEY}
       FSM_TOKEN_KEY: ${FSM_TOKEN_KEY}
+      # Drive the daemon through the scoped proxy, never the raw socket.
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
     volumes:
-      # Spawn sibling Factorio containers on the host Docker daemon.
-      - /var/run/docker.sock:/var/run/docker.sock
       # Prod AppConfig (public_ip, server_backend). confkit rewrites this file
       # in place at import, so it must be a writable host bind, not read-only.
       - ./config.ini:/app/src/api/config.ini
@@ -52,6 +81,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    security_opt:
+      - no-new-privileges:true
     networks:
       - traefik
       - internal

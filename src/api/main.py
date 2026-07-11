@@ -1,4 +1,5 @@
 """FastAPI application entry for the fsm API."""
+import secrets
 import socket
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -8,15 +9,20 @@ from pathlib import Path
 
 import sentry_sdk
 import uvicorn.config
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from herogold.log import StreamHandler
 
-from api.config import app_config
+from api.config import app_config, session_config
+from api.deps import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 from api.logging_security import configure_secure_logging, scrub_event
 
 logger = getLogger(__name__)
+
+# HTTP methods that cannot change server state and so are exempt from CSRF checks.
+_CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 # When running locally the backend binds a random free port (see main()). It
 # publishes that port here so the Bun dev server can proxy /api to the live
@@ -53,6 +59,32 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def _csrf_protect(request: Request, call_next):  # noqa: ANN202, ANN001
+        """Enforce double-submit CSRF on cookie-authenticated state changes.
+
+        Only requests that already carry a session cookie are checked, so the
+        initial login (which has no session yet) is naturally exempt. For unsafe
+        methods the ``X-CSRF-Token`` header must match the ``fsm_csrf`` cookie;
+        a browser on another origin can send the cookie but cannot read it to
+        populate the header, which is what defeats the forgery.
+        """
+        if (
+            request.method not in _CSRF_SAFE_METHODS
+            and request.cookies.get(session_config.cookie_name)
+        ):
+            cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+            header_token = request.headers.get(CSRF_HEADER_NAME)
+            if not cookie_token or not header_token or not secrets.compare_digest(
+                cookie_token,
+                header_token,
+            ):
+                return JSONResponse(
+                    {"detail": "CSRF validation failed"},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+        return await call_next(request)
+
     # Mount static files used by some routers
     static_path = Path(__file__).resolve().parents[1] / "static"
     if static_path.exists():
@@ -75,24 +107,30 @@ logger.addHandler(StreamHandler())
 # Keep secrets (session cookies, Factorio tokens, passwords) out of logs.
 configure_secure_logging()
 
-sentry_sdk.init(
-    dsn="https://b43620319948689547199679efe43956@o4509360059252736.ingest.de.sentry.io/4511185780277328",
-    # Do NOT attach request headers/cookies/IPs: they would leak the session
-    # cookie and Factorio credentials. scrub_event removes anything sensitive
-    # that still slips through.
-    send_default_pii=False,
-    before_send=scrub_event,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
-    traces_sample_rate=1.0,
-    # To collect profiles for all profile sessions,
-    # set `profile_session_sample_rate` to 1.0.
-    profile_session_sample_rate=1.0,
-    # Profiles will be automatically collected while
-    # there is an active span.
-    profile_lifecycle="trace",
-    environment=app_config.environment,
-)
+# DSN comes from the environment (or api_config.ini), never hardcoded in source.
+# When unset, Sentry stays disabled instead of shipping events to a baked-in key.
+# Require a real http(s) URL so neither an empty value nor confkit's placeholder
+# default ("sentry_dsn") is ever passed to sentry_sdk.
+_sentry_dsn = (environ.get("SENTRY_DSN") or app_config.sentry_dsn or "").strip().strip('"').rstrip(",").strip('"')
+if _sentry_dsn.startswith(("http://", "https://")):
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        # Do NOT attach request headers/cookies/IPs: they would leak the session
+        # cookie and Factorio credentials. scrub_event removes anything sensitive
+        # that still slips through.
+        send_default_pii=False,
+        before_send=scrub_event,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        # To collect profiles for all profile sessions,
+        # set `profile_session_sample_rate` to 1.0.
+        profile_session_sample_rate=1.0,
+        # Profiles will be automatically collected while
+        # there is an active span.
+        profile_lifecycle="trace",
+        environment=app_config.environment,
+    )
 
 app = create_app()
 

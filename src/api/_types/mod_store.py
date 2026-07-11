@@ -57,9 +57,27 @@ def store_root() -> Path:
     return MOD_STORE_DIRECTORY
 
 
+def _safe_component(value: str, *, field: str) -> str:
+    """Return ``value`` if it is a single, safe path component, else raise.
+
+    Rejects path separators, parent references and NULs so an attacker-influenced
+    mod or file name can never escape the store root via traversal.
+    """
+    if not value or value in {".", ".."} or "/" in value or "\\" in value or "\x00" in value:
+        msg = f"Unsafe {field}: {value!r}"
+        raise ValueError(msg)
+    return value
+
+
 def store_path(mod_name: str, file_name: str) -> Path:
     """Absolute path of the single stored copy for ``{mod}_{version}.zip``."""
-    return store_root() / mod_name / file_name
+    root = store_root()
+    candidate = (root / _safe_component(mod_name, field="mod name") / _safe_component(file_name, field="file name"))
+    # Defence in depth: ensure the resolved path stays within the store root.
+    if not candidate.resolve().is_relative_to(root.resolve()):
+        msg = f"Resolved mod path escapes the store root: {candidate}"
+        raise ValueError(msg)
+    return candidate
 
 
 def is_stored(mod_name: str, file_name: str) -> bool:

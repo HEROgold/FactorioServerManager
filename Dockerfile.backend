@@ -1,8 +1,15 @@
 FROM python:3.14-slim
 
+# Fixed UID/GID for the unprivileged runtime user. Host bind-mounted data dirs
+# must be owned by this id so the container can write them (see README setup).
+ARG FSM_UID=10001
+ARG FSM_GID=10001
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src
+    PYTHONPATH=/app/src \
+    HOME=/app \
+    UV_CACHE_DIR=/app/.cache/uv
 
 WORKDIR /app
 
@@ -24,6 +31,16 @@ COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 # Sync runtime dependencies only; source is executed directly from /app/src/api.
 RUN uv sync --locked --no-install-project --no-dev
 
+# Create the unprivileged user and hand it everything under /app (the venv, the
+# source, and the runtime cache/home). The container then runs as this user, so
+# a compromise of the app process is not root inside the container — and, with
+# the docker-socket-proxy, has no path to root on the host either.
+RUN groupadd --gid "${FSM_GID}" fsm \
+    && useradd --uid "${FSM_UID}" --gid "${FSM_GID}" --home-dir /app --no-create-home fsm \
+    && mkdir -p /app/.cache/uv \
+    && chown -R "${FSM_UID}:${FSM_GID}" /app
+
+USER ${FSM_UID}:${FSM_GID}
 
 EXPOSE 8000
 

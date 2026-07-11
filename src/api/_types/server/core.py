@@ -14,6 +14,7 @@ from api.constants import (
     RELEASES_URL,
     AppConfig,
 )
+from api.utils import sanitize_str
 
 if TYPE_CHECKING:
     from api._types.database import User
@@ -53,7 +54,10 @@ class Server:
 
     def __init__(self: Self, name: str, user: User, port: int | None = None) -> None:
         self._port = port
-        self._name = name
+        # Defence in depth: every server name is reduced to a safe [A-Za-z0-9_-]
+        # slug here, so no code path can build a Server (and thus host paths /
+        # container names) from an unsanitised name.
+        self._name = sanitize_str(name)
         self._user = user
         self.files = ServerFiles(self)
         self.mods = ServerMods(self)

@@ -4,6 +4,24 @@ import Select from "@/components/tags/Select";
 import Checkbox from "@/components/tags/Checkbox";
 import type { InstalledMod, ModRelease } from "./types";
 
+/**
+ * Validate a portal-supplied thumbnail URL before it is dropped into a CSS
+ * `url(...)`. Only absolute http(s) URLs are allowed, and any URL containing
+ * quotes/parens/whitespace is rejected so it cannot break out of the `url()`
+ * and inject extra CSS declarations.
+ */
+function safeThumbnailUrl(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    if (/["'()\\\s]/.test(raw)) return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface ModRowData {
   name: string;
   title: string;
@@ -87,8 +105,11 @@ export default function ModRow({
   return (
     <tr className="mod-row">
       <td className="mod-row-mod">
-        {mod.thumbnail ? (
-          <span className="mod-row-thumb" style={{ backgroundImage: `url('${mod.thumbnail}')` }} />
+        {safeThumbnailUrl(mod.thumbnail) ? (
+          <span
+            className="mod-row-thumb"
+            style={{ backgroundImage: `url("${safeThumbnailUrl(mod.thumbnail)}")` }}
+          />
         ) : (
           <span className="mod-row-thumb mod-row-thumb-empty" />
         )}

@@ -210,6 +210,12 @@ async def create_server(
     port: int | None = None,
 ) -> dict:
     """Create a new Factorio server for the current user."""
+    lower, upper = AppConfig.LOWER_PORT_LIMIT, AppConfig.UPPER_PORT_LIMIT
+    if port is not None and not (lower <= port <= upper):
+        raise HTTPException(
+            status_code=422,
+            detail=f"port must be between {lower} and {upper}",
+        )
     name = sanitize_str(name)
     server = DataServer(name, current_user, port)
     current_user.add_server(server)

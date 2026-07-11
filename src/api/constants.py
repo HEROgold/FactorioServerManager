@@ -21,6 +21,12 @@ class AppConfig:
     REQUIRE_GAME_OWNERSHIP = Config(default=False)
     PUBLIC_IP = Config("127.0.0.1") # The IP Address where servers are reachable from.
     RCON_PORT = Config(default=27015)
+    # Host interface each spawned server's RCON (TCP) port is published on.
+    # Defaults to loopback so RCON — which grants arbitrary in-game/Lua console
+    # access — is never exposed on a public interface. Deployments where the
+    # manager reaches servers over the network (e.g. the backend runs in a
+    # container) must set this to a reachable, firewalled address instead.
+    RCON_BIND_HOST = Config("127.0.0.1")
 
     # Which orchestrator spawns Factorio servers: "docker" or "kubernetes".
     SERVER_BACKEND = Config("docker")
@@ -35,6 +41,18 @@ class AppConfig:
 
     # Timeout for RCON connections and commands, in seconds.
     TIMEOUT_RCON = Config(5)
+
+    # Comma-separated allowlist of emails permitted to log in. When empty, any
+    # Factorio account that authenticates is admitted (and a warning is logged),
+    # which preserves single-operator setups. Set it to lock the manager down to
+    # known operators — every admitted user gets full server-management rights.
+    AUTH_ALLOWED_EMAILS = Config("")
+
+    # Inclusive range of game ports a user may request when creating a server.
+    # Requests outside this range are rejected. Defaults to the high/ephemeral
+    # range documented for the host firewall (see README).
+    LOWER_PORT_LIMIT = Config(default=61616)
+    UPPER_PORT_LIMIT = Config(default=65535)
 
 
 class HTTPConfig:
@@ -118,7 +136,3 @@ F_GET = f"{F}/get"
 F_CREATE = f"{F}/create"
 F_UPDATE = f"{F}/update"
 F_DELETE = f"{F}/delete"
-
-# Port limits.
-UPPER_PORT_LIMIT = 65565
-LOWER_PORT_LIMIT = 61616

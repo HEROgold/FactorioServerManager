@@ -10,4 +10,6 @@ RUN bun install
 
 EXPOSE 3000
 
-CMD ["bun", "run", "dev", "--host", "0.0.0.0"]
+# Default to the production server (no HMR, no browser-console echo). Dev runs
+# override this with `bun run dev` explicitly (see docker-compose.yml).
+CMD ["bun", "run", "start"]

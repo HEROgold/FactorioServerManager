@@ -21,6 +21,8 @@ services:
     build:
       context: src/frontend
       dockerfile: Dockerfile
+    # Dev: run the HMR dev server (the image now defaults to the prod server).
+    command: ["bun", "run", "dev", "--host", "0.0.0.0"]
     ports:
       - "3000:3000"
     restart: unless-stopped
