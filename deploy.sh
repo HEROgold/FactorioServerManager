@@ -9,8 +9,11 @@ cd "$REPO_DIR"
 echo "==> Updating source"
 git pull --ff-only
 
-echo "==> Building and (re)starting containers"
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+echo "==> Building containers"
+docker compose -f docker-compose.prod.yml --env-file .env build
+
+echo "==> (re)starting containers"
+docker compose -f docker-compose.prod.yml --env-file .env up -d
 
 echo "==> Pruning dangling images"
 docker image prune -f
