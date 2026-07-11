@@ -69,6 +69,16 @@ class HTTPConfig:
     timeout = Config(5)
 
 
+# Headers that keep Server-Sent-Events flowing through proxies/uvicorn without
+# buffering or caching. Shared by every SSE endpoint (server status/logs,
+# feature-flag change signals).
+SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
 DOCKER_CONTAINER_PREFIX = "factorio-headless"
 
 PROJECT_DIRECTORY = PROJECT_DIR

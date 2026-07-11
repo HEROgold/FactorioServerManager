@@ -24,6 +24,12 @@ logger = getLogger(__name__)
 # HTTP methods that cannot change server state and so are exempt from CSRF checks.
 _CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
+# Auth endpoints authenticate by credentials, not the session cookie, so they are
+# not CSRF targets and must stay reachable even when the browser still holds a
+# stale session cookie from a prior login/deploy. Paths include the "/api" router
+# prefix (see create_app).
+_CSRF_EXEMPT_PATHS = frozenset({"/api/login", "/api/logout"})
+
 # When running locally the backend binds a random free port (see main()). It
 # publishes that port here so the Bun dev server can proxy /api to the live
 # backend. Written while the server is up, removed on shutdown — never stale.
@@ -63,14 +69,18 @@ def create_app() -> FastAPI:
     async def _csrf_protect(request: Request, call_next):  # noqa: ANN202, ANN001
         """Enforce double-submit CSRF on cookie-authenticated state changes.
 
-        Only requests that already carry a session cookie are checked, so the
-        initial login (which has no session yet) is naturally exempt. For unsafe
-        methods the ``X-CSRF-Token`` header must match the ``fsm_csrf`` cookie;
-        a browser on another origin can send the cookie but cannot read it to
-        populate the header, which is what defeats the forgery.
+        The auth paths in ``_CSRF_EXEMPT_PATHS`` are skipped outright: they
+        authenticate by credentials rather than the session cookie, and gating
+        on cookie presence alone would wrongly block a fresh login whenever a
+        stale ``fsm_session`` cookie lingers in the browser. Every other unsafe
+        method is checked only when a session cookie is present: the
+        ``X-CSRF-Token`` header must match the ``fsm_csrf`` cookie; a browser on
+        another origin can send the cookie but cannot read it to populate the
+        header, which is what defeats the forgery.
         """
         if (
             request.method not in _CSRF_SAFE_METHODS
+            and request.url.path not in _CSRF_EXEMPT_PATHS
             and request.cookies.get(session_config.cookie_name)
         ):
             cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
@@ -90,9 +100,10 @@ def create_app() -> FastAPI:
     if static_path.exists():
         app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-    from .routers import dashboard, login, mods, server, user, version  # noqa: PLC0415
+    from .routers import dashboard, feature_flags, login, mods, server, user, version  # noqa: PLC0415
 
     app.include_router(dashboard.router)
+    app.include_router(feature_flags.router)
     app.include_router(mods.router)
     app.include_router(server.router)
     app.include_router(login.router)

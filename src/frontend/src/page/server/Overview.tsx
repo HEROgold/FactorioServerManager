@@ -5,6 +5,7 @@ import StatusLight from "@/components/tags/StatusLight";
 import ReachabilityLight from "@/components/tags/ReachabilityLight";
 import LoginRequired from "@/components/LoginRequired";
 import { getJSON, isUnauthorized } from "@/api";
+import { useFeatureFlags } from "@/contexts/FeatureFlags";
 
 export interface ServerSummary {
   name: string;
@@ -70,6 +71,7 @@ export default function Overview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
+  const { flags } = useFeatureFlags();
 
   useEffect(() => {
     (async () => {
@@ -116,7 +118,9 @@ export default function Overview() {
                   <LoginRequired message="Log in to view and manage your own servers." />
                 ) : (
                   <>
-                    <Link to="/servers/create" className="button">Create Server</Link>
+                    {flags.server_create ? (
+                      <Link to="/servers/create" className="button">Create Server</Link>
+                    ) : null}
                     <div className="panel-inset-lighter mb12">
                       <h3>Your servers</h3>
                       {loading ? (

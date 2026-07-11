@@ -4,6 +4,8 @@ import Layout from "@/templates/Layout";
 import StatusLight from "@/components/tags/StatusLight";
 import LoginRequired from "@/components/LoginRequired";
 import { useServerStatus } from "@/hooks/useServerStatus";
+import { useFeatureFlags } from "@/contexts/FeatureFlags";
+import type { FeatureFlags } from "@/types/featureFlags";
 import { getJSON, isUnauthorized } from "@/api";
 import type { ManageServerData } from "@/forms/Settings";
 import ManageTab from "./tabs/ManageTab";
@@ -35,6 +37,13 @@ function isTab(value: string | null): value is Tab {
   return value !== null && (TABS as readonly string[]).includes(value);
 }
 
+// Tabs gated behind a feature flag. A tab with no entry is always shown; one
+// with a predicate shows only when the predicate holds for the current flags.
+const TAB_ENABLED: Partial<Record<Tab, (flags: FeatureFlags) => boolean>> = {
+  mods: (flags) => flags.Mods.enabled,
+  rcon: (flags) => flags.rcon_console,
+};
+
 export default function ServerDetail() {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -50,7 +59,13 @@ export default function ServerDetail() {
   const [logsCleared, setLogsCleared] = useState(false);
   const logsSeededRef = useRef(false);
 
-  const activeTab: Tab = isTab(searchParams.get("tab")) ? (searchParams.get("tab") as Tab) : "manage";
+  const { flags } = useFeatureFlags();
+  // Tabs the current flags allow. Gated-off tabs disappear from the bar, and a
+  // bookmarked/redirected `?tab=<hidden>` falls back to "manage".
+  const visibleTabs = TABS.filter((tab) => !TAB_ENABLED[tab] || TAB_ENABLED[tab]!(flags));
+  const requestedTab = searchParams.get("tab");
+  const activeTab: Tab =
+    isTab(requestedTab) && visibleTabs.includes(requestedTab) ? requestedTab : "manage";
 
   // Live status drives the header light and gates the RCON/Manage tabs.
   const liveStatus = useServerStatus(name ?? "", detail?.status);
@@ -119,7 +134,7 @@ export default function ServerDetail() {
               {error ? <p className="red">{error}</p> : null}
 
               <nav className="server-tabs">
-                {TABS.map((tab) => (
+                {visibleTabs.map((tab) => (
                   <button
                     key={tab}
                     type="button"

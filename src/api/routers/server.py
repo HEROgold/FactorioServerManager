@@ -19,7 +19,7 @@ from api._types.rcon import RconError
 from api._types.rcon import execute as rcon_execute
 from api._types.server.core import Server as DataServer
 from api._types.settings import GameSettings, ServerMetadata
-from api.constants import SERVERS_DIRECTORY, AppConfig
+from api.constants import SERVERS_DIRECTORY, SSE_HEADERS, AppConfig
 from api.deps import get_current_user, get_session
 from api.utils import sanitize_str
 
@@ -33,14 +33,6 @@ LOG_TAIL_BYTES = 200_000
 
 # Factorio matchmaking endpoint listing all currently public games.
 MATCHMAKING_URL = "https://multiplayer.factorio.com/get-games"
-
-# Headers that keep Server-Sent-Events flowing through proxies/uvicorn without
-# buffering or caching.
-SSE_HEADERS = {
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
-    "X-Accel-Buffering": "no",
-}
 
 
 async def fetch_public_game_names(username: str, token: str) -> set[str] | None:

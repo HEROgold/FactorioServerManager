@@ -9,6 +9,7 @@ import ServerDetail from "./page/server/ServerDetail";
 import Download from "./page/Download";
 import Login from "./page/login";
 import { UserProvider } from "@/contexts/UserContext";
+import { FeatureFlagsProvider, FlagGate } from "@/contexts/FeatureFlags";
 
 // Old per-feature routes now live as tabs on the unified detail page; redirect
 // any bookmarked URLs to the matching tab.
@@ -22,7 +23,7 @@ export function App() {
     { path: "/", element: <HomePage /> },
     { path: "/login", element: <Login /> },
     { path: "/servers", element: <Overview /> },
-    { path: "/servers/create", element: <Install /> },
+    { path: "/servers/create", element: <FlagGate when={(f) => f.server_create}><Install /></FlagGate> },
     { path: "/servers/:name", element: <ServerDetail /> },
     { path: "/servers/:name/logs", element: <TabRedirect tab="logs" /> },
     { path: "/servers/:name/rcon", element: <TabRedirect tab="rcon" /> },
@@ -33,7 +34,9 @@ export function App() {
 
   return (
     <UserProvider>
-      <RouterProvider router={router} />
+      <FeatureFlagsProvider>
+        <RouterProvider router={router} />
+      </FeatureFlagsProvider>
     </UserProvider>
   );
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getJSON, sendJSON } from "@/api";
+import { useFeatureFlags } from "@/contexts/FeatureFlags";
+import type { FeatureFlags } from "@/types/featureFlags";
 import Input from "@/components/tags/Input";
 import Button from "@/components/tags/Button";
 import Placeholder from "@/components/tags/Placeholder";
@@ -20,6 +22,12 @@ const SUBTAB_LABELS: Record<SubTab, string> = {
   download: "Download",
 };
 
+// Each sub-tab is gated by a nested Mods flag (see the backend FeatureFlags.Mods).
+const SUBTAB_ENABLED: Record<SubTab, (flags: FeatureFlags) => boolean> = {
+  installed: (flags) => flags.Mods.manage,
+  download: (flags) => flags.Mods.download,
+};
+
 // Mod-manager body, rendered as the Mods tab of the unified server-detail page.
 // Split into two sub-tabs: "Installed" manages local mods, "Download" searches
 // the Factorio mod portal. Each tab is a single table — one row per mod.
@@ -27,7 +35,18 @@ export default function ModsTab({ name }: { name: string }) {
   const [index, setIndex] = useState<ModsIndexResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const { flags } = useFeatureFlags();
+  const visibleSubTabs = useMemo(
+    () => SUBTABS.filter((tab) => SUBTAB_ENABLED[tab](flags)),
+    [flags],
+  );
+
   const [subTab, setSubTab] = useState<SubTab>("installed");
+  // The effective sub-tab: fall back to the first visible one if the selected
+  // sub-tab is gated off (e.g. its flag is toggled off mid-session).
+  const activeSubTab: SubTab | undefined = visibleSubTabs.includes(subTab)
+    ? subTab
+    : visibleSubTabs[0];
 
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -134,11 +153,11 @@ export default function ModsTab({ name }: { name: string }) {
         </div>
 
         <nav className="server-tabs mod-subtabs">
-          {SUBTABS.map((tab) => (
+          {visibleSubTabs.map((tab) => (
             <button
               key={tab}
               type="button"
-              className={`server-tab${tab === subTab ? " active" : ""}`}
+              className={`server-tab${tab === activeSubTab ? " active" : ""}`}
               onClick={() => setSubTab(tab)}
             >
               {SUBTAB_LABELS[tab]}
@@ -146,7 +165,9 @@ export default function ModsTab({ name }: { name: string }) {
           ))}
         </nav>
 
-        {subTab === "download" ? (
+        {activeSubTab === undefined ? (
+          <Placeholder><p>Mod management is currently unavailable.</p></Placeholder>
+        ) : activeSubTab === "download" ? (
           <>
             <form onSubmit={handleSearchSubmit} className="mod-search-bar" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
               <Input
