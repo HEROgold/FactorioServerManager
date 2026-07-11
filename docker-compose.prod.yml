@@ -1,0 +1,81 @@
+# Production stack: FSM behind an EXISTING Traefik reverse proxy.
+#
+# Routing model (single origin, no CORS): Traefik points ONLY at the frontend
+# (Bun, :3000). The frontend serves the SPA and proxies /api/* to the backend
+# over the internal network, so the backend is never exposed to Traefik.
+#
+# Copy .env.prod.example -> .env and fill it in first. See README (Deployment).
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      # Secret keys are read from the environment (fall back to on-disk key
+      # files only if unset). Keep these in .env, never in the image.
+      FSM_SECRET_KEY: ${FSM_SECRET_KEY}
+      FSM_TOKEN_KEY: ${FSM_TOKEN_KEY}
+    volumes:
+      # Spawn sibling Factorio containers on the host Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Prod AppConfig (public_ip, server_backend). confkit rewrites this file
+      # in place at import, so it must be a writable host bind, not read-only.
+      - ./config.ini:/app/src/api/config.ini
+      # Persistence. The servers dir uses an IDENTICAL host:container path: the
+      # backend hands spec.data_dir (an in-container path) to the host daemon,
+      # which resolves it on the host filesystem — the paths must match.
+      - /app/src/api/servers:/app/src/api/servers
+      - /app/src/api/saves:/app/src/api/saves
+      - /app/src/api/downloads:/app/src/api/downloads
+      # SQLite DB as a single-file bind (touch the host file first, else Docker
+      # creates a directory in its place).
+      - /app/src/api/database.db:/app/src/api/database.db
+    healthcheck:
+      # The slim image has no curl; probe with the bundled Python instead.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/openapi.json')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: src/frontend
+      dockerfile: Dockerfile
+    # Override the image's dev CMD: run the production Bun server (no HMR).
+    command: ["bun", "run", "start"]
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - traefik
+      - internal
+    environment:
+      # The Bun server proxies /api/* to this in-network backend service.
+      API_TARGET: http://backend:8000
+    labels:
+      - traefik.enable=true
+      # If the shared Traefik network isn't the container's only network,
+      # Traefik needs to be told which one to use to reach this service.
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.fsm.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)
+      # Entrypoint + certresolver names match the existing n8n Traefik (v3.6):
+      # web(:80, auto-redirects to https), websecure(:443), TLS-ALPN resolver.
+      - traefik.http.routers.fsm.entrypoints=web,websecure
+      - traefik.http.routers.fsm.tls=true
+      - traefik.http.routers.fsm.tls.certresolver=mytlschallenge
+      - traefik.http.services.fsm.loadbalancer.server.port=3000
+
+networks:
+  # The existing network that Traefik is attached to (e.g. n8n_default).
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK}
+  # Private backend<->frontend link, not reachable from Traefik.
+  internal:
+    driver: bridge
