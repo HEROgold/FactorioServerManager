@@ -25,8 +25,16 @@ class AppConfig:
     # Defaults to loopback so RCON — which grants arbitrary in-game/Lua console
     # access — is never exposed on a public interface. Deployments where the
     # manager reaches servers over the network (e.g. the backend runs in a
-    # container) must set this to a reachable, firewalled address instead.
+    # container) should set this to a private, non-public address such as the
+    # Docker bridge gateway (e.g. 172.17.0.1) and point RCON_HOST at the same.
     RCON_BIND_HOST = Config("127.0.0.1")
+
+    # Address the *manager* dials to reach a server's RCON. Empty means reuse the
+    # server's display address (PUBLIC_IP). Set this — together with
+    # RCON_BIND_HOST — to a private address (e.g. the Docker bridge gateway
+    # 172.17.0.1) so RCON stays off the public internet while the containerised
+    # backend can still reach it.
+    RCON_HOST = Config("")
 
     # Which orchestrator spawns Factorio servers: "docker" or "kubernetes".
     SERVER_BACKEND = Config("docker")

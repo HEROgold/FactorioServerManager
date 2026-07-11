@@ -62,7 +62,11 @@ class Server:
         self.files = ServerFiles(self)
         self.mods = ServerMods(self)
         self.settings = ServerSettings(self)
+        # Display/connect address shown to players (public). RCON is dialled by
+        # the manager via rcon_host, which may be a private address so the RCON
+        # port never needs to be public.
         self.ip = AppConfig.PUBLIC_IP or "localhost"
+        self.rcon_host = AppConfig.RCON_HOST or self.ip
 
     @property
     def user(self: Self) -> User:

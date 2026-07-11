@@ -373,7 +373,7 @@ async def rcon_send(
 
     try:
         async with asyncio.timeout(AppConfig.TIMEOUT_RCON):
-            response = await rcon_execute(server.ip, AppConfig.RCON_PORT, password, command)
+            response = await rcon_execute(server.rcon_host, AppConfig.RCON_PORT, password, command)
     except RconError as err:
         raise HTTPException(status_code=502, detail=str(err)) from err
     return {"response": response}
