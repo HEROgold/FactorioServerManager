@@ -2,5 +2,10 @@
 
 
 def sanitize_str(name: str) -> str:
-    """Sanitize the string. Makes sure it only contains 0-9, a-z, A-Z, and _."""
-    return "".join([c for c in name if c.isalnum() or c == "_"])
+    """Sanitize the string. Keeps only 0-9, a-z, A-Z, ``_`` and ``-``.
+
+    Hyphens are preserved (they are valid in directory and Docker container
+    names) so a name like ``test-server`` is not silently collapsed to
+    ``testserver``.
+    """
+    return "".join([c for c in name if c.isalnum() or c in "_-"])

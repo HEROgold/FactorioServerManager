@@ -60,11 +60,13 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
         setSubmitting(false)
         return
       }
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
         throw new Error(data.detail || `Install failed: ${res.status}`)
       }
-      navigate(`/servers/${serverName}`)
+      // The backend sanitizes the name; navigate to the name it actually
+      // created (falling back to the input) so we don't 404 on a renamed server.
+      navigate(`/servers/${data.name || serverName}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Install failed")
       setSubmitting(false)
