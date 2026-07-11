@@ -18,7 +18,7 @@ from api._types.database import User
 from api.deps import get_current_user
 
 if TYPE_CHECKING:
-    from api._types.server import Server
+    from api._types.server.core import Server
 
 PORTAL_ASSET_BASE = "https://mods-data.factorio.com"
 

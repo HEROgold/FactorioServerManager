@@ -1,10 +1,12 @@
 
 from __future__ import annotations
 
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-from api._types.server.core import Server
 from api._types.settings import GameSettings, MapGenerationSettings, MapSettings
+
+if TYPE_CHECKING:
+    from api._types.server.core import Server
 
 
 class ServerSettings:

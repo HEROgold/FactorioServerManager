@@ -12,7 +12,7 @@ from api.deps import get_current_user
 from api.routers.server import _load_settings, fetch_public_game_names
 
 if TYPE_CHECKING:
-    from api._types.server import Server
+    from api._types.server.core import Server
 
 router = APIRouter(prefix="/dashboard")
 

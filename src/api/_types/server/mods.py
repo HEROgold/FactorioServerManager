@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 from api._types.dicts import ServerModEntry
-from api._types.server.core import Server
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
     from pathlib import Path
 
+    from api._types.server.core import Server
     from api._types.server.files import ServerFiles
 
 

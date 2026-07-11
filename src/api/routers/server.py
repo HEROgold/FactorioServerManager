@@ -11,14 +11,13 @@ import httpxyz
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-
 from sqlalchemy.orm import Session
 
 from api._types.database import User
 from api._types.enums import DockerStates
 from api._types.rcon import RconError
 from api._types.rcon import execute as rcon_execute
-from api._types.server import Server as DataServer
+from api._types.server.core import Server as DataServer
 from api._types.settings import GameSettings, ServerMetadata
 from api.constants import SERVERS_DIRECTORY, AppConfig
 from api.deps import get_current_user, get_session
