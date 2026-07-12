@@ -1,4 +1,5 @@
 """FastAPI application entry for the fsm API."""
+import asyncio
 import secrets
 import socket
 from collections.abc import AsyncGenerator
@@ -15,9 +16,16 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from herogold.log import StreamHandler
 
-from api.config import app_config, session_config
+from api.config import (
+    SENTRY_FLAGS_SIGNING_SECRET,
+    SENTRY_FLAGS_WEBHOOK_URL,
+    app_config,
+    env_value,
+    session_config,
+)
 from api.deps import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 from api.logging_security import configure_secure_logging, scrub_event
+from api.sentry_flags import watch_flag_changes
 
 logger = getLogger(__name__)
 
@@ -42,14 +50,20 @@ PORT_FILE = Path(__file__).resolve().parents[2] / ".fsm-backend-port"
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Publish the bound port for the dev proxy while the server is alive."""
+    """Publish the bound port for the dev proxy and run flag change tracking."""
     port = getattr(app.state, "bound_port", None)
     if port is not None:
         PORT_FILE.write_text(str(port))
+    # Emit Sentry flag-change events only when a real webhook + secret are set.
+    flag_task: asyncio.Task[None] | None = None
+    if SENTRY_FLAGS_WEBHOOK_URL.startswith(("http://", "https://")) and SENTRY_FLAGS_SIGNING_SECRET:
+        flag_task = asyncio.create_task(watch_flag_changes())
     try:
         yield
     finally:
         PORT_FILE.unlink(missing_ok=True)
+        if flag_task is not None:
+            flag_task.cancel()
 
 
 def create_app() -> FastAPI:
@@ -126,7 +140,7 @@ configure_secure_logging()
 # When unset, Sentry stays disabled instead of shipping events to a baked-in key.
 # Require a real http(s) URL so neither an empty value nor confkit's placeholder
 # default ("sentry_dsn") is ever passed to sentry_sdk.
-_sentry_dsn = (environ.get("SENTRY_DSN") or app_config.sentry_dsn or "").strip().strip('"').rstrip(",").strip('"')
+_sentry_dsn = (env_value("SENTRY_DSN") or app_config.sentry_dsn or "").strip().strip('"').rstrip(",").strip('"')
 if _sentry_dsn.startswith(("http://", "https://")):
     sentry_sdk.init(
         dsn=_sentry_dsn,

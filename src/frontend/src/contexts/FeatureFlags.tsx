@@ -1,8 +1,34 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 
 import { apiFetch, apiUrl } from "@/api";
 import { DEFAULT_FLAGS, mergeFlags, type FeatureFlags } from "@/types/featureFlags";
+
+/**
+ * Report evaluated flags to Sentry so they're attached to any subsequent error
+ * event (the "Feature Flags" section). Flattens nested groups to dotted keys,
+ * mirroring the backend (e.g. `Mods.enabled`). Booleans only, per the SDK.
+ */
+function recordFlagEvaluations(flags: FeatureFlags): void {
+  const integration = Sentry.getClient()?.getIntegrationByName<Sentry.FeatureFlagsIntegration>(
+    "FeatureFlags",
+  );
+  if (!integration) {
+    return;
+  }
+  const walk = (obj: Record<string, unknown>, prefix: string) => {
+    for (const [name, value] of Object.entries(obj)) {
+      const key = `${prefix}${name}`;
+      if (typeof value === "boolean") {
+        integration.addFeatureFlag(key, value);
+      } else if (value && typeof value === "object") {
+        walk(value as Record<string, unknown>, `${key}.`);
+      }
+    }
+  };
+  walk(flags as unknown as Record<string, unknown>, "");
+}
 
 interface FeatureFlagsContextValue {
   flags: FeatureFlags;
@@ -24,7 +50,9 @@ export function FeatureFlagsProvider({ children }: { children: React.ReactNode }
     try {
       const res = await apiFetch("/api/feature-flags");
       if (res.ok) {
-        setFlags(mergeFlags(await res.json()));
+        const next = mergeFlags(await res.json());
+        setFlags(next);
+        recordFlagEvaluations(next);
       }
     } catch {
       // Keep the current flags on a transient failure.
@@ -40,7 +68,9 @@ export function FeatureFlagsProvider({ children }: { children: React.ReactNode }
     // @ts-ignore
     const injected = typeof window !== "undefined" ? window.__FLAGS__ : undefined;
     if (injected) {
-      setFlags(mergeFlags(injected));
+      const merged = mergeFlags(injected);
+      setFlags(merged);
+      recordFlagEvaluations(merged);
       setLoading(false);
     } else {
       void refetch();

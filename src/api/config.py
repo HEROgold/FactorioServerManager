@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from confkit import Config as BaseConfig
+from confkit.parsers import EnvParser
 from pydantic import BaseModel, create_model
 
 
@@ -11,6 +12,27 @@ class Config[T](BaseConfig[T]):
     """Namespaced configuration for the fsm API."""
 
 Config.set_file(Path("api_config.ini"))
+
+
+# --- Secrets from the environment / .env (via confkit) -----------------------
+# Secrets (Sentry DSN, the flag-change signing secret) must not live in the
+# git-tracked ini. confkit's EnvParser reads os.environ *plus* an optional .env
+# (env wins, quotes/comments handled). It is read-only, so we use it directly
+# rather than as a Config descriptor: a missing key would otherwise make confkit
+# try to persist the default and raise NotImplementedError at import.
+_env_parser = EnvParser()
+_env_parser.read(Path(".env"))
+
+
+def env_value(key: str, fallback: str = "") -> str:
+    """Read a secret from the environment / .env via confkit. Section is ignored."""
+    return (_env_parser.get("", key, fallback=fallback) or "").strip().strip('"')
+
+
+# Sentry generic feature-flag change-tracking webhook. When either is unset the
+# backend simply doesn't emit change events (see api.sentry_flags).
+SENTRY_FLAGS_WEBHOOK_URL = env_value("SENTRY_FLAGS_WEBHOOK_URL")
+SENTRY_FLAGS_SIGNING_SECRET = env_value("SENTRY_FLAGS_SIGNING_SECRET")
 
 class AppConfig:
     """Application configuration."""

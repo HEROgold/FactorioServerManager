@@ -18,6 +18,8 @@ Sentry.init({
   // Keep PII out of Sentry: avoid collecting IPs and, more importantly, any
   // login credentials that could be captured in breadcrumbs or session replays.
   sendDefaultPii: false,
+  // Attach evaluated feature flags to error events (see contexts/FeatureFlags).
+  integrations: [Sentry.featureFlagsIntegration()],
 });
 
 const elem = document.getElementById("root")!;
