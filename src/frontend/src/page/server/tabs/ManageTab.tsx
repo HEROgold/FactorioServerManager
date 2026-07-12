@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "@/components/tags/Button";
 import StatusLight from "@/components/tags/StatusLight";
 import DiscoverableLight from "@/components/tags/DiscoverableLight";
-import { apiFetch, sendJSON } from "@/api";
+import { sendJSON } from "@/api";
 
 interface Props {
   name: string;
@@ -40,12 +40,10 @@ export default function ManageTab({ name, ip, port, status, factorioVersion }: P
     try {
       // The POST blocks until the backend finishes the docker operation, so
       // the buttons stay disabled until the server has actually
-      // started/stopped/restarted (or the attempt failed).
-      const res = await apiFetch(`/api/server/${name}/${action}`, { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `Failed to ${action} server`);
-      }
+      // started/stopped/restarted (or the attempt failed). Route through
+      // sendJSON so the CSRF token is attached — a bare apiFetch POST omits it
+      // and the backend rejects the request.
+      await sendJSON(`/api/server/${name}/${action}`, "POST");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : `Failed to ${action} server`);
     } finally {

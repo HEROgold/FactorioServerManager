@@ -6,7 +6,7 @@ import Input from "@/components/tags/Input"
 import Select from "@/components/tags/Select"
 import LoginRequired from "@/components/LoginRequired"
 import { useAvailableVersions } from "@/contexts/AvailableVersion"
-import { apiFetch } from "@/api"
+import { ApiError, sendJSON } from "@/api"
 
 interface InstallData {
   name?: string
@@ -52,22 +52,21 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
     }
 
     try {
-      const res = await apiFetch(`/api/server/${encodeURIComponent(serverName)}/create?${params.toString()}`, {
-        method: "POST",
-      })
-      if (res.status === 401) {
-        setUnauthorized(true)
-        setSubmitting(false)
-        return
-      }
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data.detail || `Install failed: ${res.status}`)
-      }
+      // Route through sendJSON so the double-submit CSRF token is attached;
+      // a bare apiFetch POST omits it and the backend rejects the request.
+      const data = await sendJSON<{ name?: string }>(
+        `/api/server/${encodeURIComponent(serverName)}/create?${params.toString()}`,
+        "POST",
+      )
       // The backend sanitizes the name; navigate to the name it actually
       // created (falling back to the input) so we don't 404 on a renamed server.
       navigate(`/servers/${data.name || serverName}`)
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setUnauthorized(true)
+        setSubmitting(false)
+        return
+      }
       setError(err instanceof Error ? err.message : "Install failed")
       setSubmitting(false)
     }
