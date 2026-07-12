@@ -1,4 +1,7 @@
+import logging
 import shutil
+import stat
+from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
 import httpxyz
@@ -18,6 +21,8 @@ from api.utils import sanitize_str
 
 if TYPE_CHECKING:
     from api._types.database import User
+
+logger = logging.getLogger(__name__)
 
 # Release channels the download UI offers in place of a concrete version. The
 # mod portal (and any version-pinned tooling) needs a real number, so these are
@@ -205,6 +210,46 @@ class Server:
         await get_backend().restart(self.spec)
 
     async def remove(self: Self) -> None:
-        """Remove the server's backend resources and on-disk data."""
+        """Remove the server's backend resources and on-disk data.
+
+        Removal must be reliable: the dashboard lists servers by enumerating
+        their on-disk directories, so a directory that survives keeps the server
+        visible in the UI. ``ignore_errors`` would hide a partial failure and
+        report success while leaving the directory behind — the exact cause of
+        "deleted server still appears". The common failures are a read-only file
+        attribute (Windows dev) and, in production, files written by the Factorio
+        container under a different uid that the unprivileged backend cannot
+        remove (mitigated by passing PUID/PGID at container creation). We clear
+        the read-only bit and retry, log anything we still cannot delete, then
+        verify the directory is actually gone so the caller surfaces a real error
+        instead of a false success.
+        """
         await get_backend().remove(self.spec)
-        shutil.rmtree(self.files.directory, ignore_errors=True)
+
+        directory = self.files.directory
+        if not directory.exists():
+            return
+
+        def _on_error(func, path, _exc) -> None:  # noqa: ANN001
+            # First failure is often just a read-only attribute; clear it and
+            # retry the operation (unlink / rmdir) that raised. If it still
+            # fails (e.g. cross-uid ownership the backend can't override), log
+            # and re-raise so rmtree aborts and the failure is not swallowed.
+            try:
+                Path(path).chmod(stat.S_IWRITE)
+                func(path)
+            except OSError:
+                logger.warning("Could not remove %s while deleting %s", path, directory, exc_info=True)
+                raise
+
+        try:
+            shutil.rmtree(directory, onexc=_on_error)
+        except OSError as err:
+            msg = f"Server directory {directory} could not be fully removed"
+            logger.exception(msg)
+            raise RuntimeError(msg) from err
+
+        if directory.exists():
+            msg = f"Server directory {directory} could not be fully removed"
+            logger.error(msg)
+            raise RuntimeError(msg)
