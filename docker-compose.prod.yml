@@ -33,18 +33,31 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        # Single knob for the service uid/gid: build the image, run the app, and
+        # PUID/PGID the spawned Factorio containers all from these. Keep in sync
+        # with scripts/setup-host.sh and the host data-dir ownership.
+        FSM_UID: ${FSM_UID:-10001}
+        FSM_GID: ${FSM_GID:-10001}
     restart: unless-stopped
     depends_on:
       - docker-socket-proxy
     networks:
       - internal
-    # Run unprivileged. Must match the Dockerfile's FSM_UID:FSM_GID and the
-    # ownership of the host data dirs / config.ini / database.db (see README).
-    user: "10001:10001"
-    security_opt:
-      - no-new-privileges:true
+    # The container starts as root so docker-entrypoint.sh can chown the
+    # bind-mounted data to FSM_UID:FSM_GID (healing legacy/foreign ownership),
+    # then drops to that unprivileged user via gosu — so the app process is never
+    # root. No `user:` override (that would prevent the entrypoint chown), and no
+    # `no-new-privileges` (it blocks the setuid gosu needs). Caps are dropped to
+    # ALL then only the minimal set for chown + privilege-drop is added back.
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN         # chown -R the data tree
+      - DAC_OVERRIDE  # read/traverse files owned by other uids while reconciling
+      - FOWNER        # chmod/operate on those files regardless of owner
+      - SETUID        # gosu drop to fsm
+      - SETGID        # gosu drop to fsm
     environment:
       # Secret keys are read from the environment (fall back to on-disk key
       # files only if unset). Keep these in .env, never in the image.

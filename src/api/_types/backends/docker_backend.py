@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import os
 from typing import TYPE_CHECKING
 
 import docker
@@ -12,7 +11,7 @@ from docker.errors import DockerException, NotFound
 
 from api._types.backends import ServerBackend
 from api._types.enums import DockerStates
-from api.constants import AppConfig
+from api.constants import FSM_GID, FSM_UID, AppConfig
 
 if TYPE_CHECKING:
     from docker.models.containers import Container
@@ -45,16 +44,14 @@ class DockerBackend(ServerBackend):
     async def create(self, spec: ServerSpec) -> None:
         image: str = AppConfig.FACTORIO_IMAGE
 
-        # Make Factorio write its data as the backend's own uid/gid so the
-        # (unprivileged, cap-dropped) backend can later delete the server
-        # directory. The factoriotools image chowns /factorio to PUID/PGID at
-        # startup and runs as that user; without this it defaults to uid 845 and
-        # leaves files the backend cannot remove. os.getuid/getgid are POSIX-only
-        # (the daemon that enforces ownership is Linux), so skip on Windows dev.
-        environment: dict[str, str] = {}
-        if hasattr(os, "getuid"):
-            # pyrefly: ignore [missing-attribute]  # POSIX-only, guarded above
-            environment = {"PUID": str(os.getuid()), "PGID": str(os.getgid())}
+        # Make Factorio write its data as the backend's service uid/gid so the
+        # backend owns (and can delete) the server directory. The factoriotools
+        # image chowns /factorio to PUID/PGID at startup and runs as that user;
+        # without this it defaults to uid 845 and leaves files the backend cannot
+        # remove. FSM_UID/FSM_GID resolve to the FSM_UID/FSM_GID env (set by the
+        # Dockerfile/compose) or the backend process's own id on POSIX — the same
+        # id docker-entrypoint.sh chowns the tree to and drops privileges to.
+        environment: dict[str, str] = {"PUID": str(FSM_UID), "PGID": str(FSM_GID)}
 
         def _pull_create() -> None:
             # Naively pull to ensure the tag is present locally.

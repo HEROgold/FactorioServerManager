@@ -81,6 +81,28 @@ SSE_HEADERS = {
 
 DOCKER_CONTAINER_PREFIX = "factorio-headless"
 
+
+def _service_id(env_name: str, getter: str) -> int:
+    """Resolve the service uid/gid the backend runs as.
+
+    Prefer the explicit ``FSM_UID``/``FSM_GID`` env vars (set by the Dockerfile
+    and compose so the whole stack shares one knob); fall back to the running
+    process's own id on POSIX, else the documented default. Used to tag the
+    Factorio containers' PUID/PGID so they write files owned by the same user the
+    backend runs as (and can therefore delete).
+    """
+    raw = os.getenv(env_name)
+    if raw and raw.isdigit():
+        return int(raw)
+    fn = getattr(os, getter, None)
+    if fn is not None:  # POSIX only
+        return fn()
+    return 10001
+
+
+FSM_UID = _service_id("FSM_UID", "getuid")
+FSM_GID = _service_id("FSM_GID", "getgid")
+
 PROJECT_DIRECTORY = PROJECT_DIR
 SERVERS_DIRECTORY = PROJECT_DIR / "servers"
 DOWNLOADS_DIRECTORY = PROJECT_DIR / "downloads"

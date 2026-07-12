@@ -1,6 +1,7 @@
 import logging
 import shutil
 import stat
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
@@ -218,11 +219,14 @@ class Server:
         report success while leaving the directory behind — the exact cause of
         "deleted server still appears". The common failures are a read-only file
         attribute (Windows dev) and, in production, files written by the Factorio
-        container under a different uid that the unprivileged backend cannot
-        remove (mitigated by passing PUID/PGID at container creation). We clear
-        the read-only bit and retry, log anything we still cannot delete, then
-        verify the directory is actually gone so the caller surfaces a real error
-        instead of a false success.
+        container under a different uid. Both are mitigated upstream — the
+        container is given PUID/PGID at creation, and docker-entrypoint.sh chowns
+        the whole tree to the backend's uid on startup — so the backend owns what
+        it deletes. This handler is a belt-and-suspenders path: on Windows we clear
+        the read-only bit; on POSIX we make the parent directory writable (unlink
+        needs write on the parent, not the file), retry, log anything we still
+        cannot delete, then verify the directory is actually gone so the caller
+        surfaces a real error instead of a false success.
         """
         await get_backend().remove(self.spec)
 
@@ -231,12 +235,18 @@ class Server:
             return
 
         def _on_error(func, path, _exc) -> None:  # noqa: ANN001
-            # First failure is often just a read-only attribute; clear it and
-            # retry the operation (unlink / rmdir) that raised. If it still
-            # fails (e.g. cross-uid ownership the backend can't override), log
+            # Clear the blocker for the operation (unlink / rmdir) that raised and
+            # retry it. On Windows that is a read-only attribute on the file; on
+            # POSIX, unlink/rmdir need write permission on the *parent* directory,
+            # not the entry itself, so grant that instead. If it still fails, log
             # and re-raise so rmtree aborts and the failure is not swallowed.
             try:
-                Path(path).chmod(stat.S_IWRITE)
+                target = Path(path)
+                if sys.platform == "win32":
+                    target.chmod(stat.S_IWRITE)
+                else:
+                    parent = target.parent
+                    parent.chmod(parent.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR)
                 func(path)
             except OSError:
                 logger.warning("Could not remove %s while deleting %s", path, directory, exc_info=True)
