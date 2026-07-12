@@ -7,6 +7,7 @@ rendered HTML. Backed by the Factorio mod portal via ``user.fi.mods``.
 from __future__ import annotations
 
 from datetime import datetime
+from logging import getLogger
 from typing import TYPE_CHECKING, Annotated, Any
 
 import httpxyz
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
     from api._types.server.core import Server
 
 PORTAL_ASSET_BASE = "https://mods-data.factorio.com"
+
+logger = getLogger(__name__)
 
 router = APIRouter()
 
@@ -221,7 +224,8 @@ async def install(
                 token=factorio_token,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            logger.exception("Failed to download mod %s", body.mod_name)
+            raise HTTPException(status_code=400, detail="Could not download the requested mod.") from exc
         except httpxyz.HTTPError as err:
             raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
     server.mods.link_from_store(body.mod_name, file_name)

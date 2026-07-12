@@ -30,6 +30,10 @@ _CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 # prefix (see create_app).
 _CSRF_EXEMPT_PATHS = frozenset({"/api/login", "/api/logout"})
 
+# Neutral, non-technical message for a failed CSRF check. Avoids surfacing
+# security jargon (e.g. "CSRF validation failed") to end users.
+_CSRF_ERROR_DETAIL = "Request could not be processed. Please refresh and try again."
+
 # When running locally the backend binds a random free port (see main()). It
 # publishes that port here so the Bun dev server can proxy /api to the live
 # backend. Written while the server is up, removed on shutdown — never stale.
@@ -90,7 +94,7 @@ def create_app() -> FastAPI:
                 header_token,
             ):
                 return JSONResponse(
-                    {"detail": "CSRF validation failed"},
+                    {"detail": _CSRF_ERROR_DETAIL},
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
         return await call_next(request)

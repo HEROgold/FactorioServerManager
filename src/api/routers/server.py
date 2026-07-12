@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import asdict
+from logging import getLogger
 from typing import TYPE_CHECKING, Annotated
 
 import httpxyz
@@ -26,6 +27,8 @@ from api.utils import sanitize_str
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
     from pathlib import Path
+
+logger = getLogger(__name__)
 
 router = APIRouter()
 
@@ -248,7 +251,8 @@ async def restart_server(
     try:
         await server.restart()
     except RuntimeError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Failed to restart server %s", name)
+        raise HTTPException(status_code=400, detail="Failed to change the server state.") from e
     return {"status": "restarted"}
 
 
@@ -367,7 +371,8 @@ async def rcon_send(
         async with asyncio.timeout(AppConfig.TIMEOUT_RCON):
             response = await rcon_execute(server.rcon_host, AppConfig.RCON_PORT, password, command)
     except RconError as err:
-        raise HTTPException(status_code=502, detail=str(err)) from err
+        logger.exception("RCON command failed for server %s", name)
+        raise HTTPException(status_code=502, detail="RCON command failed.") from err
     return {"response": response}
 
 

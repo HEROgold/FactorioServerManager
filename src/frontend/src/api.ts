@@ -29,6 +29,24 @@ export function isUnauthorized(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401;
 }
 
+// Status codes whose backend `detail` is a curated, user-actionable validation
+// message safe to show verbatim (e.g. "Server not found", "Command must not be
+// empty"). Every other status — 401/403 (incl. CSRF), 5xx, unknown — is a
+// security/infrastructure failure whose detail may leak internals, so it is
+// replaced with GENERIC_ERROR. This is the single choke point that keeps such
+// strings out of the UI even if the backend regresses.
+const SAFE_DETAIL_STATUSES = new Set([400, 404, 409, 422, 429]);
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
+/** Pick the message shown to the user: backend detail only for safe validation
+ * statuses, otherwise a neutral generic message. */
+function userFacingMessage(status: number, detail?: unknown): string {
+  if (SAFE_DETAIL_STATUSES.has(status) && typeof detail === "string" && detail.trim() !== "") {
+    return detail;
+  }
+  return GENERIC_ERROR;
+}
+
 /** Name of the readable cookie holding the double-submit CSRF token. */
 const CSRF_COOKIE = "fsm_csrf";
 
@@ -47,7 +65,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 export async function getJSON<T>(path: string): Promise<T> {
   const res = await apiFetch(path);
   if (!res.ok) {
-    throw new ApiError(`GET ${path} failed: ${res.status}`, res.status);
+    throw new ApiError(GENERIC_ERROR, res.status);
   }
   return (await res.json()) as T;
 }
@@ -70,16 +88,13 @@ export async function sendJSON<T = unknown>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
-    let detail = `${method} ${path} failed: ${res.status}`;
+    let detail: unknown;
     try {
-      const data = await res.json();
-      if (data?.detail) {
-        detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
-      }
+      detail = (await res.json())?.detail;
     } catch {
       /* ignore non-JSON error bodies */
     }
-    throw new ApiError(detail, res.status);
+    throw new ApiError(userFacingMessage(res.status, detail), res.status);
   }
   if (res.status === 204) {
     return undefined as T;
