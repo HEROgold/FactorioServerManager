@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Version } from "@/types/GameVersion"
 import { useNavigate, useParams } from "react-router-dom"
 import { SubmitButton } from "./SubmitButton"
@@ -6,12 +6,18 @@ import Input from "@/components/tags/Input"
 import Select from "@/components/tags/Select"
 import LoginRequired from "@/components/LoginRequired"
 import { useAvailableVersions } from "@/contexts/AvailableVersion"
-import { ApiError, sendJSON } from "@/api"
+import { ApiError, getJSON, sendJSON } from "@/api"
 
 interface InstallData {
   name?: string
   version?: Version
   port?: number
+}
+
+interface PortLimits {
+  lower: number
+  upper: number
+  default: number
 }
 
 export default function InstallForm({ name, version = "stable", port = 34197 }: InstallData) {
@@ -22,6 +28,37 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
   const [submitting, setSubmitting] = useState(false)
   const [unauthorized, setUnauthorized] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<string>("")
+
+  // Port bounds are operator-configurable on the backend; until they load we
+  // fall back to the full valid TCP/UDP range so the field is never unbounded.
+  const [limits, setLimits] = useState<PortLimits>({ lower: 1, upper: 65535, default: port })
+  const [portValue, setPortValue] = useState<string>(String(port))
+  // Don't overwrite a value the user has already typed when the limits arrive.
+  const portTouched = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getJSON<PortLimits>("/api/port-limits")
+      .then((fetched) => {
+        if (cancelled) return
+        setLimits(fetched)
+        if (!portTouched.current) setPortValue(String(fetched.default))
+      })
+      .catch(() => {
+        // Keep the fallback range on failure; the backend still validates.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Coerce an entry into the configured range. HTML min/max only constrain the
+  // spinner and validity — they do NOT clamp typed values — so we do it here.
+  const clampPort = (raw: string): string => {
+    const parsed = Number.parseInt(raw, 10)
+    if (Number.isNaN(parsed)) return String(limits.default)
+    return String(Math.min(Math.max(parsed, limits.lower), limits.upper))
+  }
 
   // The select is controlled so the default survives the async versions load.
   // Preference order: an already-picked value, the requested `version`, then
@@ -44,7 +81,10 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
     const value = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement | null)?.value
     const serverName = (value("name") || fallbackName).trim()
     const selected = selectedVersion || value("version") || "stable"
-    const selectedPort = value("port")
+    // Always submit a clamped, in-range port so the backend never 422s on a
+    // value the user could type past the spinner bounds.
+    const selectedPort = clampPort(portValue)
+    setPortValue(selectedPort)
 
     const params = new URLSearchParams({ version: selected })
     if (selectedPort) {
@@ -107,7 +147,23 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
       </div>
       <div className="field">
         <label htmlFor="install-port">Game Port</label>
-        <Input type="number" id="install-port" name="port" min={1} max={65535} step={1} placeholder={`${port}`} style={{ width: "100%" }} />
+        <Input
+          type="number"
+          id="install-port"
+          name="port"
+          min={limits.lower}
+          max={limits.upper}
+          step={1}
+          value={portValue}
+          onChange={(e) => {
+            portTouched.current = true
+            setPortValue(e.target.value)
+          }}
+          onBlur={(e) => setPortValue(clampPort(e.target.value))}
+          placeholder={`${limits.default}`}
+          style={{ width: "100%" }}
+        />
+        <small style={{ opacity: 0.8 }}>Allowed range: {limits.lower}–{limits.upper}</small>
       </div>
       {error ? <p className="red">{error}</p> : null}
       <SubmitButton busy="Installing..." idle="Install" submitting={submitting} />

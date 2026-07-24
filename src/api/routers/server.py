@@ -197,6 +197,33 @@ async def update_settings(
     return {**asdict(settings), "public_display": asdict(_load_meta(server))}
 
 
+class PortLimits(BaseModel):
+    """Configured game-port range plus an in-range default the UI can pre-fill."""
+
+    lower: int
+    upper: int
+    default: int
+
+
+# The Factorio default game port. Used as the suggested value when it falls
+# inside the configured range, otherwise the range is clamped over it.
+DEFAULT_GAME_PORT = 34197
+
+
+@router.get("/port-limits", response_model=PortLimits)
+async def port_limits() -> PortLimits:
+    """Expose the game-port range so the create form can bound and clamp input.
+
+    The limits are operator-configurable (``AppConfig.LOWER_PORT_LIMIT`` /
+    ``UPPER_PORT_LIMIT``); without this the UI hardcodes 1-65535 and cannot know
+    the real bounds. ``default`` is the Factorio default clamped into range so a
+    left-blank field still yields a valid port.
+    """
+    lower, upper = AppConfig.LOWER_PORT_LIMIT, AppConfig.UPPER_PORT_LIMIT
+    default = min(max(DEFAULT_GAME_PORT, lower), upper)
+    return PortLimits(lower=lower, upper=upper, default=default)
+
+
 @router.post("/server/{name}/create", status_code=201)
 async def create_server(
     name: str,
