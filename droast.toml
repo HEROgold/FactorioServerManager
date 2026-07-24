@@ -1,0 +1,17 @@
+# droast configuration — https://crates.io/crates/droast
+#
+# Suppressions below are deliberate, not oversights:
+#
+#   DF020  No USER instruction — the backend image MUST start as root so
+#          docker-entrypoint.sh can chown the bind-mounted data tree, then it
+#          gosu-drops to the unprivileged fsm user (never runs the app as root).
+#          The frontend image does set `USER bun`.
+#   DF012  No HEALTHCHECK — healthchecks are defined at the compose layer
+#          (docker-compose.yml / docker-compose.prod.yml), not baked per-image.
+#   DF005  Unpinned apt package versions — left unpinned on purpose so security
+#          updates flow into rebuilds; --no-install-recommends keeps them minimal.
+#   DF007  `COPY . .` in the frontend image — copying the app source is required,
+#          and .dockerignore already scopes the build context (.git, node_modules,
+#          .env, dist are excluded). It runs after `bun install`, so it doesn't
+#          invalidate the dependency layer.
+skip = ["DF020", "DF012", "DF005", "DF007"]

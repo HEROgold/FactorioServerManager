@@ -1,12 +1,18 @@
-FROM oven/bun:latest
+# Pin the Bun major so builds are reproducible (never `latest`).
+FROM oven/bun:1
 
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package.json bunfig.toml ./
+# Copy only the manifests + lockfile first, then install. This layer stays cached
+# across source changes, so `bun install` only re-runs when dependencies change.
+COPY package.json bunfig.toml bun.lock ./
+RUN bun install --frozen-lockfile
+
+# Now bring in the application source.
 COPY . .
 
-RUN bun install
+# Drop to the unprivileged `bun` user baked into the base image.
+USER bun
 
 EXPOSE 3000
 

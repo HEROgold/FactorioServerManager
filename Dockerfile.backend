@@ -1,4 +1,39 @@
-FROM python:3.14-slim
+# syntax=docker/dockerfile:1
+# --- builder -------------------------------------------------------------
+# Resolve the runtime venv in a throwaway stage that carries the compilers and
+# -dev headers some Python wheels need to build. None of this toolchain ships to
+# production — only the resolved /app/.venv crosses into the runtime stage.
+FROM python:3.14-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/app \
+    UV_CACHE_DIR=/app/.cache/uv
+
+WORKDIR /app
+
+# Build-time deps for compiling native extensions. Confined to this stage.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential gcc libffi-dev libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project metadata and lockfile for reproducible dependency resolution
+COPY pyproject.toml uv.lock README.md ./
+# Copy backend source (the FastAPI `api` package).
+COPY src/api ./src/api
+
+# The uv runtime from the official astral/uv image (provides `/uv`, `/uvx`).
+COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+
+# Sync runtime dependencies only; source is executed directly from /app/src/api.
+RUN uv sync --locked --no-install-project --no-dev
+
+# --- runtime -------------------------------------------------------------
+# Slim final image: the app venv, the source, gosu, and the uv launcher — no
+# compilers or headers, so there's no build toolchain for an attacker who gets
+# shell access to pivot from.
+FROM python:3.14-slim AS runtime
 
 # Fixed UID/GID for the unprivileged runtime user. Host bind-mounted data dirs
 # must be owned by this id so the container can write them (see README setup).
@@ -18,33 +53,29 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system build deps required by some Python packages, plus gosu for the
-# privilege drop in docker-entrypoint.sh (start as root to fix ownership, then
-# exec as the unprivileged fsm user).
+# Only gosu is needed at runtime: the container starts as root to reconcile
+# ownership in docker-entrypoint.sh, then gosu-drops to the unprivileged user.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       build-essential gcc libffi-dev libssl-dev gosu \
+    && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project metadata and lockfile for reproducible dependency resolution
-COPY pyproject.toml uv.lock README.md ./
-# Copy backend source (the FastAPI `api` package).
-COPY src/api ./src/api
-
-# Copy the uv runtime from the official astral/uv image so we don't need to
-# install it via pip. This provides `/uv`, `/uvx`, and `uv` in `/bin/`.
+# The uv launcher for the `uv run --no-sync` CMD.
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
-# Sync runtime dependencies only; source is executed directly from /app/src/api.
-RUN uv sync --locked --no-install-project --no-dev
+# Carry the resolved venv and source over from the builder; copy the metadata
+# uv reads at launch. Same /app path in both stages keeps the venv valid.
+COPY --from=builder /app/.venv ./.venv
+COPY --from=builder /app/src ./src
+COPY pyproject.toml uv.lock README.md ./
 
 # Create the unprivileged fsm user and hand it everything under /app (the venv,
 # the source, and the runtime cache/home). The container STARTS as root so the
 # entrypoint can reconcile ownership of bind-mounted data (see
 # docker-entrypoint.sh), then drops to this user via gosu — so the app process
 # is never root, and with the docker-socket-proxy has no path to root on the host.
+# --no-log-init avoids a multi-GB sparse /var/log/lastlog for the high UID.
 RUN groupadd --gid "${FSM_GID}" fsm \
-    && useradd --uid "${FSM_UID}" --gid "${FSM_GID}" --home-dir /app --no-create-home fsm \
+    && useradd --no-log-init --uid "${FSM_UID}" --gid "${FSM_GID}" --home-dir /app --no-create-home fsm \
     && mkdir -p /app/.cache/uv \
     && chown -R "${FSM_UID}:${FSM_GID}" /app
 
