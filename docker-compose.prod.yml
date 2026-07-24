@@ -24,6 +24,10 @@ services:
       CONTAINERS: 1
       IMAGES: 1
       POST: 1
+      # HAProxy logs one access line per request at `info`. FSM polls container
+      # status frequently, which floods the compose logs; raise the threshold so
+      # only warnings/errors are logged.
+      LOG_LEVEL: warning
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     security_opt:
