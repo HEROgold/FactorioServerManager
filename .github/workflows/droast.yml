@@ -1,0 +1,38 @@
+name: Droast Dockerfile Lint
+
+"on":
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  droast:
+    name: Droast Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Cache droast binary
+        id: cache-droast
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: ~/.cargo/bin/droast
+          key: droast-${{ runner.os }}-1.4.8
+
+      - name: Install droast
+        if: steps.cache-droast.outputs.cache-hit != 'true'
+        run: cargo install droast --version 1.4.8 --locked
+
+      # Lints the Dockerfiles, respecting droast.toml. droast exits non-zero
+      # when any finding remains, which fails this job.
+      - name: Run droast
+        run: droast --format github Dockerfile.backend src/frontend/Dockerfile
