@@ -13,9 +13,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Build-time deps for compiling native extensions. Confined to this stage.
+# Versions pinned to the python:3.14-slim (Debian 13) base for reproducibility;
+# bump these when the base image rolls forward.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       build-essential gcc libffi-dev libssl-dev \
+       build-essential=12.12 \
+       gcc=4:14.2.0-1 \
+       libffi-dev=3.4.8-2 \
+       libssl-dev=3.5.6-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project metadata and lockfile for reproducible dependency resolution
@@ -55,8 +60,9 @@ WORKDIR /app
 
 # Only gosu is needed at runtime: the container starts as root to reconcile
 # ownership in docker-entrypoint.sh, then gosu-drops to the unprivileged user.
+# gosu pinned to the base image version for reproducibility (bump with the base).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu \
+    && apt-get install -y --no-install-recommends gosu=1.17-3+b4 \
     && rm -rf /var/lib/apt/lists/*
 
 # The uv launcher for the `uv run --no-sync` CMD.
@@ -84,5 +90,15 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 
+# Baked default healthcheck (compose healthchecks still override per-service).
+# The slim image has no curl, so probe with the bundled Python.
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/openapi.json')"]
+
+# No USER instruction is deliberate: the image starts as root ONLY so
+# docker-entrypoint.sh can chown the bind-mounted data tree, then gosu-drops to
+# the unprivileged fsm user — the app process is never root (see
+# docker-entrypoint.sh). droast's DF020 can't see the runtime drop and can't be
+# inline-suppressed for a stage-level finding, so it's skipped in droast.toml.
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uv", "run", "--no-sync", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

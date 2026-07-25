@@ -33,7 +33,8 @@ jobs:
         if: steps.cache-droast.outputs.cache-hit != 'true'
         run: cargo install docker-roast --version 1.4.8 --locked
 
-      # Lints the Dockerfiles, respecting droast.toml. droast exits non-zero
-      # when any finding remains, which fails this job.
+      # Lints the Dockerfiles, respecting droast.toml (which now skips only DF020;
+      # DF005/DF007/DF012 are fixed at the source). droast exits non-zero on
+      # ERROR-severity findings, which fails this job.
       - name: Run droast
         run: droast --format github Dockerfile.backend src/frontend/Dockerfile
