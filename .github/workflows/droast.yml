@@ -28,10 +28,10 @@ jobs:
           path: ~/.cargo/bin/droast
           key: droast-${{ runner.os }}-1.4.8
 
-      # The crate is published as `docker-roast`; it installs a `droast` binary.
+      # The crate is published as `dockerfile-roast`; it installs a `droast` binary.
       - name: Install droast
         if: steps.cache-droast.outputs.cache-hit != 'true'
-        run: cargo install docker-roast --version 1.4.8 --locked
+        run: cargo install dockerfile-roast --version 1.4.8 --locked
 
       # Lints the Dockerfiles, respecting droast.toml (which now skips only DF020;
       # DF005/DF007/DF012 are fixed at the source). droast exits non-zero on
