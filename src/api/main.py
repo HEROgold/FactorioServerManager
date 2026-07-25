@@ -142,7 +142,7 @@ configure_secure_logging()
 # default ("sentry_dsn") is ever passed to sentry_sdk.
 _sentry_dsn = (env_value("SENTRY_DSN") or app_config.sentry_dsn or "").strip().strip('"').rstrip(",").strip('"')
 if _sentry_dsn.startswith(("http://", "https://")):
-    sentry_sdk.init(
+    sentry_sdk.init(  # ty:ignore[unresolved-attribute]
         dsn=_sentry_dsn,
         # Do NOT attach request headers/cookies/IPs: they would leak the session
         # cookie and Factorio credentials. scrub_event removes anything sensitive

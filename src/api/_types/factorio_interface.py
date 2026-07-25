@@ -1,10 +1,9 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from bs4 import BeautifulSoup, Tag
 from herogold.log import LoggerMixin
-from pydantic.dataclasses import dataclass
-from sqlalchemy.util.typing import TypedDict
 
 from api.config import Config
 from api.constants import (

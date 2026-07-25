@@ -23,6 +23,7 @@ dependencies = [
     "uvicorn>=0.44.0",
     "python-jose[cryptography]>=3.3.0",
     "email-validator>=2.0.0",
+    "types-python-jose>=3.5.0.20260408",
 ]
 
 [dependency-groups]
