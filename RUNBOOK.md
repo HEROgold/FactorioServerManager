@@ -25,7 +25,7 @@ smoke test.
    - On `release`: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — an
      org-level auth token scoped to release creation (separate from the
      app's own `SENTRY_DSN`, which is already wired in `src/api/main.py`).
-   - On `production`: `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` — a Tailscale
+   - On `production`: `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_CLIENT_SECRET` — a Tailscale
      OAuth client (Tailscale admin console -> Settings -> OAuth clients)
      scoped to a tag (e.g. `tag:ci`) with ACL access to the production host;
      `PROD_HOST` (`ubuntu-4gb-hel1-1`), `PROD_SSH_USER` (`herogold`), and
