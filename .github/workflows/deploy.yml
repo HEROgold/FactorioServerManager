@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  repository_dispatch:
+    types: [new-release-created]
+  workflow_dispatch:
+
+jobs:
+  # Manual gate: this job pauses for approval before anything touches the
+  # production host. GitHub's "production" environment must have a required
+  # reviewer configured (Settings -> Environments -> production). Remove this
+  # gate later by dropping the `environment:` line once the pipeline is trusted
+  # (tracked in RUNBOOK.md).
+  approve-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: |
+          echo "Approved for deploy: ${{ github.event.client_payload.version || 'manual dispatch' }}"
+
+  deploy:
+    needs: approve-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect to tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }} # Tailscale hostname, e.g. ubuntu-4gb-hel1-1
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd ~/FactorioServerManager
+            ./deploy.sh
+
+      - name: Smoke test
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" https://factorio.herogold.nl/)
+          echo "factorio.herogold.nl responded with $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "::error::Smoke test failed with status $STATUS"
+            exit 1
+          fi
