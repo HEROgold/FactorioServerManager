@@ -12,22 +12,29 @@ smoke test.
 
 ## One-time setup required before this pipeline can run
 
-1. **Labels**: `Major`, `Minor`, `Patch` created on this repo (`gh label create`).
-2. **GitHub Environment**: create `production` in Settings -> Environments,
-   with yourself as a required reviewer. This is the approval gate — do not
-   skip it, even though it's a solo project (see the pipeline design doc in
-   Linear: HEROgold / "DevOps Pipeline Experiment").
-3. **Repo secrets**:
-   - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — an org-level auth
-     token scoped to release creation (separate from the app's own
-     `SENTRY_DSN`, which is already wired in `src/api/main.py`).
-   - `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` — a Tailscale OAuth client
-     (Tailscale admin console -> Settings -> OAuth clients) scoped to a tag
-     (e.g. `tag:ci`) with ACL access to the production host.
-   - `PROD_HOST` — the Tailscale hostname (`ubuntu-4gb-hel1-1`).
-   - `PROD_SSH_USER` — `herogold`.
-   - `PROD_SSH_KEY` — a dedicated deploy keypair (don't reuse a personal key);
-     add the public half to `~herogold/.ssh/authorized_keys` on the server.
+1. **Labels**: `Major`, `Minor`, `Patch` already created on this repo (also
+   self-created by `herogold/bump-by-label` on first run if ever missing).
+2. **Two GitHub Environments** (Settings -> Environments):
+   - `release` — no protection rules needed; just scopes the Sentry
+     release-creation secrets below to `release.yml`'s job.
+   - `production` — **add yourself as a required reviewer**. This is the
+     approval gate in `deploy.yml` — do not skip it, even though it's a
+     solo project (see the pipeline design doc in Linear: HEROgold /
+     "DevOps Pipeline Experiment").
+3. **Environment secrets**:
+   - On `release`: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — an
+     org-level auth token scoped to release creation (separate from the
+     app's own `SENTRY_DSN`, which is already wired in `src/api/main.py`).
+   - On `production`: `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` — a Tailscale
+     OAuth client (Tailscale admin console -> Settings -> OAuth clients)
+     scoped to a tag (e.g. `tag:ci`) with ACL access to the production host;
+     `PROD_HOST` (`ubuntu-4gb-hel1-1`), `PROD_SSH_USER` (`herogold`), and
+     `PROD_SSH_KEY` — a dedicated deploy keypair (don't reuse a personal
+     key); add the public half to `~herogold/.ssh/authorized_keys`.
+4. **No test suite exists yet.** `release.yml` currently gates only on
+   `Skylos Analysis`; its `REQUIRED_WORKFLOWS` list is written to be extended
+   with a test workflow's name the moment one exists — no other changes
+   needed to wire it in.
 
 None of this goes through Vault yet — the design doc's Vault/Terraform/OIDC
 phases are follow-up work once this simpler pipeline is proven out (see
@@ -49,18 +56,23 @@ phases are follow-up work once this simpler pipeline is proven out (see
 
 ## Incidents found while investigating this task (2026-09-19)
 
-Discovered during read-only investigation over Tailscale SSH — **not** fixed
-by this PR, flagging for follow-up:
+Discovered during read-only investigation over Tailscale SSH:
 
-1. **`traefik` container is crash-looping in production right now.** Logs show:
+1. **`traefik` was crash-looping in production — fixed.** Logs showed
    `failed to decode configuration from flags: field not found, node: --api`
-   repeating every ~60s. Likely a bad/incompatible CLI flag after the
-   `traefik:latest` image was pulled (floating tag). While Traefik is down,
-   every subdomain it routes (n8n, factorio, dozzle, traefik-gui) is
-   unreachable from outside the tailnet. **This blocks the smoke-test step
-   above from ever passing** until fixed.
-2. **The server's `~/FactorioServerManager` checkout is badly stale**: `git
-   diff main origin/main` shows 183 files / ~11k lines different — the whole
+   repeating every ~60s. Root cause: the running container's `Cmd` had every
+   flag prefixed with a literal `"- "` (e.g. `"- --api.insecure=true"`),
+   even though `/home/herogold/n8n/docker-compose.yml` itself defines
+   `command:` as a correct YAML list — the live container just wasn't
+   created from that file as-is. Fixed by running
+   `docker compose up -d --force-recreate traefik` from that directory,
+   which now serves on 80/443 correctly as `n8n-traefik-1`. One remaining
+   cleanup: the old, no-longer-port-bound container literally named
+   `traefik` (no compose project label — orphaned) is still crash-looping
+   in the background; `docker rm -f traefik` clears the log noise.
+2. **The server's `~/FactorioServerManager` checkout is badly stale** (parked
+   for later, not blocking this PR): `git diff main origin/main` shows 183
+   files / ~11k lines different — the whole
    `docker-socket-proxy` security architecture, `Dockerfile.backend`,
    `docker-compose.prod.yml`, and most of the current frontend don't exist in
    that checkout. The 8 running `factorioservermanager-*` containers were

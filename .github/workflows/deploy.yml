@@ -5,32 +5,35 @@ on:
     types: [new-release-created]
   workflow_dispatch:
 
-jobs:
-  # Manual gate: this job pauses for approval before anything touches the
-  # production host. GitHub's "production" environment must have a required
-  # reviewer configured (Settings -> Environments -> production). Remove this
-  # gate later by dropping the `environment:` line once the pipeline is trusted
-  # (tracked in RUNBOOK.md).
-  approve-deploy:
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - run: |
-          echo "Approved for deploy: ${{ github.event.client_payload.version || 'manual dispatch' }}"
+permissions: {}
 
+jobs:
+  # Single job so the "production" environment's required-reviewer gate is
+  # requested exactly once, and the secrets below (scoped to this same
+  # environment) become available only after that approval. Remove the
+  # `environment:` line later to drop the gate once the pipeline is trusted
+  # (see RUNBOOK.md).
   deploy:
-    needs: approve-deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions: {}
     steps:
+      - name: Log deploy trigger
+        env:
+          RELEASE_VERSION: ${{ github.event.client_payload.version || 'manual dispatch' }}
+        run: |
+          echo "Deploying: $RELEASE_VERSION"
+
       - name: Connect to tailnet
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.PROD_HOST }} # Tailscale hostname, e.g. ubuntu-4gb-hel1-1
           username: ${{ secrets.PROD_SSH_USER }}

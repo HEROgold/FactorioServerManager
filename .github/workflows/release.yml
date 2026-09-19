@@ -1,5 +1,10 @@
 name: Auto-release
 
+# Fires after Skylos Analysis completes on main (never on a fork PR: Skylos'
+# own workflow only pushes this event for its push-triggered run on `main`,
+# not its pull_request run, so this never executes with a privileged token
+# against untrusted code). Add more required gates to REQUIRED_WORKFLOWS
+# below as they're introduced (e.g. once a real test suite exists).
 on:
   workflow_run:
     workflows: ["Skylos Analysis"]
@@ -8,22 +13,46 @@ on:
       - completed
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   new-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment: release # scopes SENTRY_* secrets below to a dedicated environment
     permissions:
       contents: write
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+      actions: read # to query sibling workflow-run conclusions below
     outputs:
       version_changed: ${{ steps.version-check.outputs.version_changed }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0 # needed for tag comparison
+          persist-credentials: false # this job never pushes; tags/release use the API instead
+
+      - name: Verify all required checks passed for this commit
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Extend this list as more required workflows (e.g. a test suite) are added.
+          REQUIRED_WORKFLOWS=("Skylos Analysis")
+          for wf in "${REQUIRED_WORKFLOWS[@]}"; do
+            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}" \
+              --jq ".workflow_runs[] | select(.name == \"$wf\") | .conclusion" | head -n1)
+            echo "Required workflow '$wf': ${conclusion:-not found}"
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::Required workflow '$wf' has not succeeded for $HEAD_SHA"
+              exit 1
+            fi
+          done
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
         with:
           version: "latest"
 
@@ -34,19 +63,19 @@ jobs:
         id: version-check
         run: |
           CURRENT_VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
           if git tag --list | grep -q "^v$CURRENT_VERSION$"; then
-            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
             echo "Version v$CURRENT_VERSION already exists as a tag"
           else
-            echo "version_changed=true" >> $GITHUB_OUTPUT
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
             echo "New version v$CURRENT_VERSION detected - will create release"
           fi
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ steps.version-check.outputs.current_version }}
           name: Release v${{ steps.version-check.outputs.current_version }}
@@ -54,12 +83,12 @@ jobs:
           prerelease: false
           generate_release_notes: true
 
-      # Requires repo secrets SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT
-      # (same convention already used for the app's runtime SENTRY_DSN, but this
-      # is a separate org-level auth token scoped to release creation only).
+      # Requires environment secrets SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT
+      # on the "release" environment (separate from the app's own SENTRY_DSN,
+      # which is already wired in src/api/main.py).
       - name: Create Sentry release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -70,7 +99,7 @@ jobs:
 
       - name: Trigger deploy workflow
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: peter-evans/repository-dispatch@v2
+        uses: peter-evans/repository-dispatch@bf47d102fdb849e755b0b0023ea3e81a44b6f570 # v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           event-type: new-release-created
