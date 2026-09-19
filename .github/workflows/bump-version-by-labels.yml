@@ -21,7 +21,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-          persist-credentials: true # bump-by-label needs to push the bump branch
+          persist-credentials: false
+
+      # bump-by-label pushes the bump branch itself; give it an authenticated
+      # remote explicitly instead of leaving checkout's credentials persisted
+      # (which would apply to every subsequent step, not just this push).
+      - name: Configure authenticated git remote for the bump push
+        run: git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5

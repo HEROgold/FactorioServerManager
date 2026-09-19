@@ -1,10 +1,14 @@
 name: Auto-release
 
-# Fires after Skylos Analysis completes on main (never on a fork PR: Skylos'
-# own workflow only pushes this event for its push-triggered run on `main`,
-# not its pull_request run, so this never executes with a privileged token
-# against untrusted code). Add more required gates to REQUIRED_WORKFLOWS
-# below as they're introduced (e.g. once a real test suite exists).
+# Skylos flags workflow_run as chaining a privileged token from a
+# potentially attacker-influenced workflow (SKY-D290) - accepted here: the
+# `branches: [main]` filter below matches workflow_run.head_branch, which
+# for a fork's pull_request run is that fork's branch name, never "main".
+# So this only ever fires for Skylos Analysis's push-triggered run on the
+# already-merged, already-protected main branch - never for a PR's run,
+# fork or not. This is the same pattern as HEROgold/confkit's release.yml.
+# Add more required gates to REQUIRED_WORKFLOWS below as they're introduced
+# (e.g. once a real test suite exists).
 on:
   workflow_run:
     workflows: ["Skylos Analysis"]
