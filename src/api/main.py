@@ -66,68 +66,95 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
             flag_task.cancel()
 
 
+def _is_csrf_violation(request: Request) -> bool:
+    """Whether ``request`` is a cookie-authenticated, unsafe request with a bad CSRF token.
+
+    The auth paths in ``_CSRF_EXEMPT_PATHS`` are skipped outright: they
+    authenticate by credentials rather than the session cookie, and gating
+    on cookie presence alone would wrongly block a fresh login whenever a
+    stale ``fsm_session`` cookie lingers in the browser. Every other unsafe
+    method is checked only when a session cookie is present: the
+    ``X-CSRF-Token`` header must match the ``fsm_csrf`` cookie; a browser on
+    another origin can send the cookie but cannot read it to populate the
+    header, which is what defeats the forgery.
+    """
+    if (
+        request.method in _CSRF_SAFE_METHODS
+        or request.url.path in _CSRF_EXEMPT_PATHS
+        or not request.cookies.get(session_config.cookie_name)
+    ):
+        return False
+    cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+    header_token = request.headers.get(CSRF_HEADER_NAME)
+    return not cookie_token or not header_token or not secrets.compare_digest(
+        cookie_token,
+        header_token,
+    )
+
+
+def _add_csrf_middleware(app: FastAPI) -> None:
+    @app.middleware("http")
+    async def _csrf_protect(request: Request, call_next):  # noqa: ANN202, ANN001
+        if _is_csrf_violation(request):
+            return JSONResponse(
+                {"detail": _CSRF_ERROR_DETAIL},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        return await call_next(request)
+
+
+def _mount_static(app: FastAPI) -> None:
+    static_path = Path(__file__).resolve().parents[1] / "static"
+    if static_path.exists():
+        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+
+def _register_routers(app: FastAPI) -> None:
+    from .routers import (  # noqa: PLC0415
+        dashboard,
+        feature_flags,
+        login,
+        mods,
+        server_lifecycle,
+        server_logs,
+        server_public,
+        server_rcon,
+        server_settings,
+        user,
+        version,
+    )
+
+    for module in (
+        dashboard,
+        feature_flags,
+        mods,
+        server_lifecycle,
+        server_settings,
+        server_logs,
+        server_rcon,
+        server_public,
+        login,
+        user,
+        version,
+    ):
+        app.include_router(module.router)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(lifespan=_lifespan)
     app.router.prefix = "/api"
 
-    origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.middleware("http")
-    async def _csrf_protect(request: Request, call_next):  # noqa: ANN202, ANN001
-        """Enforce double-submit CSRF on cookie-authenticated state changes.
-
-        The auth paths in ``_CSRF_EXEMPT_PATHS`` are skipped outright: they
-        authenticate by credentials rather than the session cookie, and gating
-        on cookie presence alone would wrongly block a fresh login whenever a
-        stale ``fsm_session`` cookie lingers in the browser. Every other unsafe
-        method is checked only when a session cookie is present: the
-        ``X-CSRF-Token`` header must match the ``fsm_csrf`` cookie; a browser on
-        another origin can send the cookie but cannot read it to populate the
-        header, which is what defeats the forgery.
-        """
-        if (
-            request.method not in _CSRF_SAFE_METHODS
-            and request.url.path not in _CSRF_EXEMPT_PATHS
-            and request.cookies.get(session_config.cookie_name)
-        ):
-            cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
-            header_token = request.headers.get(CSRF_HEADER_NAME)
-            if not cookie_token or not header_token or not secrets.compare_digest(
-                cookie_token,
-                header_token,
-            ):
-                return JSONResponse(
-                    {"detail": _CSRF_ERROR_DETAIL},
-                    status_code=status.HTTP_403_FORBIDDEN,
-                )
-        return await call_next(request)
-
-    # Mount static files used by some routers
-    static_path = Path(__file__).resolve().parents[1] / "static"
-    if static_path.exists():
-        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
-
-    from .routers import dashboard, feature_flags, login, mods, server, user, version  # noqa: PLC0415
-
-    app.include_router(dashboard.router)
-    app.include_router(feature_flags.router)
-    app.include_router(mods.router)
-    app.include_router(server.router)
-    app.include_router(login.router)
-    app.include_router(user.router)
-    app.include_router(version.router)
-
+    _add_csrf_middleware(app)
+    _mount_static(app)
+    _register_routers(app)
     return app
 
 logger = getLogger(__name__)

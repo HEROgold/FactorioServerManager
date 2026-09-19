@@ -26,40 +26,60 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - name: Install uv
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
         with:
-          python-version: '3.12'
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      # Skylos's dependency-hallucination and unused-dependency checks inspect
+      # installed package metadata (site-packages) to tell first-party imports
+      # and declared dependencies apart from genuinely missing ones. Without
+      # the project's own dependencies installed, it can't see that `api` is
+      # this project's own package, or that pydantic/bs4/etc. are provided by
+      # already-declared dependencies, and misreports them as critical findings.
+      - name: Install project dependencies
+        run: uv sync --all-groups
 
       - name: Install Skylos
-        run: python -m pip install skylos==4.26.1
+        run: uv pip install skylos==4.26.1
 
       - name: Pull Skylos Cloud Policy
         run: |
-          skylos sync pull || echo "No Skylos Cloud policy available through GitHub OIDC; continuing with local config."
+          uv run skylos sync pull || echo "No Skylos Cloud policy available through GitHub OIDC; continuing with local config."
 
 
       - name: Run Skylos Analysis
+        env:
+          # The project's own package is named `api` (see [tool.uv.build-backend]
+          # in pyproject.toml) but lives under src/, and its editable install
+          # doesn't register per-file metadata, so Skylos's SCA hallucination
+          # check can't tell it apart from a missing PyPI package. This is the
+          # scanner's own supported escape hatch for first-party packages it
+          # can't otherwise discover.
+          SKYLOS_PRIVATE_DEPS_ALLOW: "api"
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             pr_base_ref="origin/${GITHUB_BASE_REF:-main}"
-            skylos . --danger --quality --secrets --sca --baseline --diff-base "$pr_base_ref" --diff "$pr_base_ref" --json -o skylos-results.json
+            uv run skylos . --danger --quality --secrets --sca --baseline --diff-base "$pr_base_ref" --diff "$pr_base_ref" --json -o skylos-results.json
           else
-            skylos . --danger --quality --secrets --sca --baseline --json -o skylos-results.json
+            uv run skylos . --danger --quality --secrets --sca --baseline --json -o skylos-results.json
           fi
 
       - name: Quality Gate
         if: always()
-        run: skylos cicd gate --input skylos-results.json --summary
+        run: uv run skylos cicd gate --input skylos-results.json --summary
 
       - name: GitHub Annotations
         if: always()
-        run: skylos cicd annotate --input skylos-results.json
+        run: uv run skylos cicd annotate --input skylos-results.json
 
       - name: PR Review Comments
         if: github.event_name == 'pull_request' && always()
         run: |
           pr_base_ref="origin/${GITHUB_BASE_REF:-main}"
-          skylos cicd review --input skylos-results.json --diff-base "$pr_base_ref" --evidence-cards
+          uv run skylos cicd review --input skylos-results.json --diff-base "$pr_base_ref" --evidence-cards
         env:
           GH_TOKEN: ${{ github.token }}

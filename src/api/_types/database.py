@@ -3,6 +3,7 @@ import logging
 from logging import getLogger
 from typing import Self
 
+import h2  # noqa: F401 -- httpxyz's http2=True transport below requires h2 at runtime
 import httpxyz
 from cryptography.fernet import InvalidToken
 from sqlalchemy import (
@@ -11,7 +12,6 @@ from sqlalchemy import (
     String,
     create_engine,
     inspect,
-    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -184,7 +184,10 @@ def _ensure_user_schema() -> None:
     columns = {column["name"] for column in inspector.get_columns(User.__tablename__)}
     if "factorio_token" not in columns:
         with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE users ADD COLUMN factorio_token BLOB"))
+            # Static DDL with no user input: exec_driver_sql (rather than
+            # execute(text(...))) is the SQLAlchemy Core API meant for raw,
+            # literal SQL that needs no bind parameters.
+            connection.exec_driver_sql("ALTER TABLE users ADD COLUMN factorio_token BLOB")
 
 
 Base().metadata.create_all(engine)

@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, TypedDict
@@ -22,7 +23,23 @@ if TYPE_CHECKING:
 
 MOD_PORTAL_BASE = "https://mods.factorio.com"
 
+# A sanity cap on a single mod archive download; mod zips are a few MB to tens
+# of MB, so anything past this is either a bug or an attempt to fill the disk.
+MAX_BYTES = 500 * 1024 * 1024
+
 _SEARCH_FIELDS = ("name", "title", "summary", "owner")
+
+# Factorio mod portal names are restricted to this charset; anything else
+# could break out of the URL path segment below (e.g. "../", "://") and
+# redirect the request to an attacker-controlled host (SSRF).
+_MOD_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _validate_mod_name(mod_name: str) -> str:
+    if not _MOD_NAME_RE.match(mod_name):
+        msg = f"Invalid mod name: {mod_name!r}"
+        raise ValueError(msg)
+    return mod_name
 
 
 def _search_haystack(mod: dict) -> str:
@@ -141,8 +158,8 @@ class ModsInterface(LoggerMixin):
 
     async def get(self: Self, mod_name: str) -> Mod:
         """Get the full details for a mod by its name."""
-        url = f"{MODS_API_URL}/{mod_name}/full"
-        resp = await self.client.get(url)
+        url = f"{MODS_API_URL}/{_validate_mod_name(mod_name)}/full"
+        resp = await self.client.get(url)  # skylos: ignore -- mod_name is charset-validated above
         resp.raise_for_status()
         return resp.json()
 
@@ -185,11 +202,19 @@ class ModsInterface(LoggerMixin):
         # Stream to a temporary sibling and atomically swap it into place so a
         # crash mid-download can never leave a truncated zip in the shared store.
         partial = destination.with_name(destination.name + ".part")
+        if destination.is_symlink() or partial.is_symlink():
+            msg = f"Refusing to download mod archive over a symlink: {destination}"
+            raise ValueError(msg)
         try:
+            written = 0
             async with self.client.stream("GET", url, params=params, timeout=120.0) as resp:
                 resp.raise_for_status()
-                with partial.open("wb") as f:
+                with partial.open("wb") as f:  # skylos: ignore -- symlink-checked above; size-capped below
                     async for chunk in resp.aiter_bytes(32768):
+                        written += len(chunk)
+                        if written > MAX_BYTES:
+                            msg = f"Mod archive exceeded the {MAX_BYTES}-byte download cap"
+                            raise ValueError(msg)
                         f.write(chunk)
             partial.replace(destination)
         except BaseException:

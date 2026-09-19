@@ -31,6 +31,39 @@ function GenericInput(props: InputProps) {
   );
 }
 
+function LoginFields() {
+  return (
+    <dl>
+      <div>
+        <dt><label htmlFor="email">Email</label></dt>
+        <dd style={{ width: "90%" }}>
+          <GenericInput type="email" required={true} />
+        </dd>
+      </div>
+
+      <div>
+        <dt><label htmlFor="password">Password</label></dt>
+        <dd style={{ width: "90%" }}>
+          <GenericInput type="password" required={true} />
+        </dd>
+      </div>
+
+      <div>
+        <dt><label htmlFor="email_auth_code">Email Auth Code</label></dt>
+        <dd style={{ width: "200%" }}>
+          <GenericInput
+            type="text"
+            id="email_auth_code"
+            name="email_auth_code"
+            placeholder="Email Auth Code"
+            required={false}
+          />
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 export function LoginForm(): ReactElement {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -61,34 +94,7 @@ export function LoginForm(): ReactElement {
   return (
     <form onSubmit={handleSubmit}>
       <Panel type="inset-lighter">
-        <dl>
-          <div>
-            <dt><label htmlFor="email">Email</label></dt>
-            <dd style={{ width: "90%" }}>
-              <GenericInput type="email" required={true} />
-            </dd>
-          </div>
-
-          <div>
-            <dt><label htmlFor="password">Password</label></dt>
-            <dd style={{ width: "90%" }}>
-              <GenericInput type="password" required={true} />
-            </dd>
-          </div>
-
-          <div>
-            <dt><label htmlFor="email_auth_code">Email Auth Code</label></dt>
-            <dd style={{ width: "200%" }}>
-              <GenericInput
-                type="text"
-                id="email_auth_code"
-                name="email_auth_code"
-                placeholder="Email Auth Code"
-                required={false}
-              />
-            </dd>
-          </div>
-        </dl>
+        <LoginFields />
       </Panel>
 
       {error && <p style={{ color: "red" }}>{error}</p>}

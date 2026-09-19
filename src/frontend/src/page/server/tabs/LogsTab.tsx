@@ -24,17 +24,14 @@ function splitLog(text: string): string[] {
   return text.replace(/\n$/, "").split("\n");
 }
 
-// Live log feed. The buffer + "cleared" flag are owned by ServerDetail so they
-// persist across tab switches; this component seeds the backlog once, streams
-// new lines, and offers Clear / Restore.
-export default function LogsTab({ name, lines, setLines, cleared, setCleared, seededRef }: Props) {
-  const [paused, setPaused] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const pausedRef = useRef(false);
-  const windowRef = useRef<HTMLDivElement | null>(null);
-  pausedRef.current = paused;
-
-  // Seed the backlog exactly once per server, and never after a manual clear.
+// Seed the backlog exactly once per server, and never after a manual clear.
+function useLogSeed(
+  name: string,
+  cleared: boolean,
+  seededRef: MutableRefObject<boolean>,
+  setLines: Dispatch<SetStateAction<string[]>>,
+  setError: (message: string | null) => void,
+) {
   useEffect(() => {
     if (cleared || seededRef.current) return;
     seededRef.current = true;
@@ -52,9 +49,14 @@ export default function LogsTab({ name, lines, setLines, cleared, setCleared, se
     return () => {
       active = false;
     };
-  }, [name, cleared, seededRef, setLines]);
+  }, [name, cleared, seededRef, setLines, setError]);
+}
 
-  // Live stream.
+// Live stream.
+function useLogStream(name: string, paused: boolean, setLines: Dispatch<SetStateAction<string[]>>) {
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+
   useEffect(() => {
     const es = new EventSource(apiUrl(`/api/server/${name}/logs/stream`), {
       withCredentials: true,
@@ -69,6 +71,15 @@ export default function LogsTab({ name, lines, setLines, cleared, setCleared, se
     // Browser auto-reconnects on error; don't close so the feed resumes.
     return () => es.close();
   }, [name, setLines]);
+}
+
+function useLogFeed({ name, lines, setLines, cleared, setCleared, seededRef }: Props) {
+  const [paused, setPaused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const windowRef = useRef<HTMLDivElement | null>(null);
+
+  useLogSeed(name, cleared, seededRef, setLines, setError);
+  useLogStream(name, paused, setLines);
 
   // Auto-scroll to the newest line unless paused.
   useEffect(() => {
@@ -93,6 +104,16 @@ export default function LogsTab({ name, lines, setLines, cleared, setCleared, se
       setError(err instanceof Error ? err.message : "Failed to load logs");
     }
   };
+
+  return { paused, setPaused, error, windowRef, handleClear, handleRestore };
+}
+
+// Live log feed. The buffer + "cleared" flag are owned by ServerDetail so they
+// persist across tab switches; this component seeds the backlog once, streams
+// new lines, and offers Clear / Restore.
+export default function LogsTab(props: Props) {
+  const { lines, cleared } = props;
+  const { paused, setPaused, error, windowRef, handleClear, handleRestore } = useLogFeed(props);
 
   return (
     <div className="panel-inset-lighter">

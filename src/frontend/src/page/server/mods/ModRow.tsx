@@ -49,6 +49,95 @@ interface Props {
   installDisabled?: boolean;
 }
 
+function ModInfoCell({ mod }: { mod: ModRowData }) {
+  const thumb = safeThumbnailUrl(mod.thumbnail);
+  return (
+    <td className="mod-row-mod">
+      {thumb ? (
+        <span className="mod-row-thumb" style={{ backgroundImage: `url("${thumb}")` }} />
+      ) : (
+        <span className="mod-row-thumb mod-row-thumb-empty" />
+      )}
+      <span className="mod-row-text">
+        <span className="mod-row-title">{mod.title}</span>
+        <span className="mod-row-meta">
+          {mod.owner ? <span>{mod.owner}</span> : null}
+          {mod.compatibility ? <span>Factorio {mod.compatibility}</span> : null}
+          {typeof mod.downloads === "number" ? <span>{mod.downloads.toLocaleString()} downloads</span> : null}
+        </span>
+        {mod.summary ? <span className="mod-row-summary">{mod.summary}</span> : null}
+      </span>
+    </td>
+  );
+}
+
+// Pulls the full release list the first time the dropdown is touched, and
+// tracks the currently-chosen version for the row.
+function useModVersionSelect(
+  mod: ModRowData,
+  installed: InstalledMod | undefined,
+  loadReleases: (modName: string) => Promise<ModRelease[]>,
+) {
+  const [releases, setReleases] = useState<ModRelease[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState("");
+
+  const defaultVersion = installed?.version || mod.latestVersion || "";
+  const chosenVersion = selected || defaultVersion;
+
+  const ensureReleases = async () => {
+    if (releases !== null || loading) return;
+    setLoading(true);
+    try {
+      const loaded = await loadReleases(mod.name);
+      setReleases(loaded);
+      if (!selected) setSelected(loaded[0]?.version ?? defaultVersion);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { releases, loading, chosenVersion, setSelected, ensureReleases };
+}
+
+function VersionSelectCell({
+  mod,
+  releases,
+  loading,
+  chosenVersion,
+  onFocus,
+  onChange,
+}: {
+  mod: ModRowData;
+  releases: ModRelease[] | null;
+  loading: boolean;
+  chosenVersion: string;
+  onFocus: () => void;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  return (
+    <td className="mod-row-version">
+      <Select
+        value={chosenVersion}
+        onFocus={onFocus}
+        onChange={onChange}
+        aria-label={`Version for ${mod.title}`}
+        disabled={loading}
+      >
+        {releases && releases.length > 0 ? (
+          releases.map((release) => (
+            <option key={release.version} value={release.version}>
+              v{release.version} • Factorio {release.factorio_version || "any"}
+            </option>
+          ))
+        ) : (
+          <option value={chosenVersion}>{chosenVersion ? `v${chosenVersion}` : "—"}</option>
+        )}
+      </Select>
+    </td>
+  );
+}
+
 // One mod as a single table row. The version dropdown lazily loads the full
 // release list on first focus; the action cell installs/enables/removes the
 // version currently selected in that dropdown.
@@ -62,68 +151,23 @@ export default function ModRow({
   loadReleases,
   installDisabled,
 }: Props) {
-  const [releases, setReleases] = useState<ModRelease[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState("");
-
-  const defaultVersion = installed?.version || mod.latestVersion || "";
-  const chosenVersion = selected || defaultVersion;
-
-  // Pull the full release list the first time the dropdown is touched.
-  const ensureReleases = async () => {
-    if (releases !== null || loading) return;
-    setLoading(true);
-    try {
-      const loaded = await loadReleases(mod.name);
-      setReleases(loaded);
-      if (!selected) setSelected(loaded[0]?.version ?? defaultVersion);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const versionCell = (
-    <Select
-      value={chosenVersion}
-      onFocus={() => void ensureReleases()}
-      onChange={(e) => setSelected(e.target.value)}
-      aria-label={`Version for ${mod.title}`}
-      disabled={loading}
-    >
-      {releases && releases.length > 0 ? (
-        releases.map((release) => (
-          <option key={release.version} value={release.version}>
-            v{release.version} • Factorio {release.factorio_version || "any"}
-          </option>
-        ))
-      ) : (
-        <option value={chosenVersion}>{chosenVersion ? `v${chosenVersion}` : "—"}</option>
-      )}
-    </Select>
+  const { releases, loading, chosenVersion, setSelected, ensureReleases } = useModVersionSelect(
+    mod,
+    installed,
+    loadReleases,
   );
 
   return (
     <tr className="mod-row">
-      <td className="mod-row-mod">
-        {safeThumbnailUrl(mod.thumbnail) ? (
-          <span
-            className="mod-row-thumb"
-            style={{ backgroundImage: `url("${safeThumbnailUrl(mod.thumbnail)}")` }}
-          />
-        ) : (
-          <span className="mod-row-thumb mod-row-thumb-empty" />
-        )}
-        <span className="mod-row-text">
-          <span className="mod-row-title">{mod.title}</span>
-          <span className="mod-row-meta">
-            {mod.owner ? <span>{mod.owner}</span> : null}
-            {mod.compatibility ? <span>Factorio {mod.compatibility}</span> : null}
-            {typeof mod.downloads === "number" ? <span>{mod.downloads.toLocaleString()} downloads</span> : null}
-          </span>
-          {mod.summary ? <span className="mod-row-summary">{mod.summary}</span> : null}
-        </span>
-      </td>
-      <td className="mod-row-version">{versionCell}</td>
+      <ModInfoCell mod={mod} />
+      <VersionSelectCell
+        mod={mod}
+        releases={releases}
+        loading={loading}
+        chosenVersion={chosenVersion}
+        onFocus={() => void ensureReleases()}
+        onChange={(e) => setSelected(e.target.value)}
+      />
       <td className="mod-row-actions">
         {mode === "installed" && installed ? (
           <InstalledActions

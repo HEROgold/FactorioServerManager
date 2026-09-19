@@ -65,13 +65,14 @@ function PublicRow({ server }: { server: PublicServer }) {
   );
 }
 
-export default function Overview() {
+// Fetches the caller's own servers (auth-gated) and the best-effort public
+// server list in parallel.
+function useOverviewData() {
   const [servers, setServers] = useState<ServerSummary[]>([]);
   const [publicServers, setPublicServers] = useState<PublicServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
-  const { flags } = useFeatureFlags();
 
   useEffect(() => {
     (async () => {
@@ -98,6 +99,61 @@ export default function Overview() {
     })();
   }, []);
 
+  return { servers, publicServers, loading, error, unauthorized };
+}
+
+function YourServersPanel({
+  servers,
+  loading,
+  unauthorized,
+  canCreate,
+}: {
+  servers: ServerSummary[];
+  loading: boolean;
+  unauthorized: boolean;
+  canCreate: boolean;
+}) {
+  if (unauthorized) {
+    return (
+      <div className="panel-inset-lighter mb12">
+        <LoginRequired message="Log in to view and manage your own servers." />
+      </div>
+    );
+  }
+  return (
+    <div className="panel-inset-lighter mb12">
+      {canCreate ? <Link to="/servers/create" className="button">Create Server</Link> : null}
+      <div className="panel-inset-lighter mb12">
+        <h3>Your servers</h3>
+        {loading ? (
+          <p className="mb0">Loading servers…</p>
+        ) : servers.length === 0 ? (
+          <p className="mb0">No servers yet. Create one to get started.</p>
+        ) : (
+          servers.map((server) => <ServerLink key={server.name} server={server} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PublicServersPanel({ servers }: { servers: PublicServer[] }) {
+  return (
+    <div className="panel-inset-lighter mb12">
+      <h3>Public servers</h3>
+      {servers.length === 0 ? (
+        <p className="mb0">No public servers to show.</p>
+      ) : (
+        servers.map((server, i) => <PublicRow key={i} server={server} />)
+      )}
+    </div>
+  );
+}
+
+export default function Overview() {
+  const { servers, publicServers, loading, error, unauthorized } = useOverviewData();
+  const { flags } = useFeatureFlags();
+
   return (
     <>
       <title>Dashboard</title>
@@ -113,36 +169,14 @@ export default function Overview() {
               <h2>Server Overview</h2>
               <Legend />
 
-              <div className="panel-inset-lighter mb12">
-                {unauthorized ? (
-                  <LoginRequired message="Log in to view and manage your own servers." />
-                ) : (
-                  <>
-                    {flags.server_create ? (
-                      <Link to="/servers/create" className="button">Create Server</Link>
-                    ) : null}
-                    <div className="panel-inset-lighter mb12">
-                      <h3>Your servers</h3>
-                      {loading ? (
-                        <p className="mb0">Loading servers…</p>
-                      ) : servers.length === 0 ? (
-                        <p className="mb0">No servers yet. Create one to get started.</p>
-                      ) : (
-                        servers.map((server) => <ServerLink key={server.name} server={server} />)
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <YourServersPanel
+                servers={servers}
+                loading={loading}
+                unauthorized={unauthorized}
+                canCreate={flags.server_create}
+              />
 
-              <div className="panel-inset-lighter mb12">
-                <h3>Public servers</h3>
-                {publicServers.length === 0 ? (
-                  <p className="mb0">No public servers to show.</p>
-                ) : (
-                  publicServers.map((server, i) => <PublicRow key={i} server={server} />)
-                )}
-              </div>
+              <PublicServersPanel servers={publicServers} />
             </div>
           </div>
         </div>

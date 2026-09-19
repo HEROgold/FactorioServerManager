@@ -18,12 +18,11 @@ dependencies = [
     "kubernetes>=31.0.0",
     "sentry-sdk>=2.57.0",
     "fastapi>=0.135.3",
-    "bcrypt>=5.0.0",
     "herogold>=2.0.2",
     "uvicorn>=0.44.0",
-    "python-jose[cryptography]>=3.3.0",
     "email-validator>=2.0.0",
-    "types-python-jose>=3.5.0.20260408",
+    "pydantic>=2.13.4",
+    "pyjwt[crypto]>=2.14.0",
 ]
 
 [dependency-groups]
@@ -75,8 +74,27 @@ god_file_max_definitions = 40
 god_file_max_top_level_definitions = 25
 duplicate_strings = 3
 model = "gpt-4.1"
-exclude = []
-ignore = []
+# Head.tsx's only content of note is a CDN <script>'s Subresource Integrity
+# hash (a public, base64-encoded sha384 digest, not a secret). Skylos's
+# TypeScript secret scanner has no field-name allowlist for `integrity=`
+# attributes (unlike its Python scanner) and no per-line suppression for
+# SKY-S101, so this tiny, non-logic file is excluded outright rather than
+# disabling the rule project-wide.
+exclude = ["src/frontend/src/components/Head.tsx"]
+ignore = [
+    # Flags any call to a method literally named `read`/`readlines`,
+    # regardless of receiver type, so it fires on our JsonParser/settings
+    # wrapper methods (e.g. `parser.read(file)`) that never load unbounded
+    # data. The handful of genuine raw file reads in this codebase (log
+    # tails, JSON config) are hardened directly with symlink/size-cap
+    # guards instead (see SKY-D325).
+    "SKY-P401",
+    # Only recognizes mypy/pyright ([tool.mypy]/[tool.pyright],
+    # mypy.ini/pyrightconfig.json). This project's checked type policy is
+    # `ty` + `pyrefly` (see [tool.ty]/[tool.pyrefly] below), configured with
+    # errors escalated to failures - an equivalent policy the rule can't see.
+    "SKY-R101",
+]
 
 [tool.skylos.masking]
 names = []

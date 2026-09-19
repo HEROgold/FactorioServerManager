@@ -21,6 +21,10 @@ if TYPE_CHECKING:
     from io import TextIOWrapper
     from pathlib import Path
 
+# Per-server settings documents are small, hand-edited JSON; anything larger
+# is not a legitimate config file and is refused rather than loaded whole.
+MAX_BYTES = 5 * 1024 * 1024
+
 
 class JsonParser:
     """Confkit parser that stores configuration in a JSON document."""
@@ -29,11 +33,17 @@ class JsonParser:
         self.data: dict[str, Any] = {}
 
     def read(self, file: Path) -> None:
-        if not file.exists():
+        if file.is_symlink():
+            msg = f"Refusing to follow symlink config file: {file}"
+            raise ValueError(msg)
+        if not file.is_file():
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text("{}", encoding="utf-8")
             self.data = {}
             return
+        if file.stat().st_size > MAX_BYTES:
+            msg = f"Config file too large (> {MAX_BYTES} bytes): {file}"
+            raise ValueError(msg)
         try:
             loaded = json.loads(file.read_text(encoding="utf-8") or "{}")
         except json.JSONDecodeError:

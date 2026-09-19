@@ -42,6 +42,32 @@ const defaultValue: FeatureFlagsContextValue = {
 
 const FeatureFlagsContext = createContext<FeatureFlagsContextValue>(defaultValue);
 
+/**
+ * Read the server-injected `__FLAGS__` global, if present (same pattern as
+ * `window.__USER__`), merged with the defaults.
+ */
+function readInjectedFlags(): FeatureFlags | null {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const injected = typeof window !== "undefined" ? window.__FLAGS__ : undefined;
+  return injected ? mergeFlags(injected) : null;
+}
+
+/**
+ * Live-reload: the backend pings this SSE stream whenever a flag changes in
+ * api_config.ini, so callers can re-fetch without a restart or page reload.
+ * Don't close on error — let EventSource auto-reconnect after a transient
+ * failure.
+ */
+function subscribeToFlagUpdates(onUpdate: () => void): () => void {
+  const es = new EventSource(apiUrl("/api/feature-flags/stream"), { withCredentials: true });
+  es.addEventListener("featureFlagsUpdate", onUpdate);
+  return () => {
+    es.removeEventListener("featureFlagsUpdate", onUpdate);
+    es.close();
+  };
+}
+
 export function FeatureFlagsProvider({ children }: { children: React.ReactNode }) {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FLAGS);
   const [loading, setLoading] = useState(true);
@@ -62,31 +88,16 @@ export function FeatureFlagsProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    // If the server injected a global `__FLAGS__`, trust it first (same pattern
-    // as `window.__USER__`); otherwise fetch the current values.
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const injected = typeof window !== "undefined" ? window.__FLAGS__ : undefined;
+    const injected = readInjectedFlags();
     if (injected) {
-      const merged = mergeFlags(injected);
-      setFlags(merged);
-      recordFlagEvaluations(merged);
+      setFlags(injected);
+      recordFlagEvaluations(injected);
       setLoading(false);
     } else {
       void refetch();
     }
 
-    // Live-reload: the backend pings this SSE stream whenever a flag changes in
-    // api_config.ini, so we re-fetch without a restart or page reload. Don't
-    // close on error — let EventSource auto-reconnect after a transient failure.
-    const es = new EventSource(apiUrl("/api/feature-flags/stream"), { withCredentials: true });
-    const onUpdate = () => void refetch();
-    es.addEventListener("featureFlagsUpdate", onUpdate);
-
-    return () => {
-      es.removeEventListener("featureFlagsUpdate", onUpdate);
-      es.close();
-    };
+    return subscribeToFlagUpdates(() => void refetch());
   }, [refetch]);
 
   return (

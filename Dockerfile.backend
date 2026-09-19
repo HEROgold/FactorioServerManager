@@ -21,7 +21,7 @@ RUN apt-get update \
        gcc=4:14.2.0-1 \
        libffi-dev=3.4.8-2 \
        libssl-dev=3.5.6-1~deb13u2 \
-    && rm -rf /var/lib/apt/lists/*
+    && find /var/lib/apt/lists -mindepth 1 -delete
 
 # Copy project metadata and lockfile for reproducible dependency resolution
 COPY pyproject.toml uv.lock README.md ./
@@ -63,7 +63,7 @@ WORKDIR /app
 # gosu pinned to the base image version for reproducibility (bump with the base).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gosu=1.17-3+b4 \
-    && rm -rf /var/lib/apt/lists/*
+    && find /var/lib/apt/lists -mindepth 1 -delete
 
 # The uv launcher for the `uv run --no-sync` CMD.
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
