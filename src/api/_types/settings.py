@@ -1,9 +1,8 @@
 """Factorio 2.1 settings models (server-settings, map-gen-settings, map-settings).
 
 The schema mirrors the canonical example files shipped with Factorio 2.1. Files
-are read and written as JSON through confkit's parser interface
-(:class:`api._types.json_parser.JsonParser`), giving us one consistent I/O path
-for every per-server settings document.
+are read and written as JSON via ``msgspec.json``, with :mod:`api._types.json.io`
+providing the symlink/size guards around the raw bytes.
 
 Nested objects with keys that are not valid Python identifiers (e.g.
 ``"copper-ore"`` or ``"control:moisture:frequency"``) are modelled as ``dict``
@@ -12,49 +11,57 @@ fields so the exact Factorio key names are preserved on disk.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, Any, Self
 
-from api._types.json_convert import drop_none, from_dict
-from api._types.json_parser import JsonParser
+import msgspec
+from msgspec import Struct, field
+
+from api._types.json.io import read_bytes, write_bytes
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from _typeshed import DataclassInstance
+
+def _drop_none(obj: Any) -> Any:  # noqa: ANN401 - generic recursive conversion
+    """Recursively drop ``None`` values from a ``dict``/``list`` tree.
+
+    Mirrors the old ``dataclasses.asdict(..., dict_factory=drop_none)``
+    behaviour: ``None``-valued fields are omitted at every nesting level so
+    optional fields (e.g. ``richness``, ``seed``) don't round-trip as explicit
+    nulls, while every other field -- including falsy defaults like ``0`` or
+    ``""`` -- is written out as-is.
+    """
+    if isinstance(obj, dict):
+        return {
+            key: _drop_none(value)
+            for key, value in obj.items()
+            if value is not None
+        }
+    if isinstance(obj, list):
+        return [_drop_none(item) for item in obj]
+    return obj
 
 
 class JsonSettings:
-    """Mixin giving dataclasses JSON read/write via the confkit JSON parser."""
+    """Mixin giving msgspec Structs JSON read/write via the guarded I/O helpers."""
 
     @classmethod
     def read(cls, file: Path) -> Self:
-        parser = JsonParser()
-        parser.read(file)
-        return from_dict(cls, parser.data)
+        return msgspec.json.decode(read_bytes(file), type=cls)
 
     def write(self, file: Path) -> None:
-        if file.is_symlink():
-            msg = f"Refusing to write over symlink config file: {file}"
-            raise ValueError(msg)
-        file.parent.mkdir(parents=True, exist_ok=True)
-        parser = JsonParser()
-        parser.data = asdict(cast("DataclassInstance", self), dict_factory=drop_none)
-        with file.open("w", encoding="utf-8") as f:  # skylos: ignore -- symlink-checked above
-            parser.write(f)
+        write_bytes(file, msgspec.json.encode(_drop_none(msgspec.to_builtins(self))))
 
 
 # --------------------------------------------------------------------------
 # server-settings.json
 # --------------------------------------------------------------------------
-@dataclass
-class Visibility:
+class Visibility(Struct):
     public: bool = True
     lan: bool = True
 
 
-@dataclass
-class GameSettings(JsonSettings):
+class GameSettings(JsonSettings, Struct):
     name: str = ""
     description: str = ""
     tags: list[str] = field(default_factory=list)
@@ -88,8 +95,7 @@ class GameSettings(JsonSettings):
 # --------------------------------------------------------------------------
 # manager.json (Factorio Server Manager metadata — NOT a Factorio config file)
 # --------------------------------------------------------------------------
-@dataclass
-class ServerMetadata(JsonSettings):
+class ServerMetadata(JsonSettings, Struct):
     """Per-server manager metadata: opt-in public display + which fields show."""
 
     public_display: bool = False
@@ -102,23 +108,20 @@ class ServerMetadata(JsonSettings):
 # --------------------------------------------------------------------------
 # map-gen-settings.json
 # --------------------------------------------------------------------------
-@dataclass
-class AutoplaceControl:
+class AutoplaceControl(Struct):
     frequency: float = 1
     size: float = 1
     richness: float | None = None
 
 
-@dataclass
-class CliffSettings:
+class CliffSettings(Struct):
     name: str = "cliff"
     cliff_elevation_0: float = 10
     cliff_elevation_interval: float = 40
     richness: float = 1
 
 
-@dataclass
-class Coordinates:
+class Coordinates(Struct):
     x: float = 0
     y: float = 0
 
@@ -146,15 +149,18 @@ def _default_property_expression_names() -> dict[str, str]:
     }
 
 
-@dataclass
-class MapGenerationSettings(JsonSettings):
+class MapGenerationSettings(JsonSettings, Struct):
     width: int = 0
     height: int = 0
     starting_area: float = 1
     peaceful_mode: bool = False
-    autoplace_controls: dict[str, AutoplaceControl] = field(default_factory=_default_autoplace)
+    autoplace_controls: dict[str, AutoplaceControl] = field(
+        default_factory=_default_autoplace,
+    )
     cliff_settings: CliffSettings = field(default_factory=CliffSettings)
-    property_expression_names: dict[str, str] = field(default_factory=_default_property_expression_names)
+    property_expression_names: dict[str, str] = field(
+        default_factory=_default_property_expression_names,
+    )
     starting_points: list[Coordinates] = field(default_factory=lambda: [Coordinates()])
     seed: int | None = None
 
@@ -162,14 +168,12 @@ class MapGenerationSettings(JsonSettings):
 # --------------------------------------------------------------------------
 # map-settings.json
 # --------------------------------------------------------------------------
-@dataclass
-class DifficultySettings:
+class DifficultySettings(Struct):
     technology_price_multiplier: float = 1
     spoil_time_modifier: float = 1
 
 
-@dataclass
-class PollutionSettings:
+class PollutionSettings(Struct):
     enabled: bool = True
     diffusion_ratio: float = 0.02
     min_to_diffuse: int = 15
@@ -184,16 +188,14 @@ class PollutionSettings:
     enemy_attack_pollution_consumption_modifier: float = 1
 
 
-@dataclass
-class EnemyEvolution:
+class EnemyEvolution(Struct):
     enabled: bool = True
     time_factor: float = 0.000004
     destroy_factor: float = 0.002
     pollution_factor: float = 0.0000009
 
 
-@dataclass
-class EnemyExpansion:
+class EnemyExpansion(Struct):
     enabled: bool = True
     max_expansion_distance: int = 5
     min_expansion_distance: int = 3
@@ -211,8 +213,7 @@ class EnemyExpansion:
     max_expansion_cooldown: int = 216000
 
 
-@dataclass
-class UnitGroupSettings:
+class UnitGroupSettings(Struct):
     min_group_gathering_time: int = 3600
     max_group_gathering_time: int = 36000
     max_wait_time_for_late_members: int = 7200
@@ -228,8 +229,7 @@ class UnitGroupSettings:
     max_unit_group_size: int = 200
 
 
-@dataclass
-class PathFinderSettings:
+class PathFinderSettings(Struct):
     fwd2bwd_ratio: int = 5
     goal_pressure_ratio: int = 2
     max_steps_worked_per_tick: float = 1000
@@ -265,28 +265,26 @@ class PathFinderSettings:
     negative_path_cache_delay_interval: int = 20
 
 
-@dataclass
-class SteeringSetting:
+class SteeringSetting(Struct):
     radius: float
     separation_force: float
     separation_factor: float
     force_unit_fuzzy_goto_behavior: bool = False
 
 
-@dataclass
-class SteeringSettings:
-    default: SteeringSetting = field(default_factory=lambda: SteeringSetting(1.2, 0.005, 1.2))
+class SteeringSettings(Struct):
+    default: SteeringSetting = field(
+        default_factory=lambda: SteeringSetting(1.2, 0.005, 1.2),
+    )
     moving: SteeringSetting = field(default_factory=lambda: SteeringSetting(3, 0.01, 3))
 
 
-@dataclass
-class AsteroidSettings:
+class AsteroidSettings(Struct):
     spawning_rate: float = 1
     max_ray_portals_expanded_per_tick: int = 100
 
 
-@dataclass
-class MapSettings(JsonSettings):
+class MapSettings(JsonSettings, Struct):
     difficulty_settings: DifficultySettings = field(default_factory=DifficultySettings)
     pollution: PollutionSettings = field(default_factory=PollutionSettings)
     enemy_evolution: EnemyEvolution = field(default_factory=EnemyEvolution)
