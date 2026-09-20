@@ -13,6 +13,10 @@ services:
       IMAGES: 1
       POST: 1
       LOG_LEVEL: warning
+    # This IS the socket proxy: the one container allowed to see the real
+    # socket (read-only), scoped by the CONTAINERS/IMAGES/POST allowlist
+    # above, so the backend never touches it directly.
+    # skylos: ignore[SKY-D331]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     security_opt:
