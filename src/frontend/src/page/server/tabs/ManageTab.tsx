@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { NavigateFunction } from "react-router-dom";
 import Button from "@/components/tags/Button";
 import StatusLight from "@/components/tags/StatusLight";
 import DiscoverableLight from "@/components/tags/DiscoverableLight";
@@ -22,17 +23,9 @@ const PENDING_STATUS: Record<Action, string> = {
   restart: "restarting",
 };
 
-export default function ManageTab({ name, ip, port, status, factorioVersion }: Props) {
-  const navigate = useNavigate();
+function useServerActions(name: string, navigate: NavigateFunction) {
   const [pending, setPending] = useState<Action | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const isRunning = status === "running";
-  const isStopped = status === "exited" || status === "dead";
-  const busy = pending !== null;
-  // While an action runs we show the optimistic state so the lamp reacts
-  // immediately, before the backend/SSE confirms the real status.
-  const displayStatus = pending ? PENDING_STATUS[pending] : status;
 
   const runAction = async (action: Action): Promise<void> => {
     setActionError(null);
@@ -51,12 +44,8 @@ export default function ManageTab({ name, ip, port, status, factorioVersion }: P
     }
   };
 
-  const copyAddress = (): void => {
-    navigator.clipboard.writeText(`${ip}:${port}`).catch((err) => console.error("Copy failed", err));
-  };
-
   const handleDelete = async (): Promise<void> => {
-    if (busy) return;
+    if (pending !== null) return;
     if (!confirm(`Are you sure you want to delete ${name}? This cannot be undone.`)) {
       return;
     }
@@ -67,6 +56,24 @@ export default function ManageTab({ name, ip, port, status, factorioVersion }: P
       alert("Delete failed");
     }
   };
+
+  return { pending, actionError, runAction, handleDelete };
+}
+
+function copyAddressToClipboard(ip: string, port: number): void {
+  navigator.clipboard.writeText(`${ip}:${port}`).catch((err) => console.error("Copy failed", err));
+}
+
+export default function ManageTab({ name, ip, port, status, factorioVersion }: Props) {
+  const navigate = useNavigate();
+  const { pending, actionError, runAction, handleDelete } = useServerActions(name, navigate);
+
+  const isRunning = status === "running";
+  const isStopped = status === "exited" || status === "dead";
+  const busy = pending !== null;
+  // While an action runs we show the optimistic state so the lamp reacts
+  // immediately, before the backend/SSE confirms the real status.
+  const displayStatus = pending ? PENDING_STATUS[pending] : status;
 
   return (
     <div className="panel-inset-lighter">
@@ -84,23 +91,23 @@ export default function ManageTab({ name, ip, port, status, factorioVersion }: P
       </dl>
 
       <div className="button-group flex flex-wrap flex-items-center" style={{ gap: 8 }}>
-        <Button variant="green" disabled={busy || isRunning} onClick={() => runAction("start")}>
+        <Button variant="green" disabled={busy || isRunning} onClick={() => void runAction("start")}>
           {pending === "start" ? "Starting…" : "Start"}
         </Button>
-        <Button disabled={busy || isStopped} onClick={() => runAction("stop")}>
+        <Button disabled={busy || isStopped} onClick={() => void runAction("stop")}>
           {pending === "stop" ? "Stopping…" : "Stop"}
         </Button>
-        <Button disabled={busy || !isRunning} onClick={() => runAction("restart")}>
+        <Button disabled={busy || !isRunning} onClick={() => void runAction("restart")}>
           {pending === "restart" ? "Restarting…" : "Restart"}
         </Button>
-        <Button variant="ghost" disabled={busy} onClick={copyAddress}>Copy {ip}:{port}</Button>
+        <Button variant="ghost" disabled={busy} onClick={() => copyAddressToClipboard(ip, port)}>Copy {ip}:{port}</Button>
       </div>
 
       {actionError ? <p className="red mt8 mb0">{actionError}</p> : null}
 
       <hr />
 
-      <Button variant="red" disabled={busy} onClick={handleDelete}>Delete Server</Button>
+      <Button variant="red" disabled={busy} onClick={() => void handleDelete()}>Delete Server</Button>
     </div>
   );
 }

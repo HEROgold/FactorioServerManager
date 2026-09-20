@@ -20,19 +20,11 @@ interface PortLimits {
   default: number
 }
 
-export default function InstallForm({ name, version = "stable", port = 34197 }: InstallData) {
-  const fallbackName = name || useParams().name || "Factorio Server"
-  const navigate = useNavigate()
-  const { versions, loading, hasError } = useAvailableVersions()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [unauthorized, setUnauthorized] = useState(false)
-  const [selectedVersion, setSelectedVersion] = useState<string>("")
-
-  // Port bounds are operator-configurable on the backend; until they load we
-  // fall back to the full valid TCP/UDP range so the field is never unbounded.
-  const [limits, setLimits] = useState<PortLimits>({ lower: 1, upper: 65535, default: port })
-  const [portValue, setPortValue] = useState<string>(String(port))
+// Port bounds are operator-configurable on the backend; until they load we
+// fall back to the full valid TCP/UDP range so the field is never unbounded.
+function usePortLimits(initialPort: number) {
+  const [limits, setLimits] = useState<PortLimits>({ lower: 1, upper: 65535, default: initialPort })
+  const [portValue, setPortValue] = useState<string>(String(initialPort))
   // Don't overwrite a value the user has already typed when the limits arrive.
   const portTouched = useRef(false)
 
@@ -60,18 +52,137 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
     return String(Math.min(Math.max(parsed, limits.lower), limits.upper))
   }
 
-  // The select is controlled so the default survives the async versions load.
-  // Preference order: an already-picked value, the requested `version`, then
-  // "stable", then the first available version.
+  const onPortChange = (value: string) => {
+    portTouched.current = true
+    setPortValue(value)
+  }
+
+  return { limits, portValue, setPortValue, clampPort, onPortChange }
+}
+
+// The select is controlled so the default survives the async versions load.
+// Preference order: an already-picked value, the requested `version`, then
+// "stable", then the first available version.
+function useVersionSelection(versions: Version[], preferred: Version) {
+  const [selectedVersion, setSelectedVersion] = useState<string>("")
+
   useEffect(() => {
     if (!versions.length) return
     setSelectedVersion((prev) => {
       if (prev && versions.includes(prev as Version)) return prev
-      if (versions.includes(version)) return version
+      if (versions.includes(preferred)) return preferred
       if (versions.includes("stable" as Version)) return "stable"
       return versions[0] ?? ""
     })
-  }, [versions, version])
+  }, [versions, preferred])
+
+  return [selectedVersion, setSelectedVersion] as const
+}
+
+function buildCreateUrl(serverName: string, version: string, port: string): string {
+  const params = new URLSearchParams({ version })
+  // Always submit a clamped, in-range port so the backend never 422s on a
+  // value the user could type past the spinner bounds.
+  if (port) {
+    params.set("port", port)
+  }
+  return `/api/server/${encodeURIComponent(serverName)}/create?${params.toString()}`
+}
+
+function NameField({ fallbackName }: { fallbackName: string }) {
+  return (
+    <div className="field">
+      <label htmlFor="install-name">Server Name</label>
+      <Input type="text" id="install-name" name="name" placeholder={fallbackName} style={{ width: "100%" }} />
+    </div>
+  )
+}
+
+function VersionField({
+  loading,
+  hasError,
+  versions,
+  selectedVersion,
+  onChange,
+}: {
+  loading: boolean
+  hasError: boolean
+  versions: Version[]
+  selectedVersion: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="field">
+      <label htmlFor="install-version">Factorio Version</label>
+      <Select
+        id="install-version"
+        name="version"
+        value={selectedVersion}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={loading || hasError}
+        style={{ width: "100%" }}
+      >
+        {loading ? (
+          <option value="">Loading versions...</option>
+        ) : hasError ? (
+          <option value="">Versions unavailable</option>
+        ) : (
+          versions.map((availableVersion) => (
+            <option key={availableVersion} value={availableVersion}>
+              {availableVersion}
+            </option>
+          ))
+        )}
+      </Select>
+    </div>
+  )
+}
+
+function PortField({
+  limits,
+  portValue,
+  onChange,
+  onBlur,
+}: {
+  limits: PortLimits
+  portValue: string
+  onChange: (value: string) => void
+  onBlur: (value: string) => void
+}) {
+  return (
+    <div className="field">
+      <label htmlFor="install-port">Game Port</label>
+      <Input
+        type="number"
+        id="install-port"
+        name="port"
+        min={limits.lower}
+        max={limits.upper}
+        step={1}
+        value={portValue}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => onBlur(e.target.value)}
+        placeholder={`${limits.default}`}
+        style={{ width: "100%" }}
+      />
+      <small style={{ opacity: 0.8 }}>Allowed range: {limits.lower}–{limits.upper}</small>
+    </div>
+  )
+}
+
+// Owns the submit flow: builds the create request from the current form
+// state, and tracks the error/submitting/unauthorized outcomes.
+function useInstallSubmit(
+  fallbackName: string,
+  selectedVersion: string,
+  portValue: string,
+  clampPort: (raw: string) => string,
+  setPortValue: (value: string) => void,
+) {
+  const navigate = useNavigate()
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [unauthorized, setUnauthorized] = useState(false)
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -81,23 +192,13 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
     const value = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement | null)?.value
     const serverName = (value("name") || fallbackName).trim()
     const selected = selectedVersion || value("version") || "stable"
-    // Always submit a clamped, in-range port so the backend never 422s on a
-    // value the user could type past the spinner bounds.
     const selectedPort = clampPort(portValue)
     setPortValue(selectedPort)
-
-    const params = new URLSearchParams({ version: selected })
-    if (selectedPort) {
-      params.set("port", selectedPort)
-    }
 
     try {
       // Route through sendJSON so the double-submit CSRF token is attached;
       // a bare apiFetch POST omits it and the backend rejects the request.
-      const data = await sendJSON<{ name?: string }>(
-        `/api/server/${encodeURIComponent(serverName)}/create?${params.toString()}`,
-        "POST",
-      )
+      const data = await sendJSON<{ name?: string }>(buildCreateUrl(serverName, selected, selectedPort), "POST")
       // The backend sanitizes the name; navigate to the name it actually
       // created (falling back to the input) so we don't 404 on a renamed server.
       navigate(`/servers/${data.name || serverName}`)
@@ -112,59 +213,42 @@ export default function InstallForm({ name, version = "stable", port = 34197 }: 
     }
   }
 
+  return { handleSubmit, error, submitting, unauthorized }
+}
+
+export default function InstallForm({ name, version = "stable", port = 34197 }: InstallData) {
+  const fallbackName = name || useParams().name || "Factorio Server"
+  const { versions, loading, hasError } = useAvailableVersions()
+  const [selectedVersion, setSelectedVersion] = useVersionSelection(versions, version)
+  const { limits, portValue, setPortValue, clampPort, onPortChange } = usePortLimits(port)
+  const { handleSubmit, error, submitting, unauthorized } = useInstallSubmit(
+    fallbackName,
+    selectedVersion,
+    portValue,
+    clampPort,
+    setPortValue,
+  )
+
   if (unauthorized) {
     return <LoginRequired message="Please log in to create a server." />
   }
 
   return (
     <form onSubmit={handleSubmit} className="form-stack">
-      <div className="field">
-        <label htmlFor="install-name">Server Name</label>
-        <Input type="text" id="install-name" name="name" placeholder={fallbackName} style={{ width: "100%" }} />
-      </div>
-      <div className="field">
-        <label htmlFor="install-version">Factorio Version</label>
-        <Select
-          id="install-version"
-          name="version"
-          value={selectedVersion}
-          onChange={(e) => setSelectedVersion(e.target.value)}
-          disabled={loading || hasError}
-          style={{ width: "100%" }}
-        >
-          {loading ? (
-            <option value="">Loading versions...</option>
-          ) : hasError ? (
-            <option value="">Versions unavailable</option>
-          ) : (
-            versions.map((availableVersion) => (
-              <option key={availableVersion} value={availableVersion}>
-                {availableVersion}
-              </option>
-            ))
-          )}
-        </Select>
-      </div>
-      <div className="field">
-        <label htmlFor="install-port">Game Port</label>
-        <Input
-          type="number"
-          id="install-port"
-          name="port"
-          min={limits.lower}
-          max={limits.upper}
-          step={1}
-          value={portValue}
-          onChange={(e) => {
-            portTouched.current = true
-            setPortValue(e.target.value)
-          }}
-          onBlur={(e) => setPortValue(clampPort(e.target.value))}
-          placeholder={`${limits.default}`}
-          style={{ width: "100%" }}
-        />
-        <small style={{ opacity: 0.8 }}>Allowed range: {limits.lower}–{limits.upper}</small>
-      </div>
+      <NameField fallbackName={fallbackName} />
+      <VersionField
+        loading={loading}
+        hasError={hasError}
+        versions={versions}
+        selectedVersion={selectedVersion}
+        onChange={setSelectedVersion}
+      />
+      <PortField
+        limits={limits}
+        portValue={portValue}
+        onChange={onPortChange}
+        onBlur={(raw) => setPortValue(clampPort(raw))}
+      />
       {error ? <p className="red">{error}</p> : null}
       <SubmitButton busy="Installing..." idle="Install" submitting={submitting} />
     </form>

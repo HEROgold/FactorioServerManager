@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useBlocker } from "react-router-dom";
 import { SubmitButton } from "./SubmitButton";
 import { sendJSON } from "@/api";
@@ -104,22 +104,16 @@ function collect(form: HTMLFormElement) {
   };
 }
 
-/** Renders the Factorio 2.1 server-settings form and persists changes via PATCH. */
-export default function ManageServerForm({ name, data }: Props) {
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+/** Tracks whether the form has diverged from its last-saved snapshot. */
+function useDirtyTracking(formRef: RefObject<HTMLFormElement | null>) {
   const [dirty, setDirty] = useState(false);
-  const pd = data.public_display ?? PUBLIC_DISPLAY_DEFAULT;
-  const [publicDisplay, setPublicDisplay] = useState(pd.public_display);
-  const formRef = useRef<HTMLFormElement>(null);
   // Serialized snapshot of the pristine (or last-saved) form for dirty checks.
   const baselineRef = useRef<string>("");
 
   // Capture the pristine form once mounted (defaults come from `data`).
   useEffect(() => {
     if (formRef.current) baselineRef.current = JSON.stringify(collect(formRef.current));
-  }, []);
+  }, [formRef]);
 
   const recomputeDirty = () => {
     if (formRef.current) {
@@ -127,7 +121,16 @@ export default function ManageServerForm({ name, data }: Props) {
     }
   };
 
-  // Guard a browser refresh/close/navigation when there are unsaved edits.
+  const markSaved = (payload: unknown) => {
+    baselineRef.current = JSON.stringify(payload);
+    setDirty(false);
+  };
+
+  return { dirty, recomputeDirty, markSaved };
+}
+
+/** Guards a browser refresh/close or in-app navigation while `dirty`. */
+function useUnsavedChangesGuard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -155,21 +158,152 @@ export default function ManageServerForm({ name, data }: Props) {
       blocker.reset();
     }
   }, [blocker]);
+}
+
+function IdentityFieldset({
+  data,
+  pd,
+  publicDisplay,
+  setPublicDisplay,
+}: {
+  data: ManageServerData;
+  pd: PublicDisplay;
+  publicDisplay: boolean;
+  setPublicDisplay: (value: boolean) => void;
+}) {
+  return (
+    <Fieldset>
+      <legend>Identity</legend>
+      <div className="field">
+        <label htmlFor="name">Server Name</label>
+        <Input type="text" id="name" name="name" defaultValue={data.name} required />
+      </div>
+      <div className="field">
+        <label htmlFor="description">Description</label>
+        <Input type="text" id="description" name="description" defaultValue={data.description} />
+      </div>
+      <div className="field">
+        <label htmlFor="game_password">Game Password</label>
+        <Input type="password" id="game_password" name="game_password" defaultValue={data.game_password} />
+      </div>
+
+      <hr />
+      <Checkbox
+        name="pd_public_display"
+        checked={publicDisplay}
+        onChange={(e) => setPublicDisplay(e.target.checked)}
+        label="Display this server publicly on the manager"
+      />
+      <div style={{ paddingLeft: 24, opacity: publicDisplay ? 1 : 0.5 }}>
+        <Checkbox name="pd_show_name" defaultChecked={pd.show_name} disabled={!publicDisplay} label="Show name" />
+        <Checkbox name="pd_show_status" defaultChecked={pd.show_status} disabled={!publicDisplay} label="Show status light" />
+        <Checkbox name="pd_show_reachability" defaultChecked={pd.show_reachability} disabled={!publicDisplay} label="Show reachability light" />
+        <Checkbox name="pd_show_ip" defaultChecked={pd.show_ip} disabled={!publicDisplay} label="Show IP address" />
+      </div>
+    </Fieldset>
+  );
+}
+
+function VisibilityFieldset({ data }: { data: ManageServerData }) {
+  return (
+    <Fieldset>
+      <legend>Visibility</legend>
+      <Checkbox name="visibility_public" defaultChecked={data.visibility.public} label="Public" />
+      <Checkbox name="visibility_lan" defaultChecked={data.visibility.lan} label="LAN" />
+      <Checkbox name="require_user_verification" defaultChecked={data.require_user_verification} label="Require user verification" />
+    </Fieldset>
+  );
+}
+
+function PlayersFieldset({ data }: { data: ManageServerData }) {
+  return (
+    <Fieldset>
+      <legend>Players &amp; Permissions</legend>
+      <div className="field">
+        <label htmlFor="max_players">Max Players (0 = unlimited)</label>
+        <Input type="number" id="max_players" name="max_players" min={0} step={1} defaultValue={data.max_players} />
+      </div>
+      <div className="field">
+        <label htmlFor="allow_commands">Allow Lua Commands</label>
+        <Select id="allow_commands" name="allow_commands" defaultValue={data.allow_commands}>
+          <option value="false">false</option>
+          <option value="admins-only">admins-only</option>
+          <option value="true">true</option>
+        </Select>
+      </div>
+      <Checkbox name="ignore_player_limit_for_returning_players" defaultChecked={data.ignore_player_limit_for_returning_players} label="Ignore player limit for returning players" />
+    </Fieldset>
+  );
+}
+
+function SavingFieldset({ data }: { data: ManageServerData }) {
+  return (
+    <Fieldset>
+      <legend>Saving &amp; Pausing</legend>
+      <div className="field">
+        <label htmlFor="autosave_interval">Autosave Interval (minutes)</label>
+        <Input type="number" id="autosave_interval" name="autosave_interval" min={0} step={1} defaultValue={data.autosave_interval} />
+      </div>
+      <div className="field">
+        <label htmlFor="autosave_slots">Autosave Slots</label>
+        <Input type="number" id="autosave_slots" name="autosave_slots" min={0} step={1} defaultValue={data.autosave_slots} />
+      </div>
+      <div className="field">
+        <label htmlFor="afk_autokick_interval">AFK Autokick (minutes, 0 = never)</label>
+        <Input type="number" id="afk_autokick_interval" name="afk_autokick_interval" min={0} step={1} defaultValue={data.afk_autokick_interval} />
+      </div>
+      <Checkbox name="auto_pause" defaultChecked={data.auto_pause} label="Auto pause when empty" />
+      <Checkbox name="auto_pause_when_players_connect" defaultChecked={data.auto_pause_when_players_connect} label="Auto pause when players connect" />
+      <Checkbox name="only_admins_can_pause_the_game" defaultChecked={data.only_admins_can_pause_the_game} label="Only admins can pause" />
+      <Checkbox name="autosave_only_on_server" defaultChecked={data.autosave_only_on_server} label="Autosave only on server" />
+      <Checkbox name="non_blocking_saving" defaultChecked={data.non_blocking_saving} label="Non-blocking saving (experimental)" />
+    </Fieldset>
+  );
+}
+
+function NetworkFieldset({ data }: { data: ManageServerData }) {
+  return (
+    <Fieldset>
+      <legend>Network &amp; Performance</legend>
+      <div className="field">
+        <label htmlFor="max_upload_in_kilobytes_per_second">Max Upload (KB/s, 0 = unlimited)</label>
+        <Input type="number" id="max_upload_in_kilobytes_per_second" name="max_upload_in_kilobytes_per_second" min={0} step={1} defaultValue={data.max_upload_in_kilobytes_per_second} />
+      </div>
+      <div className="field">
+        <label htmlFor="max_upload_slots">Max Upload Slots</label>
+        <Input type="number" id="max_upload_slots" name="max_upload_slots" min={0} step={1} defaultValue={data.max_upload_slots} />
+      </div>
+      <div className="field">
+        <label htmlFor="max_heartbeats_per_second">Max Heartbeats/s (6–240)</label>
+        <Input type="number" id="max_heartbeats_per_second" name="max_heartbeats_per_second" min={6} max={240} step={1} defaultValue={data.max_heartbeats_per_second} />
+      </div>
+    </Fieldset>
+  );
+}
+
+/** Renders the Factorio 2.1 server-settings form and persists changes via PATCH. */
+export default function ManageServerForm({ name, data }: Props) {
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const pd = data.public_display ?? PUBLIC_DISPLAY_DEFAULT;
+  const [publicDisplay, setPublicDisplay] = useState(pd.public_display);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { dirty, recomputeDirty, markSaved } = useDirtyTracking(formRef);
+  useUnsavedChangesGuard(dirty);
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage(null);
     setError(null);
     setSubmitting(true);
-    const form = e.currentTarget;
-    const payload = collect(form);
+    const payload = collect(e.currentTarget);
 
     try {
       await sendJSON(`/api/server/${name}/settings`, "PATCH", payload);
       setMessage("Settings saved.");
       // Saved state becomes the new baseline so the form is no longer "dirty".
-      baselineRef.current = JSON.stringify(payload);
-      setDirty(false);
+      markSaved(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
@@ -179,96 +313,11 @@ export default function ManageServerForm({ name, data }: Props) {
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} onChange={recomputeDirty} onInput={recomputeDirty} className="form-stack">
-      <Fieldset>
-        <legend>Identity</legend>
-        <div className="field">
-          <label htmlFor="name">Server Name</label>
-          <Input type="text" id="name" name="name" defaultValue={data.name} required />
-        </div>
-        <div className="field">
-          <label htmlFor="description">Description</label>
-          <Input type="text" id="description" name="description" defaultValue={data.description} />
-        </div>
-        <div className="field">
-          <label htmlFor="game_password">Game Password</label>
-          <Input type="password" id="game_password" name="game_password" defaultValue={data.game_password} />
-        </div>
-
-        <hr />
-        <Checkbox
-          name="pd_public_display"
-          checked={publicDisplay}
-          onChange={(e) => setPublicDisplay(e.target.checked)}
-          label="Display this server publicly on the manager"
-        />
-        <div style={{ paddingLeft: 24, opacity: publicDisplay ? 1 : 0.5 }}>
-          <Checkbox name="pd_show_name" defaultChecked={pd.show_name} disabled={!publicDisplay} label="Show name" />
-          <Checkbox name="pd_show_status" defaultChecked={pd.show_status} disabled={!publicDisplay} label="Show status light" />
-          <Checkbox name="pd_show_reachability" defaultChecked={pd.show_reachability} disabled={!publicDisplay} label="Show reachability light" />
-          <Checkbox name="pd_show_ip" defaultChecked={pd.show_ip} disabled={!publicDisplay} label="Show IP address" />
-        </div>
-      </Fieldset>
-
-      <Fieldset>
-        <legend>Visibility</legend>
-        <Checkbox name="visibility_public" defaultChecked={data.visibility.public} label="Public" />
-        <Checkbox name="visibility_lan" defaultChecked={data.visibility.lan} label="LAN" />
-        <Checkbox name="require_user_verification" defaultChecked={data.require_user_verification} label="Require user verification" />
-      </Fieldset>
-
-      <Fieldset>
-        <legend>Players &amp; Permissions</legend>
-        <div className="field">
-          <label htmlFor="max_players">Max Players (0 = unlimited)</label>
-          <Input type="number" id="max_players" name="max_players" min={0} step={1} defaultValue={data.max_players} />
-        </div>
-        <div className="field">
-          <label htmlFor="allow_commands">Allow Lua Commands</label>
-          <Select id="allow_commands" name="allow_commands" defaultValue={data.allow_commands}>
-            <option value="false">false</option>
-            <option value="admins-only">admins-only</option>
-            <option value="true">true</option>
-          </Select>
-        </div>
-        <Checkbox name="ignore_player_limit_for_returning_players" defaultChecked={data.ignore_player_limit_for_returning_players} label="Ignore player limit for returning players" />
-      </Fieldset>
-
-      <Fieldset>
-        <legend>Saving &amp; Pausing</legend>
-        <div className="field">
-          <label htmlFor="autosave_interval">Autosave Interval (minutes)</label>
-          <Input type="number" id="autosave_interval" name="autosave_interval" min={0} step={1} defaultValue={data.autosave_interval} />
-        </div>
-        <div className="field">
-          <label htmlFor="autosave_slots">Autosave Slots</label>
-          <Input type="number" id="autosave_slots" name="autosave_slots" min={0} step={1} defaultValue={data.autosave_slots} />
-        </div>
-        <div className="field">
-          <label htmlFor="afk_autokick_interval">AFK Autokick (minutes, 0 = never)</label>
-          <Input type="number" id="afk_autokick_interval" name="afk_autokick_interval" min={0} step={1} defaultValue={data.afk_autokick_interval} />
-        </div>
-        <Checkbox name="auto_pause" defaultChecked={data.auto_pause} label="Auto pause when empty" />
-        <Checkbox name="auto_pause_when_players_connect" defaultChecked={data.auto_pause_when_players_connect} label="Auto pause when players connect" />
-        <Checkbox name="only_admins_can_pause_the_game" defaultChecked={data.only_admins_can_pause_the_game} label="Only admins can pause" />
-        <Checkbox name="autosave_only_on_server" defaultChecked={data.autosave_only_on_server} label="Autosave only on server" />
-        <Checkbox name="non_blocking_saving" defaultChecked={data.non_blocking_saving} label="Non-blocking saving (experimental)" />
-      </Fieldset>
-
-      <Fieldset>
-        <legend>Network &amp; Performance</legend>
-        <div className="field">
-          <label htmlFor="max_upload_in_kilobytes_per_second">Max Upload (KB/s, 0 = unlimited)</label>
-          <Input type="number" id="max_upload_in_kilobytes_per_second" name="max_upload_in_kilobytes_per_second" min={0} step={1} defaultValue={data.max_upload_in_kilobytes_per_second} />
-        </div>
-        <div className="field">
-          <label htmlFor="max_upload_slots">Max Upload Slots</label>
-          <Input type="number" id="max_upload_slots" name="max_upload_slots" min={0} step={1} defaultValue={data.max_upload_slots} />
-        </div>
-        <div className="field">
-          <label htmlFor="max_heartbeats_per_second">Max Heartbeats/s (6–240)</label>
-          <Input type="number" id="max_heartbeats_per_second" name="max_heartbeats_per_second" min={6} max={240} step={1} defaultValue={data.max_heartbeats_per_second} />
-        </div>
-      </Fieldset>
+      <IdentityFieldset data={data} pd={pd} publicDisplay={publicDisplay} setPublicDisplay={setPublicDisplay} />
+      <VisibilityFieldset data={data} />
+      <PlayersFieldset data={data} />
+      <SavingFieldset data={data} />
+      <NetworkFieldset data={data} />
 
       {message ? <p style={{ color: "#aee7be" }}>{message}</p> : null}
       {error ? <p className="red">{error}</p> : null}

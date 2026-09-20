@@ -16,6 +16,7 @@ from api.constants import (
     DEFAULT_VERSION,
     DOCKER_CONTAINER_PREFIX,
     RELEASES_URL,
+    SERVERS_DIRECTORY,
     AppConfig,
 )
 from api.utils import sanitize_str
@@ -52,6 +53,52 @@ async def resolve_factorio_version(version: str) -> str:
         return version
     resolved = payload.get(bucket, {}).get("headless") if isinstance(payload, dict) else None
     return resolved or version
+
+
+def _remove_server_directory(directory: Path) -> None:
+    """Delete ``directory`` reliably, clearing the common permission blockers.
+
+    On Windows we clear the read-only bit; on POSIX we make the parent
+    directory writable (unlink needs write on the parent, not the file),
+    retry, log anything we still cannot delete, then verify the directory is
+    actually gone so the caller surfaces a real error instead of a false
+    success.
+    """
+    if not directory.exists():
+        return
+
+    # Defence in depth: never let a recursive delete escape the servers root.
+    if not directory.resolve().is_relative_to(SERVERS_DIRECTORY.resolve()):
+        msg = f"Refusing to remove directory outside the servers root: {directory}"
+        raise ValueError(msg)
+
+    def _on_error(func, path, _exc) -> None:  # noqa: ANN001
+        # Clear the blocker for the operation (unlink / rmdir) that raised and
+        # retry it. If it still fails, log and re-raise so rmtree aborts and
+        # the failure is not swallowed.
+        try:
+            target = Path(path)
+            if sys.platform == "win32":
+                target.chmod(stat.S_IWRITE)
+            else:
+                parent = target.parent
+                parent.chmod(parent.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR)
+            func(path)
+        except OSError:
+            logger.warning("Could not remove %s while deleting %s", path, directory, exc_info=True)
+            raise
+
+    try:
+        shutil.rmtree(directory, onexc=_on_error)  # skylos: ignore -- containment-checked above
+    except OSError as err:
+        msg = f"Server directory {directory} could not be fully removed"
+        logger.exception(msg)
+        raise RuntimeError(msg) from err
+
+    if directory.exists():
+        msg = f"Server directory {directory} could not be fully removed"
+        logger.error(msg)
+        raise RuntimeError(msg)
 
 
 class Server:
@@ -222,44 +269,8 @@ class Server:
         container under a different uid. Both are mitigated upstream — the
         container is given PUID/PGID at creation, and docker-entrypoint.sh chowns
         the whole tree to the backend's uid on startup — so the backend owns what
-        it deletes. This handler is a belt-and-suspenders path: on Windows we clear
-        the read-only bit; on POSIX we make the parent directory writable (unlink
-        needs write on the parent, not the file), retry, log anything we still
-        cannot delete, then verify the directory is actually gone so the caller
-        surfaces a real error instead of a false success.
+        it deletes. See ``_remove_server_directory`` for the belt-and-suspenders
+        on-disk cleanup.
         """
         await get_backend().remove(self.spec)
-
-        directory = self.files.directory
-        if not directory.exists():
-            return
-
-        def _on_error(func, path, _exc) -> None:  # noqa: ANN001
-            # Clear the blocker for the operation (unlink / rmdir) that raised and
-            # retry it. On Windows that is a read-only attribute on the file; on
-            # POSIX, unlink/rmdir need write permission on the *parent* directory,
-            # not the entry itself, so grant that instead. If it still fails, log
-            # and re-raise so rmtree aborts and the failure is not swallowed.
-            try:
-                target = Path(path)
-                if sys.platform == "win32":
-                    target.chmod(stat.S_IWRITE)
-                else:
-                    parent = target.parent
-                    parent.chmod(parent.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR)
-                func(path)
-            except OSError:
-                logger.warning("Could not remove %s while deleting %s", path, directory, exc_info=True)
-                raise
-
-        try:
-            shutil.rmtree(directory, onexc=_on_error)
-        except OSError as err:
-            msg = f"Server directory {directory} could not be fully removed"
-            logger.exception(msg)
-            raise RuntimeError(msg) from err
-
-        if directory.exists():
-            msg = f"Server directory {directory} could not be fully removed"
-            logger.error(msg)
-            raise RuntimeError(msg)
+        _remove_server_directory(self.files.directory)

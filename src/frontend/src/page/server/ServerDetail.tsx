@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { NavigateFunction } from "react-router-dom";
 import Layout from "@/templates/Layout";
 import StatusLight from "@/components/tags/StatusLight";
 import LoginRequired from "@/components/LoginRequired";
@@ -44,41 +46,42 @@ const TAB_ENABLED: Partial<Record<Tab, (flags: FeatureFlags) => boolean>> = {
   rcon: (flags) => flags.rcon_console,
 };
 
-export default function ServerDetail() {
-  const { name } = useParams();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [detail, setDetail] = useState<ServerDetailData | null>(null);
-  const [settings, setSettings] = useState<ManageServerData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [unauthorized, setUnauthorized] = useState(false);
+interface LogBufferState {
+  logLines: string[];
+  setLogLines: React.Dispatch<React.SetStateAction<string[]>>;
+  logsCleared: boolean;
+  setLogsCleared: (value: boolean) => void;
+  logsSeededRef: MutableRefObject<boolean>;
+}
 
-  // Log buffer lives here (not in LogsTab) so a manual "Clear" survives tab
-  // switches — LogsTab unmounts when you leave the Logs tab.
+// Log buffer lives here (not in LogsTab) so a manual "Clear" survives tab
+// switches — LogsTab unmounts when you leave the Logs tab. Reset whenever the
+// active server changes.
+function useLogBuffer(name: string | undefined): LogBufferState {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [logsCleared, setLogsCleared] = useState(false);
   const logsSeededRef = useRef(false);
 
-  const { flags } = useFeatureFlags();
-  // Tabs the current flags allow. Gated-off tabs disappear from the bar, and a
-  // bookmarked/redirected `?tab=<hidden>` falls back to "manage".
-  const visibleTabs = TABS.filter((tab) => !TAB_ENABLED[tab] || TAB_ENABLED[tab]!(flags));
-  const requestedTab = searchParams.get("tab");
-  const activeTab: Tab =
-    isTab(requestedTab) && visibleTabs.includes(requestedTab) ? requestedTab : "manage";
+  useEffect(() => {
+    setLogLines([]);
+    setLogsCleared(false);
+    logsSeededRef.current = false;
+  }, [name]);
 
-  // Live status drives the header light and gates the RCON/Manage tabs.
-  const liveStatus = useServerStatus(name ?? "", detail?.status);
+  return { logLines, setLogLines, logsCleared, setLogsCleared, logsSeededRef };
+}
+
+function useServerDetailData(name: string | undefined, navigate: NavigateFunction) {
+  const [detail, setDetail] = useState<ServerDetailData | null>(null);
+  const [settings, setSettings] = useState<ManageServerData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   useEffect(() => {
     if (!name) {
       navigate("/servers");
       return;
     }
-    // Reset the per-server log buffer when switching servers.
-    setLogLines([]);
-    setLogsCleared(false);
-    logsSeededRef.current = false;
     (async () => {
       try {
         const [d, s] = await Promise.all([
@@ -97,91 +100,202 @@ export default function ServerDetail() {
     })();
   }, [name, navigate]);
 
-  if (!name) {
-    return null;
-  }
+  return { detail, settings, error, unauthorized };
+}
 
-  if (unauthorized) {
-    return (
-      <>
-        <title>{name}</title>
-        <Layout title="Manage Server">
-          <div className="container-inner">
-            <div className="medium-center">
-              <LoginRequired message="Please log in to manage this server." />
-            </div>
-          </div>
-        </Layout>
-      </>
+function TabNav({
+  tabs,
+  activeTab,
+  onSelect,
+}: {
+  tabs: readonly Tab[];
+  activeTab: Tab;
+  onSelect: (tab: Tab) => void;
+}) {
+  return (
+    <nav className="server-tabs">
+      {tabs.map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          className={`server-tab${tab === activeTab ? " active" : ""}`}
+          onClick={() => onSelect(tab)}
+        >
+          {TAB_LABELS[tab]}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function TabContent({
+  activeTab,
+  name,
+  detail,
+  settings,
+  liveStatus,
+  logState,
+}: {
+  activeTab: Tab;
+  name: string;
+  detail: ServerDetailData | null;
+  settings: ManageServerData | null;
+  liveStatus: string;
+  logState: LogBufferState;
+}) {
+  if (activeTab === "manage") {
+    return detail ? (
+      <ManageTab
+        name={name}
+        ip={detail.ip}
+        port={detail.port}
+        status={liveStatus}
+        factorioVersion={detail.factorio_version}
+      />
+    ) : (
+      <p className="mb0">Loading…</p>
     );
   }
+  if (activeTab === "settings") {
+    return settings ? <SettingsTab name={name} data={settings} /> : <p className="mb0">Loading settings…</p>;
+  }
+  if (activeTab === "logs") {
+    return (
+      <LogsTab
+        name={name}
+        lines={logState.logLines}
+        setLines={logState.setLogLines}
+        cleared={logState.logsCleared}
+        setCleared={logState.setLogsCleared}
+        seededRef={logState.logsSeededRef}
+      />
+    );
+  }
+  if (activeTab === "rcon") {
+    return <RconTab name={name} status={liveStatus} />;
+  }
+  return <ModsTab name={name} />;
+}
 
-  // Switching tabs only updates the query string — no page navigation/reload.
-  const selectTab = (tab: Tab) => setSearchParams({ tab });
+// The active tab: a bookmarked/redirected `?tab=<hidden>` falls back to "manage".
+function useActiveTab(visibleTabs: readonly Tab[], searchParams: URLSearchParams): Tab {
+  const requestedTab = searchParams.get("tab");
+  return isTab(requestedTab) && visibleTabs.includes(requestedTab) ? requestedTab : "manage";
+}
 
+function UnauthorizedView({ name }: { name: string }) {
   return (
     <>
       <title>{name}</title>
       <Layout title="Manage Server">
         <div className="container-inner">
           <div className="medium-center">
-            <div className="panel mb64 pb0 m0 flex flex-grow flex-column">
-              <div className="flex flex-items-center" style={{ gap: 12, flexWrap: "wrap" }}>
-                <h2 className="mb0">{name}</h2>
-                <StatusLight status={liveStatus} showLabel />
-              </div>
-
-              {error ? <p className="red">{error}</p> : null}
-
-              <nav className="server-tabs">
-                {visibleTabs.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={`server-tab${tab === activeTab ? " active" : ""}`}
-                    onClick={() => selectTab(tab)}
-                  >
-                    {TAB_LABELS[tab]}
-                  </button>
-                ))}
-              </nav>
-
-              <div className="tab-panel">
-                {activeTab === "manage" &&
-                  (detail ? (
-                    <ManageTab
-                      name={name}
-                      ip={detail.ip}
-                      port={detail.port}
-                      status={liveStatus}
-                      factorioVersion={detail.factorio_version}
-                    />
-                  ) : (
-                    <p className="mb0">Loading…</p>
-                  ))}
-                {activeTab === "settings" &&
-                  (settings ? (
-                    <SettingsTab name={name} data={settings} />
-                  ) : (
-                    <p className="mb0">Loading settings…</p>
-                  ))}
-                {activeTab === "logs" && (
-                  <LogsTab
-                    name={name}
-                    lines={logLines}
-                    setLines={setLogLines}
-                    cleared={logsCleared}
-                    setCleared={setLogsCleared}
-                    seededRef={logsSeededRef}
-                  />
-                )}
-                {activeTab === "rcon" && <RconTab name={name} status={liveStatus} />}
-                {activeTab === "mods" && <ModsTab name={name} />}
-              </div>
-            </div>
+            <LoginRequired message="Please log in to manage this server." />
           </div>
         </div>
       </Layout>
     </>
+  );
+}
+
+interface ServerDetailBodyProps {
+  name: string;
+  error: string | null;
+  liveStatus: string;
+  visibleTabs: readonly Tab[];
+  activeTab: Tab;
+  onSelectTab: (tab: Tab) => void;
+  detail: ServerDetailData | null;
+  settings: ManageServerData | null;
+  logState: LogBufferState;
+}
+
+function ServerDetailPanel({
+  name,
+  error,
+  liveStatus,
+  visibleTabs,
+  activeTab,
+  onSelectTab,
+  detail,
+  settings,
+  logState,
+}: ServerDetailBodyProps) {
+  return (
+    <div className="panel mb64 pb0 m0 flex flex-grow flex-column">
+      <div className="flex flex-items-center" style={{ gap: 12, flexWrap: "wrap" }}>
+        <h2 className="mb0">{name}</h2>
+        <StatusLight status={liveStatus} showLabel />
+      </div>
+
+      {error ? <p className="red">{error}</p> : null}
+
+      <TabNav tabs={visibleTabs} activeTab={activeTab} onSelect={onSelectTab} />
+
+      <div className="tab-panel">
+        <TabContent
+          activeTab={activeTab}
+          name={name}
+          detail={detail}
+          settings={settings}
+          liveStatus={liveStatus}
+          logState={logState}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ServerDetailBody(props: ServerDetailBodyProps) {
+  return (
+    <>
+      <title>{props.name}</title>
+      <Layout title="Manage Server">
+        <div className="container-inner">
+          <div className="medium-center">
+            <ServerDetailPanel {...props} />
+          </div>
+        </div>
+      </Layout>
+    </>
+  );
+}
+
+export default function ServerDetail() {
+  const { name } = useParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { detail, settings, error, unauthorized } = useServerDetailData(name, navigate);
+  const logState = useLogBuffer(name);
+  const { flags } = useFeatureFlags();
+
+  // Tabs the current flags allow. Gated-off tabs disappear from the bar.
+  const visibleTabs = TABS.filter((tab) => !TAB_ENABLED[tab] || TAB_ENABLED[tab]!(flags));
+  const activeTab = useActiveTab(visibleTabs, searchParams);
+
+  // Live status drives the header light and gates the RCON/Manage tabs.
+  const liveStatus = useServerStatus(name ?? "", detail?.status);
+
+  if (!name) {
+    return null;
+  }
+
+  if (unauthorized) {
+    return <UnauthorizedView name={name} />;
+  }
+
+  return (
+    <ServerDetailBody
+      name={name}
+      error={error}
+      liveStatus={liveStatus}
+      visibleTabs={visibleTabs}
+      activeTab={activeTab}
+      // Switching tabs only updates the query string — no page navigation/reload.
+      onSelectTab={(tab) => setSearchParams({ tab })}
+      detail={detail}
+      settings={settings}
+      logState={logState}
+    />
   );
 }

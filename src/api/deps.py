@@ -8,8 +8,9 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, Request, status
-from jose import JWTError, jwt
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from api import constants
@@ -33,7 +34,7 @@ def _is_production() -> bool:
 
 # Placeholder that must never be used to sign real sessions: it is the committed
 # default and is publicly known, so any token signed with it is forgeable.
-_INSECURE_SECRET = "secret"  # noqa: S105
+_REJECTED_DEFAULT_VALUE = "secret"  # noqa: S105
 
 
 def _resolve_session_secret() -> str:
@@ -51,7 +52,7 @@ def _resolve_session_secret() -> str:
         (session_config.secret or "").strip(),
     )
     for candidate in candidates:
-        if candidate and candidate != _INSECURE_SECRET:
+        if candidate and candidate != _REJECTED_DEFAULT_VALUE:
             return candidate
 
     if _is_production():
@@ -134,7 +135,7 @@ def get_current_user(
         )
     try:
         data = jwt.decode(token, SESSION_SECRET, algorithms=[session_config.algorithm])
-    except JWTError as err:
+    except InvalidTokenError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid session",

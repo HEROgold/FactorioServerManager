@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Request
+import email_validator  # noqa: F401 -- required at runtime by pydantic.EmailStr below
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, SecretStr
 
 from api._types.database import User
 from api.constants import AppConfig
-from api.deps import clear_session_cookies, set_session_cookies
+from api.deps import clear_session_cookies, get_current_user, set_session_cookies
 from api.ratelimit import is_rate_limited
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ async def login(
 
 
 @router.post("/logout")
-async def logout() -> JSONResponse:
+async def logout(_current_user: Annotated[User, Depends(get_current_user)]) -> JSONResponse:
     """Drop the session cookie and return success."""
     response = JSONResponse({"detail": "logged out"})
     clear_session_cookies(response)

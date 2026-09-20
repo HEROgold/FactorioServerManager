@@ -42,6 +42,48 @@ async def _read_packet(reader: asyncio.StreamReader) -> tuple[int, int, str]:
     return req_id, req_type, body
 
 
+async def _authenticate(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    password: str,
+) -> None:
+    """Run the RCON auth handshake, raising :class:`RconError` on a bad password."""
+    writer.write(_encode(_ID_AUTH, _TYPE_AUTH, password))
+    await writer.drain()
+
+    auth_id, auth_type, _ = await _read_packet(reader)
+    # Some servers emit an empty RESPONSE_VALUE before the auth response.
+    if auth_type == _TYPE_RESPONSE:
+        auth_id, _auth_type, _ = await _read_packet(reader)
+    if auth_id == -1:
+        msg = "RCON authentication failed (wrong password)"
+        raise RconError(msg)
+
+
+async def _run_command(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    command: str,
+) -> str:
+    """Send ``command`` and collect its response body."""
+    # Send the command, then a sentinel empty RESPONSE_VALUE. A Factorio
+    # reply can span multiple RESPONSE_VALUE packets; the server processes
+    # requests in order, so once we see the sentinel's id echoed back we
+    # know every command-response packet has arrived.
+    writer.write(_encode(_ID_EXEC, _TYPE_EXEC, command))
+    writer.write(_encode(_ID_SENTINEL, _TYPE_RESPONSE, ""))
+    await writer.drain()
+
+    parts: list[str] = []
+    while True:
+        resp_id, _resp_type, body = await _read_packet(reader)
+        if resp_id == _ID_SENTINEL:
+            break
+        if resp_id == _ID_EXEC:
+            parts.append(body)
+    return "".join(parts)
+
+
 async def execute(
     host: str,
     port: int,
@@ -56,33 +98,8 @@ async def execute(
         raise RconError(msg) from err
 
     try:
-        writer.write(_encode(_ID_AUTH, _TYPE_AUTH, password))
-        await writer.drain()
-
-        auth_id, auth_type, _ = await _read_packet(reader)
-        # Some servers emit an empty RESPONSE_VALUE before the auth response.
-        if auth_type == _TYPE_RESPONSE:
-            auth_id, _auth_type, _ = await _read_packet(reader)
-        if auth_id == -1:
-            msg = "RCON authentication failed (wrong password)"
-            raise RconError(msg)
-
-        # Send the command, then a sentinel empty RESPONSE_VALUE. A Factorio
-        # reply can span multiple RESPONSE_VALUE packets; the server processes
-        # requests in order, so once we see the sentinel's id echoed back we
-        # know every command-response packet has arrived.
-        writer.write(_encode(_ID_EXEC, _TYPE_EXEC, command))
-        writer.write(_encode(_ID_SENTINEL, _TYPE_RESPONSE, ""))
-        await writer.drain()
-
-        parts: list[str] = []
-        while True:
-            resp_id, _resp_type, body = await _read_packet(reader)
-            if resp_id == _ID_SENTINEL:
-                break
-            if resp_id == _ID_EXEC:
-                parts.append(body)
-        return "".join(parts)
+        await _authenticate(reader, writer, password)
+        return await _run_command(reader, writer, command)
     except TimeoutError as err:
         msg = "RCON command timed out"
         raise RconError(msg) from err
@@ -91,5 +108,5 @@ async def execute(
         raise RconError(msg) from err
     finally:
         writer.close()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             await writer.wait_closed()

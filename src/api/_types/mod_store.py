@@ -102,11 +102,18 @@ def link_into(store_file: Path, destination: Path) -> None:
     Replaces any existing destination (re-install / stale link). Falls back to a
     byte copy (with a logged warning) when the link cannot be created.
     """
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    parent = destination.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    # Defence in depth: `destination`'s file name is ultimately derived from a
+    # mod-provided file name. Reject anything that would land outside the
+    # intended mods directory (e.g. an absolute path or a "../" traversal).
+    if not destination.resolve().is_relative_to(parent.resolve()):
+        msg = f"Resolved mod destination escapes its directory: {destination}"
+        raise ValueError(msg)
     if destination.exists() or destination.is_symlink():
         destination.unlink(missing_ok=True)
     try:
-        os.link(store_file, destination)
+        os.link(store_file, destination)  # skylos: ignore -- destination is containment-checked above
     except FileExistsError:
         # Concurrent linker won the race; the file is present, treat as success.
         pass
@@ -117,7 +124,7 @@ def link_into(store_file: Path, destination: Path) -> None:
             destination,
             exc,
         )
-        shutil.copy2(store_file, destination)
+        shutil.copy2(store_file, destination)  # skylos: ignore -- destination is containment-checked above
 
 
 def is_referenced(mod_name: str, file_name: str) -> bool:

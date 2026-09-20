@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from logging import getLogger
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
 import httpxyz
@@ -19,9 +20,11 @@ from api._types.database import User
 from api.deps import get_current_user
 
 if TYPE_CHECKING:
+    from api._types.factorio_interface import Mod, ModRelease
     from api._types.server.core import Server
 
 PORTAL_ASSET_BASE = "https://mods-data.factorio.com"
+FACTORIO_VERSION_FIELD = "factorio_version"
 
 logger = getLogger(__name__)
 
@@ -53,10 +56,18 @@ def _format_release_timestamp(released_at: str | None) -> str:
         return released_at[:10]
 
 
+def _release_info_json(release: dict[str, Any]) -> dict[str, Any]:
+    return release.get("info_json", {})
+
+
+def _release_factorio_version(release: dict[str, Any]) -> str | None:
+    return _release_info_json(release).get(FACTORIO_VERSION_FIELD)
+
+
 def _release_matches_target(release: dict[str, Any], target_line: str | None) -> bool:
     if not target_line:
         return True
-    release_line = release.get("info_json", {}).get("factorio_version")
+    release_line = _release_factorio_version(release)
     if not release_line:
         return True
     return release_line.split(".")[:2] == target_line.split(".")[:2]
@@ -67,12 +78,12 @@ def _prepare_release(release: dict[str, Any], *, is_recommended: bool) -> dict[s
     size_label = f"{size_bytes / 1048576:.1f} MB" if size_bytes else None
     return {
         "version": release.get("version"),
-        "factorio_version": release.get("info_json", {}).get("factorio_version"),
+        FACTORIO_VERSION_FIELD: _release_factorio_version(release),
         "released_at": _format_release_timestamp(release.get("released_at")),
         "download_url": release.get("download_url"),
         "file_name": release.get("file_name"),
         "size_label": size_label,
-        "dependencies": release.get("info_json", {}).get("dependencies", []),
+        "dependencies": _release_info_json(release).get("dependencies", []),
         "is_recommended": is_recommended,
     }
 
@@ -107,7 +118,7 @@ async def index(
     server = _get_server_or_404(current_user, name)
     return {
         "installed_mods": server.mods.describe(),
-        "factorio_version": _safe_version_line(server) and server.factorio_version,
+        FACTORIO_VERSION_FIELD: _safe_version_line(server) and server.factorio_version,
         "factorio_version_line": _safe_version_line(server),
         "token_missing": current_user.factorio_token is None,
     }
@@ -150,7 +161,7 @@ async def search(
                     "score": item.get("score", 0),
                     "thumbnail": _normalize_thumbnail(item.get("thumbnail")),
                     "latest_release": latest,
-                    "compatibility": latest.get("info_json", {}).get("factorio_version"),
+                    "compatibility": _release_factorio_version(latest),
                 })
     return {"results": results, "query": query, "pagination": pagination, "error": error}
 
@@ -168,7 +179,7 @@ async def detail(
     mod_payload: dict[str, Any] = {}
     try:
         mod_payload = dict(await current_user.fi.mods.get(mod_name))
-    except httpxyz.HTTPError:
+    except (httpxyz.HTTPError, ValueError):
         error = "Unable to load mod details from the Factorio portal."
     if mod_payload:
         mod_payload["thumbnail"] = _normalize_thumbnail(mod_payload.get("thumbnail"))
@@ -186,6 +197,65 @@ async def detail(
     }
 
 
+def _require_factorio_credentials(current_user: User) -> tuple[str, str]:
+    """Return ``(token, email)`` or raise if the user hasn't linked a Factorio account."""
+    factorio_token = current_user.factorio_token
+    if not factorio_token or not current_user.email:
+        raise HTTPException(status_code=400, detail="Factorio login required before downloading mods.")
+    return factorio_token, current_user.email
+
+
+async def _fetch_mod_payload(current_user: User, mod_name: str) -> Mod:
+    """Fetch a mod's portal payload, translating portal errors into HTTP errors."""
+    try:
+        return await current_user.fi.mods.get(mod_name)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Invalid mod name.") from err
+    except httpxyz.HTTPError as err:
+        raise HTTPException(status_code=502, detail="Unable to reach the Factorio mod portal.") from err
+
+
+def _select_release(mod_payload: Mod, version: str) -> ModRelease:
+    """Pick the requested release out of ``mod_payload``, validating its metadata."""
+    release = next(
+        (rel for rel in mod_payload.get("releases", []) if rel.get("version") == version),
+        None,
+    )
+    if not release:
+        raise HTTPException(status_code=404, detail="Requested mod version was not found.")
+    if not release.get("download_url") or not release.get("file_name"):
+        raise HTTPException(status_code=400, detail="Release metadata is incomplete.")
+    return release
+
+
+async def _ensure_mod_archive(
+    current_user: User,
+    mod_name: str,
+    release: ModRelease,
+    *,
+    token: str,
+    email: str,
+) -> Path:
+    """Download ``release`` into the shared mod store if it isn't there already."""
+    file_name = release["file_name"]
+    store_file = mod_store.store_path(mod_name, file_name)
+    if store_file.exists():
+        return store_file
+    try:
+        await current_user.fi.mods.download_release(
+            download_url=release["download_url"],
+            destination=store_file,
+            username=email,
+            token=token,
+        )
+    except ValueError as exc:
+        logger.exception("Failed to download mod %s", mod_name)
+        raise HTTPException(status_code=400, detail="Could not download the requested mod.") from exc
+    except httpxyz.HTTPError as err:
+        raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
+    return store_file
+
+
 @router.post("/server/{name}/mods/install")
 async def install(
     name: str,
@@ -194,41 +264,20 @@ async def install(
 ) -> dict:
     """Download and install a specific mod release."""
     server = _get_server_or_404(current_user, name)
-    factorio_token = current_user.factorio_token
-    if not factorio_token or not current_user.email:
-        raise HTTPException(status_code=400, detail="Factorio login required before downloading mods.")
-    try:
-        mod_payload = await current_user.fi.mods.get(body.mod_name)
-    except httpxyz.HTTPError as err:
-        raise HTTPException(status_code=502, detail="Unable to reach the Factorio mod portal.") from err
-    release = next(
-        (rel for rel in mod_payload.get("releases", []) if rel.get("version") == body.version),
-        None,
-    )
-    if not release:
-        raise HTTPException(status_code=404, detail="Requested mod version was not found.")
-    download_url = release.get("download_url")
-    file_name = release.get("file_name")
-    if not download_url or not file_name:
-        raise HTTPException(status_code=400, detail="Release metadata is incomplete.")
+    factorio_token, email = _require_factorio_credentials(current_user)
+    mod_payload = await _fetch_mod_payload(current_user, body.mod_name)
+    release = _select_release(mod_payload, body.version)
     # Replace any version this server already had, then ensure the bytes exist in
     # the shared store exactly once before linking them into this server.
     server.mods.remove_archives(body.mod_name)
-    store_file = mod_store.store_path(body.mod_name, file_name)
-    if not store_file.exists():
-        try:
-            await current_user.fi.mods.download_release(
-                download_url=download_url,
-                destination=store_file,
-                username=current_user.email,
-                token=factorio_token,
-            )
-        except ValueError as exc:
-            logger.exception("Failed to download mod %s", body.mod_name)
-            raise HTTPException(status_code=400, detail="Could not download the requested mod.") from exc
-        except httpxyz.HTTPError as err:
-            raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
-    server.mods.link_from_store(body.mod_name, file_name)
+    store_file = await _ensure_mod_archive(
+        current_user,
+        body.mod_name,
+        release,
+        token=factorio_token,
+        email=email,
+    )
+    server.mods.link_from_store(body.mod_name, store_file.name)
     server.mods.upsert(body.mod_name, enabled=True, version=body.version)
     return {"installed_mods": server.mods.describe(), "action": "installed", "name": body.mod_name}
 

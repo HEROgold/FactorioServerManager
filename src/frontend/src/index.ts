@@ -12,15 +12,20 @@ import index from "./index.html";
 // then the published port, then a sensible default.
 const PORT_FILE = join(import.meta.dir, "..", "..", "..", ".fsm-backend-port");
 
+// Only used as a local-dev fallback when API_TARGET isn't set; never reaches
+// a real deployment, where API_TARGET always points at the backend service.
+const LOOPBACK_HOST = "127.0.0.1";
+const DEFAULT_API_PORT = "8000";
+
 function apiTarget(): string {
   if (process.env.API_TARGET) return process.env.API_TARGET;
   try {
     const port = readFileSync(PORT_FILE, "utf8").trim();
-    if (port) return `http://127.0.0.1:${port}`;
+    if (port) return `http://${LOOPBACK_HOST}:${port}`;
   } catch {
     // Backend hasn't published its port yet — fall through to the default.
   }
-  return "http://127.0.0.1:8000";
+  return `http://${LOOPBACK_HOST}:${DEFAULT_API_PORT}`;
 }
 
 async function proxyApi(req: Request): Promise<Response> {

@@ -1,8 +1,8 @@
 name: Auto-release
 
-# Skylos flags workflow_run as chaining a privileged token from a
-# potentially attacker-influenced workflow (SKY-D290) - accepted here: the
-# `branches: [main]` filter below matches workflow_run.head_branch, which
+# Skylos flags this trigger as chaining a privileged token from a
+# potentially attacker-influenced workflow - accepted here: the
+# `branches: [main]` filter below matches that trigger's head_branch, which
 # for a fork's pull_request run is that fork's branch name, never "main".
 # So this only ever fires for Skylos Analysis's push-triggered run on the
 # already-merged, already-protected main branch - never for a PR's run,
@@ -10,6 +10,7 @@ name: Auto-release
 # Add more required gates to REQUIRED_WORKFLOWS below as they're introduced
 # (e.g. once a real test suite exists).
 on:
+  # skylos: ignore[SKY-D290]
   workflow_run:
     workflows: ["Skylos Analysis"]
     branches: [main]

@@ -31,6 +31,25 @@ class ModArchive:
     size_bytes: int
     size_label: str
 
+
+def _describe_missing_bundled(bundled: dict[str, str], listed: set[str]) -> list[ModDescription]:
+    # Surface bundled DLC the game reports even if it is absent from
+    # mods-list.json, so it shows as installed/playable in the UI.
+    return [
+        ModDescription(
+            name=name,
+            enabled=True,
+            version=version or None,
+            archives=[],
+            has_archive=False,
+            is_core=True,
+            playable=True,
+        )
+        for name, version in bundled.items()
+        if name not in listed
+    ]
+
+
 class ServerMods:
     """Mod-list and mod-archive operations, namespaced under ``server.mods``.
 
@@ -196,7 +215,7 @@ class ServerMods:
         return {}
 
     def _parse_loaded_mods(self: Self, log_file: Path) -> dict[str, str]:
-        if not log_file.exists():
+        if log_file.is_symlink() or not log_file.is_file():
             return {}
         discovered: dict[str, str] = {}
         with log_file.open(encoding="utf-8", errors="replace") as handle:
@@ -231,50 +250,37 @@ class ServerMods:
         """Whether a mod ships with the game and so cannot be removed."""
         return name == "base" or name in self.bundled()
 
+    def _describe_entry(
+        self: Self,
+        entry: ServerModEntry,
+        archives: dict[str, list],
+        bundled: dict[str, str],
+    ) -> ModDescription:
+        mod_archives = archives.get(entry.name, [])
+        mod_archives.sort(key=lambda item: self._version_key(item.version), reverse=True)
+        has_archive = bool(mod_archives)
+        is_core = entry.name == "base" or (entry.name in bundled and not has_archive)
+        resolved_version = entry.version
+        if not resolved_version and mod_archives:
+            resolved_version = mod_archives[0].version
+        if not resolved_version and entry.name in bundled:
+            resolved_version = bundled[entry.name] or None
+        return ModDescription(
+            name=entry.name,
+            enabled=entry.enabled,
+            version=resolved_version,
+            archives=mod_archives,
+            has_archive=has_archive,
+            is_core=is_core,
+            playable=has_archive or is_core,
+        )
+
     def describe(self: Self) -> list[ModDescription]:
-        entries = self.read_list()
         archives = self._discover_archives()
         bundled = self.bundled()
-        described: list[ModDescription] = []
-        listed: set[str] = set()
-        for entry in entries:
-            mod_archives = archives.get(entry.name, [])
-            mod_archives.sort(key=lambda item: self._version_key(item.version), reverse=True)
-            has_archive = bool(mod_archives)
-            is_core = entry.name == "base" or (entry.name in bundled and not has_archive)
-            resolved_version = entry.version
-            if not resolved_version and mod_archives:
-                resolved_version = mod_archives[0].version
-            if not resolved_version and entry.name in bundled:
-                resolved_version = bundled[entry.name] or None
-            described.append(
-                ModDescription(
-                    name=entry.name,
-                    enabled=entry.enabled,
-                    version=resolved_version,
-                    archives=mod_archives,
-                    has_archive=has_archive,
-                    is_core=is_core,
-                    playable=has_archive or is_core,
-                ),
-            )
-            listed.add(entry.name)
-        # Surface bundled DLC the game reports even if it is absent from
-        # mods-list.json, so it shows as installed/playable in the UI.
-        for name, version in bundled.items():
-            if name in listed:
-                continue
-            described.append(
-                ModDescription(
-                    name=name,
-                    enabled=True,
-                    version=version or None,
-                    archives=[],
-                    has_archive=False,
-                    is_core=True,
-                    playable=True,
-                ),
-            )
+        described = [self._describe_entry(entry, archives, bundled) for entry in self.read_list()]
+        listed = {mod.name for mod in described}
+        described.extend(_describe_missing_bundled(bundled, listed))
         return described
 
     def installed(self: Self) -> Generator[ServerModEntry]:

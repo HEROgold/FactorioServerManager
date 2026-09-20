@@ -9,6 +9,7 @@ so callers do not need to know which backend is in use.
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
@@ -38,26 +39,32 @@ class ServerSpec:
 class ServerBackend(Protocol):
     """Protocol implemented by every server orchestration backend."""
 
+    @abstractmethod
     async def create(self, spec: ServerSpec) -> None:
         """Provision the server (pull image, create container/deployment)."""
         ...
 
+    @abstractmethod
     async def start(self, spec: ServerSpec) -> None:
         """Start a previously created server."""
         ...
 
+    @abstractmethod
     async def stop(self, spec: ServerSpec) -> None:
         """Stop a running server."""
         ...
 
+    @abstractmethod
     async def restart(self, spec: ServerSpec) -> None:
         """Restart a running server."""
         ...
 
+    @abstractmethod
     async def remove(self, spec: ServerSpec) -> None:
         """Remove the server's orchestration resources."""
         ...
 
+    @abstractmethod
     def status(self, spec: ServerSpec) -> str:
         """Return the server status as a ``DockerStates`` value."""
         ...

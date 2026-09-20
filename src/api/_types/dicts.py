@@ -38,7 +38,7 @@ class Coordinates:
 
 
 @dataclass
-class AutoPlaceControls:
+class AutoPlaceControls:  # skylos: ignore -- mirrors Factorio's schema, not duplicated logic
     coal: AutoPlace
     stone: AutoPlace
     copperore: AutoPlace
@@ -86,7 +86,7 @@ class DifficultySettings:
     research_queue_setting: Literal["after-victory", "always", "never"]
 
 @dataclass
-class PollutionSettings:
+class PollutionSettings:  # skylos: ignore -- mirrors Factorio's schema, not duplicated logic
     enabled: bool
     _comment_min_to_diffuse_1: str
     _comment_min_to_diffuse_2: str

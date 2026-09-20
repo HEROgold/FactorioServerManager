@@ -16,6 +16,47 @@ interface Props {
   onPage: (page: number) => void;
 }
 
+function toRowData(mod: SearchResult, installedByName: Map<string, InstalledMod>) {
+  return {
+    mod: {
+      name: mod.name,
+      title: mod.title,
+      summary: mod.summary,
+      owner: mod.owner,
+      downloads: mod.downloads,
+      thumbnail: mod.thumbnail,
+      latestVersion: mod.latest_release?.version ?? null,
+      compatibility: mod.compatibility,
+    },
+    installed: installedByName.get(mod.name),
+  };
+}
+
+function SearchPagination({
+  pagination,
+  onPage,
+}: {
+  pagination: SearchResponse["pagination"];
+  onPage: (page: number) => void;
+}) {
+  if (!pagination.has_prev && !pagination.has_next) return null;
+  return (
+    <div className="mod-pagination">
+      {pagination.has_prev && (
+        <ButtonGhost className="button" type="button" onClick={() => onPage(pagination.page - 1)}>
+          Previous
+        </ButtonGhost>
+      )}
+      <span>Page {pagination.page}</span>
+      {pagination.has_next && (
+        <ButtonGhost className="button" type="button" onClick={() => onPage(pagination.page + 1)}>
+          Next
+        </ButtonGhost>
+      )}
+    </div>
+  );
+}
+
 export default function SearchResults({
   data,
   query,
@@ -44,40 +85,14 @@ export default function SearchResults({
     <>
       <ModTable
         mode="download"
-        rows={results.map((mod: SearchResult) => ({
-          mod: {
-            name: mod.name,
-            title: mod.title,
-            summary: mod.summary,
-            owner: mod.owner,
-            downloads: mod.downloads,
-            thumbnail: mod.thumbnail,
-            latestVersion: mod.latest_release?.version ?? null,
-            compatibility: mod.compatibility,
-          },
-          installed: installedByName.get(mod.name),
-        }))}
+        rows={results.map((mod: SearchResult) => toRowData(mod, installedByName))}
         installDisabled={installDisabled}
         onInstall={onInstall}
         onToggle={onToggle}
         onRemove={onRemove}
         loadReleases={loadReleases}
       />
-      {(pagination.has_prev || pagination.has_next) && (
-        <div className="mod-pagination">
-          {pagination.has_prev && (
-            <ButtonGhost className="button" type="button" onClick={() => onPage(pagination.page - 1)}>
-              Previous
-            </ButtonGhost>
-          )}
-          <span>Page {pagination.page}</span>
-          {pagination.has_next && (
-            <ButtonGhost className="button" type="button" onClick={() => onPage(pagination.page + 1)}>
-              Next
-            </ButtonGhost>
-          )}
-        </div>
-      )}
+      <SearchPagination pagination={pagination} onPage={onPage} />
     </>
   );
 }
