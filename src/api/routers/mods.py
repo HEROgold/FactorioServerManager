@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from api._types import mod_store
 from api._types.database import User
+from api._types.mod_deps import closure, required_dependency_names, reverse_graph
 from api.deps import get_current_user
 
 if TYPE_CHECKING:
@@ -296,30 +297,119 @@ async def _ensure_mod_archive(
     return store_file
 
 
+def _pick_best_release(mod_payload: Mod, target_line: str | None) -> ModRelease:
+    """Pick the newest installable release, preferring one matching the server's Factorio line.
+
+    Used for dependencies, where the caller doesn't ask for a specific version.
+    """
+    usable = [r for r in mod_payload.get("releases", []) if r.get("download_url") and r.get("file_name")]
+    matching = [r for r in usable if _release_matches_target(r, target_line)]
+    candidates = matching or usable
+    if not candidates:
+        msg = f"No installable release found for dependency '{mod_payload.get('name', '?')}'."
+        raise HTTPException(status_code=404, detail=msg)
+    return max(candidates, key=_version_sort_key)
+
+
+async def _install_one(
+    current_user: User,
+    server: Server,
+    mod_name: str,
+    version: str | None,
+    *,
+    token: str,
+    username: str,
+    target_line: str | None,
+    visited: set[str],
+) -> None:
+    """Install one mod release, then recurse into its required dependencies.
+
+    ``version`` pins an exact release for the mod the user actually asked for;
+    dependencies pulled in along the way get the newest release compatible
+    with the server's Factorio version instead, since nothing asked for a
+    specific one. ``visited`` guards against reinstalling a mod already
+    handled earlier in this same call (including circular dependencies).
+    """
+    if mod_name in visited:
+        return
+    visited.add(mod_name)
+
+    mod_payload = await _fetch_mod_payload(current_user, mod_name)
+    release = _select_release(mod_payload, version) if version else _pick_best_release(mod_payload, target_line)
+
+    # Replace any version this server already had, then ensure the bytes exist
+    # in the shared store exactly once before linking them into this server.
+    server.mods.remove_archives(mod_name)
+    store_file = await _ensure_mod_archive(current_user, mod_name, release, token=token, email=username)
+    server.mods.link_from_store(mod_name, store_file.name)
+    server.mods.upsert(mod_name, enabled=True, version=release["version"])
+
+    already_installed = {mod.name for mod in server.mods.describe()}
+    dependencies = required_dependency_names(_release_info_json(dict(release)).get("dependencies", []))
+    for dependency_name in dependencies - already_installed:
+        await _install_one(
+            current_user,
+            server,
+            dependency_name,
+            None,
+            token=token,
+            username=username,
+            target_line=target_line,
+            visited=visited,
+        )
+
+
 @router.post("/server/{name}/mods/install")
 async def install(
     name: str,
     body: InstallRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Download and install a specific mod release."""
+    """Download and install a specific mod release, plus any required dependencies it needs."""
     server = _get_server_or_404(current_user, name)
-    factorio_token, email = _require_factorio_credentials(current_user)
-    mod_payload = await _fetch_mod_payload(current_user, body.mod_name)
-    release = _select_release(mod_payload, body.version)
-    # Replace any version this server already had, then ensure the bytes exist in
-    # the shared store exactly once before linking them into this server.
-    server.mods.remove_archives(body.mod_name)
-    store_file = await _ensure_mod_archive(
+    factorio_token, username = _require_factorio_credentials(current_user)
+    visited: set[str] = set()
+    await _install_one(
         current_user,
+        server,
         body.mod_name,
-        release,
+        body.version,
         token=factorio_token,
-        email=email,
+        username=username,
+        target_line=_safe_version_line(server),
+        visited=visited,
     )
-    server.mods.link_from_store(body.mod_name, store_file.name)
-    server.mods.upsert(body.mod_name, enabled=True, version=body.version)
-    return {"installed_mods": server.mods.describe(), "action": "installed", "name": body.mod_name}
+    return {
+        "installed_mods": server.mods.describe(),
+        "action": "installed",
+        "name": body.mod_name,
+        "dependencies_installed": sorted(visited - {body.mod_name}),
+    }
+
+
+async def _installed_dependency_graph(current_user: User, server: Server) -> dict[str, set[str]]:
+    """Map each installed mod name to the set of its required deps that are also installed.
+
+    Used to cascade enable/disable across dependency chains. Best-effort: a
+    mod we can't fetch portal data for (removed from the portal, network
+    hiccup, ...) is just treated as having no known dependencies rather than
+    failing the whole toggle.
+    """
+    installed = {mod.name: mod for mod in server.mods.describe()}
+    graph: dict[str, set[str]] = {}
+    for mod_name, mod in installed.items():
+        if mod.is_core:
+            graph[mod_name] = set()
+            continue
+        try:
+            mod_payload = await _fetch_mod_payload(current_user, mod_name)
+        except HTTPException:
+            graph[mod_name] = set()
+            continue
+        release = next((r for r in mod_payload.get("releases", []) if r.get("version") == mod.version), None)
+        deps = required_dependency_names(_release_info_json(dict(release)).get("dependencies", [])) if release else set()
+        graph[mod_name] = deps & installed.keys()
+    return graph
 
 
 @router.post("/server/{name}/mods/state")
@@ -328,11 +418,31 @@ async def toggle_state(
     body: ToggleRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Enable or disable a mod."""
+    """Enable or disable a mod.
+
+    Cascades along the dependency graph: enabling a mod also enables whatever
+    it (transitively) requires, so it actually works; disabling a mod also
+    disables whatever (transitively) depends on it, since those mods can't
+    load without it either.
+    """
     server = _get_server_or_404(current_user, name)
-    server.mods.upsert(body.mod_name, enabled=body.enabled)
+    graph = await _installed_dependency_graph(current_user, server)
+
+    if body.enabled:
+        to_change = closure(body.mod_name, graph)
+    else:
+        to_change = closure(body.mod_name, reverse_graph(graph))
+
+    for mod_name in to_change:
+        server.mods.upsert(mod_name, enabled=body.enabled)
+
     action = "enabled" if body.enabled else "disabled"
-    return {"installed_mods": server.mods.describe(), "action": action, "name": body.mod_name}
+    return {
+        "installed_mods": server.mods.describe(),
+        "action": action,
+        "name": body.mod_name,
+        "also_changed": sorted(to_change - {body.mod_name}),
+    }
 
 
 @router.delete("/server/{name}/mods/{mod_name}")
@@ -341,10 +451,26 @@ async def remove(
     mod_name: str,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Remove a mod and its archives."""
+    """Remove a mod and its archives.
+
+    Anything that depended on it can no longer load, so those mods are
+    disabled (not removed -- the user may just be swapping versions) rather
+    than left enabled and broken.
+    """
     server = _get_server_or_404(current_user, name)
     if server.mods.is_bundled(mod_name):
         raise HTTPException(status_code=400, detail="Bundled game mods cannot be removed.")
+
+    graph = await _installed_dependency_graph(current_user, server)
+    dependents = closure(mod_name, reverse_graph(graph)) - {mod_name}
+    for dependent_name in dependents:
+        server.mods.upsert(dependent_name, enabled=False)
+
     server.mods.remove_entry(mod_name)
     server.mods.remove_archives(mod_name)
-    return {"installed_mods": server.mods.describe(), "action": "removed", "name": mod_name}
+    return {
+        "installed_mods": server.mods.describe(),
+        "action": "removed",
+        "name": mod_name,
+        "also_disabled": sorted(dependents),
+    }

@@ -74,4 +74,10 @@ export interface MutationResponse {
   installed_mods: InstalledMod[];
   action: string;
   name: string;
+  /** Required dependencies auto-installed alongside this mod, if any. */
+  dependencies_installed?: string[];
+  /** Other installed mods that got enabled/disabled to keep the dependency graph consistent. */
+  also_changed?: string[];
+  /** Dependent mods disabled because the mod they needed was just removed. */
+  also_disabled?: string[];
 }

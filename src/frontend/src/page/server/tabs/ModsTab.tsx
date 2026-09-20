@@ -110,15 +110,34 @@ function useReleasesLoader(name: string) {
   }, [name]);
 }
 
+// Describes a mutation's knock-on effects (dependencies pulled in, dependents
+// enabled/disabled/dropped alongside it) in the same past-tense voice as the
+// action itself, e.g. "Also installed: heroic-library."
+function describeSideEffects(res: MutationResponse): string | null {
+  if (res.dependencies_installed?.length) {
+    return `Also installed (required by ${res.name}): ${res.dependencies_installed.join(", ")}.`;
+  }
+  if (res.also_changed?.length) {
+    const verb = res.action === "enabled" ? "enabled" : "disabled";
+    return `Also ${verb} (depends on ${res.name}): ${res.also_changed.join(", ")}.`;
+  }
+  if (res.also_disabled?.length) {
+    return `Also disabled (depended on the removed ${res.name}): ${res.also_disabled.join(", ")}.`;
+  }
+  return null;
+}
+
 function useModMutations(
   name: string,
   setIndex: Dispatch<SetStateAction<ModsIndexResponse | null>>,
   setError: (message: string | null) => void,
   setRestartNeeded: (value: boolean) => void,
+  setNote: (message: string | null) => void,
 ) {
   const applyMutation = (res: MutationResponse) => {
     setIndex((prev) => (prev ? { ...prev, installed_mods: res.installed_mods } : prev));
     setError(null);
+    setNote(describeSideEffects(res));
     // Factorio only picks up mod-list changes at startup, so anything that
     // changes which mods are active needs a restart to actually take effect.
     setRestartNeeded(true);
@@ -370,12 +389,13 @@ function ActiveModsSubTab({
 export default function ModsTab({ name }: { name: string }) {
   const [error, setError] = useState<string | null>(null);
   const [restartNeeded, setRestartNeeded] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const { flags } = useFeatureFlags();
   const { visibleSubTabs, activeSubTab, setSubTab } = useActiveSubTab(flags);
 
   const [index, setIndex] = useModsIndex(name, setError);
   const searchState = useModSearch(name, setError);
-  const mutations = useModMutations(name, setIndex, setError, setRestartNeeded);
+  const mutations = useModMutations(name, setIndex, setError, setRestartNeeded, setNote);
   const loadReleases = useReleasesLoader(name);
 
   const installed = useMemo(() => index?.installed_mods ?? [], [index]);
@@ -388,6 +408,7 @@ export default function ModsTab({ name }: { name: string }) {
   return (
     <div>
       {error ? <p className="red">{error}</p> : null}
+      {note ? <p className="muted mb12">{note}</p> : null}
       {restartNeeded ? (
         <p className="mod-token-warning mb12">
           Mod changes only take effect after the server restarts — use Manage → Restart when you're done.
