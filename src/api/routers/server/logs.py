@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from api._types.database import User
 from api.constants import SSE_HEADERS
 from api.deps import get_current_user
-from api.routers.server_shared import _get_server_or_404
+from api.routers.server.shared import _get_server_or_404
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator

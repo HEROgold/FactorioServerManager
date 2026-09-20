@@ -14,7 +14,7 @@ from api._types.database import User
 from api._types.server.core import Server as DataServer
 from api.constants import SSE_HEADERS, AppConfig
 from api.deps import get_current_user
-from api.routers.server_shared import _get_server_or_404, _safe_version
+from api.routers.server.shared import _get_server_or_404, _safe_version
 from api.utils import sanitize_str
 
 if TYPE_CHECKING:

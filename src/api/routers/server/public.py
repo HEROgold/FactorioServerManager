@@ -12,7 +12,7 @@ from api._types.server.core import Server as DataServer
 from api._types.settings import GameSettings, ServerMetadata
 from api.constants import SERVERS_DIRECTORY
 from api.deps import get_current_user, get_session
-from api.routers.server_shared import (
+from api.routers.server.shared import (
     _get_server_or_404,
     _load_meta,
     _load_settings,
