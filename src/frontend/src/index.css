@@ -1,11 +1,13 @@
 /*
  * Global stylesheet entry point.
  *
- * The Factorio theme lives entirely in main.css (hand-authored to mirror
- * factorio.com). We deliberately do NOT load Tailwind or DaisyUI: their
- * preflight/reset and default component styles fought the Factorio look and
- * leaked default buttons/checkboxes. main.css owns `body` (the dark #201810
- * background, flex column layout), so importing it here is all that's needed.
+ * The app's visual identity lives entirely in main.css — an original
+ * "control room" theme (not a copy of factorio.com) with its own color
+ * tokens, IBM Plex type, and CSS-drawn panels/buttons. We deliberately do
+ * NOT load Tailwind or DaisyUI: their preflight/reset and default component
+ * styles fought this look and leaked default buttons/checkboxes. main.css
+ * owns `body` (background, flex column layout), so importing it here is all
+ * that's needed.
  */
 @import "main.css";
 

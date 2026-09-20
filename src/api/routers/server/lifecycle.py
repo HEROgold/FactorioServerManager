@@ -14,7 +14,7 @@ from api._types.database import User
 from api._types.server.core import Server as DataServer
 from api.constants import SSE_HEADERS, AppConfig
 from api.deps import get_current_user
-from api.routers.server_shared import _get_server_or_404, _safe_version
+from api.routers.server.shared import _get_server_or_404, _safe_version
 from api.utils import sanitize_str
 
 if TYPE_CHECKING:
@@ -85,7 +85,10 @@ async def create_server(
         )
     name = sanitize_str(name)
     server = DataServer(name, current_user, port)
-    current_user.add_server(server)
+
+    if (err := current_user.add_server(server)):
+        raise HTTPException(status_code=409, detail=str(err)) from err
+
     server = current_user.servers[name]
     await server.create(version)
     return {"detail": "created", "name": name}

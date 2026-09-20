@@ -1,5 +1,27 @@
 
 services:
+  # Least-privilege gateway to the host Docker daemon, matching
+  # docker-compose.prod.yml: the backend talks to THIS instead of mounting the
+  # raw socket, so a compromised backend can't run arbitrary Docker API calls.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    restart: unless-stopped
+    environment:
+      # Allow the endpoints DockerBackend uses: create/start/stop/restart/remove
+      # containers and pull images. Everything else stays denied by default.
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 1
+      LOG_LEVEL: warning
+    # This IS the socket proxy: the one container allowed to see the real
+    # socket (read-only), scoped by the CONTAINERS/IMAGES/POST allowlist
+    # above, so the backend never touches it directly.
+    # skylos: ignore[SKY-D331]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+
   backend:
     build:
       context: .
@@ -7,13 +29,27 @@ services:
     env_file:
       - path: .env
         required: true
+    environment:
+      # Drive the daemon through the scoped proxy, never the raw socket.
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
     ports:
       - "8000:8000"
     volumes:
-      - ./src/api/servers:/app/src/api/servers
+      # IDENTICAL host:container path, matching docker-compose.prod.yml: the
+      # backend hands spec.data_dir (an in-container path) to the real Docker
+      # daemon via docker-socket-proxy, which resolves it against the HOST's
+      # filesystem. A mismatched host source (e.g. a repo-relative path) means
+      # the backend and the spawned Factorio container see two different
+      # directories -- the container's logs/mods/saves never show up here.
+      - /app/src/api/servers:/app/src/api/servers
+      # SQLite DB as a single-file bind (matches prod) so users/sessions/tokens
+      # survive an image rebuild instead of resetting to whatever was baked
+      # into the image at build time.
+      - /app/src/api/database.db:/app/src/api/database.db
     restart: unless-stopped
     depends_on:
       - frontend
+      - docker-socket-proxy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/openapi.json"]
       interval: 30s
@@ -26,6 +62,10 @@ services:
       dockerfile: Dockerfile
     # Dev: run the HMR dev server (the image now defaults to the prod server).
     command: ["bun", "run", "dev", "--host", "0.0.0.0"]
+    environment:
+      # Without this the dev server's /api proxy falls back to 127.0.0.1:8000,
+      # which inside this container is itself, not the backend service.
+      - API_TARGET=http://backend:8000
     ports:
       - "3000:3000"
     restart: unless-stopped

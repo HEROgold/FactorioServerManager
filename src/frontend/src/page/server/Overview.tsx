@@ -46,21 +46,26 @@ function Legend() {
 
 function ServerLink({ server }: { server: ServerSummary }) {
   return (
-    <Link to={`/servers/${server.name}`} className="button button-ghost server-row">
-      <StatusLight status={server.status} />
-      <ReachabilityLight reachable={server.reachable} />
-      <span>{server.name}</span>
+    <Link to={`/servers/${server.name}`} className="server-card">
+      <span className="server-card-lights">
+        <StatusLight status={server.status} />
+        <ReachabilityLight reachable={server.reachable} />
+      </span>
+      <span className="server-card-name">{server.name}</span>
+      {server.port ? <span className="server-card-meta">:{server.port}</span> : null}
     </Link>
   );
 }
 
 function PublicRow({ server }: { server: PublicServer }) {
   return (
-    <div className="server-row" style={{ padding: "8px 0" }}>
-      {server.status !== null ? <StatusLight status={server.status} /> : null}
-      {server.reachable !== null ? <ReachabilityLight reachable={server.reachable} /> : null}
-      <span>{server.name ?? "Hidden server"}</span>
-      {server.address ? <span className="muted"> — {server.address}</span> : null}
+    <div className="server-card static">
+      <span className="server-card-lights">
+        {server.status !== null ? <StatusLight status={server.status} /> : null}
+        {server.reachable !== null ? <ReachabilityLight reachable={server.reachable} /> : null}
+      </span>
+      <span className="server-card-name">{server.name ?? "Hidden server"}</span>
+      {server.address ? <span className="server-card-meta">{server.address}</span> : null}
     </div>
   );
 }
@@ -130,7 +135,9 @@ function YourServersPanel({
         ) : servers.length === 0 ? (
           <p className="mb0">No servers yet. Create one to get started.</p>
         ) : (
-          servers.map((server) => <ServerLink key={server.name} server={server} />)
+          <div className="server-grid">
+            {servers.map((server) => <ServerLink key={server.name} server={server} />)}
+          </div>
         )}
       </div>
     </div>
@@ -144,7 +151,9 @@ function PublicServersPanel({ servers }: { servers: PublicServer[] }) {
       {servers.length === 0 ? (
         <p className="mb0">No public servers to show.</p>
       ) : (
-        servers.map((server, i) => <PublicRow key={i} server={server} />)
+        <div className="server-grid">
+          {servers.map((server, i) => <PublicRow key={i} server={server} />)}
+        </div>
       )}
     </div>
   );

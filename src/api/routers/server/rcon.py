@@ -16,7 +16,7 @@ from api._types.rcon import RconError
 from api._types.rcon import execute as rcon_execute
 from api.constants import AppConfig
 from api.deps import get_current_user
-from api.routers.server_shared import _get_server_or_404
+from api.routers.server.shared import _get_server_or_404
 
 logger = getLogger(__name__)
 

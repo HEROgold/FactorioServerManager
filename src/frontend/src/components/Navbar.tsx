@@ -21,7 +21,7 @@ function LoggedInView({ user }: Props) {
 
   return <>
     <a href="/servers">{user.display_name}</a>
-    <Separator color={"#7dcaed"} />
+    <Separator color={"var(--color-teal)"} />
     <button
       type="button"
       onClick={handleLogout}

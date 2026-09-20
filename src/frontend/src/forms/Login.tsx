@@ -97,7 +97,7 @@ export function LoginForm(): ReactElement {
         <LoginFields />
       </Panel>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "var(--color-red-strong)" }}>{error}</p>}
 
       <SubmitButton idle="Log in" busy="Logging in..." submitting={submitting} />
     </form>

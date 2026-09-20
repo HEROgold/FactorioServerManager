@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Annotated
 
+import msgspec
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api._types.database import User
 from api.deps import get_current_user
-from api.routers.server_shared import _get_server_or_404, _load_meta, _load_settings
+from api.routers.server.shared import _get_server_or_404, _load_meta, _load_settings
 
 router = APIRouter()
 
@@ -67,7 +67,10 @@ async def get_settings(
 ) -> dict:
     """Return the current server settings as JSON."""
     server = _get_server_or_404(current_user, name)
-    return {**asdict(_load_settings(server)), "public_display": asdict(_load_meta(server))}
+    return {
+        **msgspec.to_builtins(_load_settings(server)),
+        "public_display": msgspec.to_builtins(_load_meta(server)),
+    }
 
 
 @router.patch("/server/{name}/settings")
@@ -98,4 +101,7 @@ async def update_settings(
         setattr(settings, field_name, value)
     server.settings.game = settings
     settings.write(server.files.server_settings)
-    return {**asdict(settings), "public_display": asdict(_load_meta(server))}
+    return {
+        **msgspec.to_builtins(settings),
+        "public_display": msgspec.to_builtins(_load_meta(server)),
+    }

@@ -56,7 +56,9 @@ function ModInfoCell({ mod }: { mod: ModRowData }) {
       {thumb ? (
         <span className="mod-row-thumb" style={{ backgroundImage: `url("${thumb}")` }} />
       ) : (
-        <span className="mod-row-thumb mod-row-thumb-empty" />
+        <span className="mod-row-thumb mod-row-thumb-empty" aria-hidden="true">
+          {mod.title.trim().charAt(0).toUpperCase() || "?"}
+        </span>
       )}
       <span className="mod-row-text">
         <span className="mod-row-title">{mod.title}</span>
@@ -243,7 +245,6 @@ function InstalledActions({
     <>
       <Checkbox
         checked={installed.enabled}
-        disabled={installed.name === "base"}
         onChange={() => onToggle(installed)}
         label={installed.enabled ? "Enabled" : "Disabled"}
       />

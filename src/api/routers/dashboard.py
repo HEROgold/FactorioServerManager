@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from api._types.database import User
 from api.deps import get_current_user
-from api.routers.server_shared import _load_settings, fetch_public_game_names
+from api.routers.server.shared import _load_settings, fetch_public_game_names
 
 if TYPE_CHECKING:
     from api._types.server.core import Server

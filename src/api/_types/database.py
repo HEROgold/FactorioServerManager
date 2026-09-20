@@ -6,6 +6,7 @@ from typing import Self
 import h2  # noqa: F401 -- httpxyz's http2=True transport below requires h2 at runtime
 import httpxyz
 from cryptography.fernet import InvalidToken
+from herogold.errors import with_known_exception
 from sqlalchemy import (
     Integer,
     LargeBinary,
@@ -38,6 +39,13 @@ client = httpxyz.AsyncClient(
     follow_redirects=True,
 )
 mods = ModsInterface(client)
+
+class ServerAlreadyExistsError(Exception):
+    """Raised when attempting to add a server that already exists for a user."""
+
+    def __init__(self: Self, server_name: str) -> None:
+        super().__init__(f"Server '{server_name}' already exists for this user.")
+        self.server_name = server_name
 
 class Base(DeclarativeBase):
     """Subclass of DeclarativeBase with customizations."""
@@ -153,24 +161,34 @@ class User(Base):
                 self._servers[server.name] = Server(server.name, self)
         return self._servers
 
-    def persist_factorio_token(self: Self, token: str) -> None:
-        """Persist the encrypted Factorio token for this user."""
+    def persist_factorio_token(self: Self, token: str, username: str | None = None) -> None:
+        """Persist the encrypted Factorio token (and the account username, if given) for this user.
+
+        ``username`` is the Factorio *account* username returned by the auth API
+        (distinct from the login email) -- mod downloads require it as the
+        portal's ``username`` query param, or the portal rejects the request
+        with 403 Forbidden even with a valid token.
+        """
         self.factorio_token = token
+        if username:
+            self._display_name = username
         with Session(engine) as session:
             db_user = session.get(User, self.id)
             if db_user is None:
                 msg = f"Unable to locate user {self.id} while saving token"
                 raise ValueError(msg)
             db_user.factorio_token = token
+            if username:
+                db_user._display_name = username  # noqa: SLF001 -- same class, different instance
             session.commit()
             session.refresh(db_user)
             self.factorio_token_encrypted = db_user.factorio_token_encrypted
+            self._display_name = db_user._display_name  # noqa: SLF001 -- same class, different instance
 
-
+    @with_known_exception(ServerAlreadyExistsError)
     def add_server(self: Self, server: Server) -> None:
         if server.name in self.servers:
-            msg = f"Server {server.name} already exists"
-            raise ValueError(msg)
+            raise ServerAlreadyExistsError(server.name)
         self._servers[server.name] = server
 
     async def remove_server(self: Self, server: Server) -> None:
