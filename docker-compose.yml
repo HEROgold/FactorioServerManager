@@ -31,7 +31,17 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./src/api/servers:/app/src/api/servers
+      # IDENTICAL host:container path, matching docker-compose.prod.yml: the
+      # backend hands spec.data_dir (an in-container path) to the real Docker
+      # daemon via docker-socket-proxy, which resolves it against the HOST's
+      # filesystem. A mismatched host source (e.g. a repo-relative path) means
+      # the backend and the spawned Factorio container see two different
+      # directories -- the container's logs/mods/saves never show up here.
+      - /app/src/api/servers:/app/src/api/servers
+      # SQLite DB as a single-file bind (matches prod) so users/sessions/tokens
+      # survive an image rebuild instead of resetting to whatever was baked
+      # into the image at build time.
+      - /app/src/api/database.db:/app/src/api/database.db
     restart: unless-stopped
     depends_on:
       - frontend

@@ -1,4 +1,5 @@
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, TypedDict
@@ -111,8 +112,34 @@ class ModsInterface(LoggerMixin):
     client: httpxyz.AsyncClient
     base_url = Config("https://mods.factorio.com")
 
+    # The full mod list barely changes minute-to-minute but is ~megabytes and
+    # shared by every user/search, so it's cached process-wide rather than
+    # refetched on every keystroke -- both for latency and to stay well clear
+    # of the portal's rate limits. Keyed by the `factorio_version` filter since
+    # that changes what the portal returns. Per-mod detail (thumbnails,
+    # releases) is cached the same way, keyed by mod name.
+    _LIST_CACHE_TTL_SECONDS = 300
+    _DETAIL_CACHE_TTL_SECONDS = 300
+
     def __init__(self, client: httpxyz.AsyncClient) -> None:
         self.client = client
+        self._list_cache: dict[str | None, tuple[float, dict]] = {}
+        self._detail_cache: dict[str, tuple[float, Mod]] = {}
+
+    async def _fetch_mod_list(self: Self, factorio_version: str | None) -> dict:
+        cached = self._list_cache.get(factorio_version)
+        if cached and time.monotonic() - cached[0] < self._LIST_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        params: dict[str, str | int] = {"page_size": "max"}
+        if factorio_version:
+            params["version"] = factorio_version
+        # The full list is large, so allow more time than the default client timeout.
+        resp = await self.client.get(MODS_API_URL, params=params, timeout=30.0)
+        resp.raise_for_status()
+        payload = resp.json()
+        self._list_cache[factorio_version] = (time.monotonic(), payload)
+        return payload
 
     async def search(
         self: Self,
@@ -126,17 +153,11 @@ class ModsInterface(LoggerMixin):
 
         The current mod portal API (Factorio 2.x) no longer supports server-side
         text search: ``/api/mods`` ignores the legacy ``q`` parameter and always
-        returns the full list. We therefore fetch the full list once and filter
-        client-side by name/title/summary/owner, then paginate locally.
+        returns the full list. We therefore fetch the full list once (cached,
+        see ``_fetch_mod_list``) and filter client-side by
+        name/title/summary/owner, then paginate locally.
         """
-        params: dict[str, str | int] = {"page_size": "max"}
-        if factorio_version:
-            params["version"] = factorio_version
-        # The full list is large, so allow more time than the default client timeout.
-        resp = await self.client.get(MODS_API_URL, params=params, timeout=30.0)
-        resp.raise_for_status()
-        payload = resp.json()
-
+        payload = await self._fetch_mod_list(factorio_version)
         results: list[dict] = payload.get("results", []) if isinstance(payload, dict) else []
         if query:
             needle = query.casefold()
@@ -157,11 +178,17 @@ class ModsInterface(LoggerMixin):
         }
 
     async def get(self: Self, mod_name: str) -> Mod:
-        """Get the full details for a mod by its name."""
+        """Get the full details for a mod by its name (cached, see class docstring)."""
+        cached = self._detail_cache.get(mod_name)
+        if cached and time.monotonic() - cached[0] < self._DETAIL_CACHE_TTL_SECONDS:
+            return cached[1]
+
         url = f"{MODS_API_URL}/{_validate_mod_name(mod_name)}/full"
         resp = await self.client.get(url)  # skylos: ignore -- mod_name is charset-validated above
         resp.raise_for_status()
-        return resp.json()
+        mod: Mod = resp.json()
+        self._detail_cache[mod_name] = (time.monotonic(), mod)
+        return mod
 
     async def download(
         self: Self,

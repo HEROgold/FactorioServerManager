@@ -6,6 +6,7 @@ rendered HTML. Backed by the Factorio mod portal via ``user.fi.mods``.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from logging import getLogger
 from pathlib import Path
@@ -88,11 +89,38 @@ def _prepare_release(release: dict[str, Any], *, is_recommended: bool) -> dict[s
     }
 
 
+async def _fetch_thumbnail(current_user: User, mod_name: str) -> str | None:
+    """Best-effort thumbnail lookup: the portal's list endpoint omits it, so it
+    only shows up via the per-mod detail call. A failure here just means no
+    thumbnail, never a broken search."""
+    try:
+        detail = await current_user.fi.mods.get(mod_name)
+    except (httpxyz.HTTPError, ValueError):
+        return None
+    return _normalize_thumbnail(detail.get("thumbnail"))
+
+
+async def _attach_thumbnails(current_user: User, results: list[dict[str, Any]]) -> None:
+    thumbnails = await asyncio.gather(
+        *(_fetch_thumbnail(current_user, result["name"]) for result in results),
+    )
+    for result, thumbnail in zip(results, thumbnails, strict=True):
+        result["thumbnail"] = thumbnail
+
+
 def _safe_version_line(server: Server) -> str | None:
     try:
         return server.factorio_version_line
     except AttributeError:
         return None
+
+
+def _version_sort_key(release: dict[str, Any]) -> tuple[int, ...]:
+    """Numeric sort key so '2.10.0' sorts after '2.9.0' (not before, as a string sort would)."""
+    parts: list[int] = []
+    for part in str(release.get("version", "")).split("."):
+        parts.append(int(part) if part.isdigit() else 0)
+    return tuple(parts)
 
 
 class InstallRequest(BaseModel):
@@ -163,6 +191,10 @@ async def search(
                     "latest_release": latest,
                     "compatibility": _release_factorio_version(latest),
                 })
+            # The portal's list endpoint never includes a thumbnail; fetch it
+            # per-mod (parallel, best-effort) only for this page of results.
+            if results:
+                await _attach_thumbnails(current_user, results)
     return {"results": results, "query": query, "pagination": pagination, "error": error}
 
 
@@ -186,7 +218,8 @@ async def detail(
         target_line = _safe_version_line(server)
         raw_releases = mod_payload.get("releases", [])
         matching = [rel for rel in raw_releases if _release_matches_target(rel, target_line)]
-        usable = (matching or raw_releases)[:10]
+        # Newest first: the portal returns releases in upload order, not sorted.
+        usable = sorted(matching or raw_releases, key=_version_sort_key, reverse=True)[:10]
         for idx, release in enumerate(usable):
             releases.append(_prepare_release(release, is_recommended=idx == 0 and bool(matching)))
     return {
@@ -198,11 +231,16 @@ async def detail(
 
 
 def _require_factorio_credentials(current_user: User) -> tuple[str, str]:
-    """Return ``(token, email)`` or raise if the user hasn't linked a Factorio account."""
+    """Return ``(token, username)`` or raise if the user hasn't linked a Factorio account.
+
+    The mod portal's download endpoint requires the Factorio *account*
+    username (persisted at login as ``display_name``), not the login email --
+    sending the email here gets a 403 Forbidden even with a valid token.
+    """
     factorio_token = current_user.factorio_token
-    if not factorio_token or not current_user.email:
+    if not factorio_token or not current_user.display_name:
         raise HTTPException(status_code=400, detail="Factorio login required before downloading mods.")
-    return factorio_token, current_user.email
+    return factorio_token, current_user.display_name
 
 
 async def _fetch_mod_payload(current_user: User, mod_name: str) -> Mod:
@@ -212,6 +250,7 @@ async def _fetch_mod_payload(current_user: User, mod_name: str) -> Mod:
     except ValueError as err:
         raise HTTPException(status_code=400, detail="Invalid mod name.") from err
     except httpxyz.HTTPError as err:
+        logger.exception("Failed to fetch mod payload for %s", mod_name)
         raise HTTPException(status_code=502, detail="Unable to reach the Factorio mod portal.") from err
 
 
@@ -252,6 +291,7 @@ async def _ensure_mod_archive(
         logger.exception("Failed to download mod %s", mod_name)
         raise HTTPException(status_code=400, detail="Could not download the requested mod.") from exc
     except httpxyz.HTTPError as err:
+        logger.exception("Failed to download mod archive %s (%s)", mod_name, file_name)
         raise HTTPException(status_code=502, detail="Failed to download the mod archive.") from err
     return store_file
 
@@ -290,8 +330,6 @@ async def toggle_state(
 ) -> dict:
     """Enable or disable a mod."""
     server = _get_server_or_404(current_user, name)
-    if body.mod_name == "base":
-        raise HTTPException(status_code=400, detail="The base mod cannot be disabled.")
     server.mods.upsert(body.mod_name, enabled=body.enabled)
     action = "enabled" if body.enabled else "disabled"
     return {"installed_mods": server.mods.describe(), "action": action, "name": body.mod_name}

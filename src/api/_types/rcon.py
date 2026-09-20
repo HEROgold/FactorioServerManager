@@ -20,7 +20,6 @@ _TYPE_RESPONSE = 0
 # Request ids we assign so we can correlate replies.
 _ID_AUTH = 1
 _ID_EXEC = 2
-_ID_SENTINEL = 3
 
 
 class RconError(Exception):
@@ -65,23 +64,20 @@ async def _run_command(
     writer: asyncio.StreamWriter,
     command: str,
 ) -> str:
-    """Send ``command`` and collect its response body."""
-    # Send the command, then a sentinel empty RESPONSE_VALUE. A Factorio
-    # reply can span multiple RESPONSE_VALUE packets; the server processes
-    # requests in order, so once we see the sentinel's id echoed back we
-    # know every command-response packet has arrived.
+    """Send ``command`` and return its response body.
+
+    Unlike Source-engine servers (which some RCON clients probe for
+    multi-packet responses by sending a trailing empty RESPONSE_VALUE and
+    waiting for it to be echoed back), Factorio's RCON server responds with
+    exactly one packet per command and logs "invalid message type 0" -- then
+    never replies -- if it receives that sentinel packet at all. So we just
+    send the command and read the single response.
+    """
     writer.write(_encode(_ID_EXEC, _TYPE_EXEC, command))
-    writer.write(_encode(_ID_SENTINEL, _TYPE_RESPONSE, ""))
     await writer.drain()
 
-    parts: list[str] = []
-    while True:
-        resp_id, _resp_type, body = await _read_packet(reader)
-        if resp_id == _ID_SENTINEL:
-            break
-        if resp_id == _ID_EXEC:
-            parts.append(body)
-    return "".join(parts)
+    _resp_id, _resp_type, body = await _read_packet(reader)
+    return body
 
 
 async def execute(

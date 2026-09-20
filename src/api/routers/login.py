@@ -95,7 +95,7 @@ async def login(
     if not token:
         return response
 
-    user.persist_factorio_token(token)
+    user.persist_factorio_token(token, auth.username)
     set_session_cookies(response, user.id)
     return response
 
