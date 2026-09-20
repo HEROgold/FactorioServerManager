@@ -85,7 +85,10 @@ async def create_server(
         )
     name = sanitize_str(name)
     server = DataServer(name, current_user, port)
-    current_user.add_server(server)
+
+    if (err := current_user.add_server(server)):
+        raise HTTPException(status_code=409, detail=str(err)) from err
+
     server = current_user.servers[name]
     await server.create(version)
     return {"detail": "created", "name": name}

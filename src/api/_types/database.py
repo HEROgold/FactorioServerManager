@@ -6,6 +6,7 @@ from typing import Self
 import h2  # noqa: F401 -- httpxyz's http2=True transport below requires h2 at runtime
 import httpxyz
 from cryptography.fernet import InvalidToken
+from herogold.errors import with_known_exception
 from sqlalchemy import (
     Integer,
     LargeBinary,
@@ -38,6 +39,13 @@ client = httpxyz.AsyncClient(
     follow_redirects=True,
 )
 mods = ModsInterface(client)
+
+class ServerAlreadyExistsError(Exception):
+    """Raised when attempting to add a server that already exists for a user."""
+
+    def __init__(self: Self, server_name: str) -> None:
+        super().__init__(f"Server '{server_name}' already exists for this user.")
+        self.server_name = server_name
 
 class Base(DeclarativeBase):
     """Subclass of DeclarativeBase with customizations."""
@@ -166,11 +174,10 @@ class User(Base):
             session.refresh(db_user)
             self.factorio_token_encrypted = db_user.factorio_token_encrypted
 
-
+    @with_known_exception(ServerAlreadyExistsError)
     def add_server(self: Self, server: Server) -> None:
         if server.name in self.servers:
-            msg = f"Server {server.name} already exists"
-            raise ValueError(msg)
+            raise ServerAlreadyExistsError(server.name)
         self._servers[server.name] = server
 
     async def remove_server(self: Self, server: Server) -> None:

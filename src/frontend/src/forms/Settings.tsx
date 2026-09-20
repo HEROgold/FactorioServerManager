@@ -319,7 +319,7 @@ export default function ManageServerForm({ name, data }: Props) {
       <SavingFieldset data={data} />
       <NetworkFieldset data={data} />
 
-      {message ? <p style={{ color: "#aee7be" }}>{message}</p> : null}
+      {message ? <p style={{ color: "var(--color-green-strong)" }}>{message}</p> : null}
       {error ? <p className="red">{error}</p> : null}
 
       <SubmitButton busy="Saving..." idle="Save Changes" submitting={submitting} />

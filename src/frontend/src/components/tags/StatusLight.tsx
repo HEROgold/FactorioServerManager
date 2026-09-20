@@ -16,13 +16,13 @@ function toneFor(status: string | null | undefined): { tone: Tone; pulse: boolea
     case "dead":
       return { tone: "red", pulse: false };
     case "paused":
+    case "created":
       return { tone: "blue", pulse: false };
     // "starting"/"stopping" are synthetic, optimistic states shown while a
-    // start/stop/restart action is in flight.
+    // start/stop/restart action is in flight — genuinely busy, so they pulse.
     case "restarting":
     case "starting":
     case "stopping":
-    case "created":
       return { tone: "blue", pulse: true };
     default:
       return { tone: "grey", pulse: false };

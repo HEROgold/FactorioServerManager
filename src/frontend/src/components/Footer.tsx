@@ -1,5 +1,4 @@
 import { Copyright } from "./Copyright"
-import { Rocket } from "./Rocket"
 
 
 export default function Footer() {
@@ -7,7 +6,6 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-inner panel">
         <FooterLinks />
-        <Rocket />
         <Copyright />
       </div>
     </footer>
