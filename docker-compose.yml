@@ -1,17 +1,38 @@
+# The FSM stack for every environment: frontend behind Traefik, backend, and a
+# least-privilege docker-socket-proxy.
+#
+# Routing model (single origin, no CORS): Traefik points ONLY at the frontend
+# (Bun, :3000). The frontend serves the SPA and proxies /api/* to the backend
+# over the internal network, so the backend is never exposed to Traefik.
+#
+# Each environment sets the variables below in its own .env. Copy .env.example
+# and fill in the block for your environment. There are no defaults: a missing
+# variable fails `docker compose up` instead of running the wrong thing.
+#
+#   Local:       docker compose up -d --build
+#   Production:  deploy/deploy-fsm.sh writes the digest-pinned images to
+#                .env.deploy and runs
+#                docker compose --env-file .env --env-file .env.deploy up -d --wait --no-build
 
 services:
-  # Least-privilege gateway to the host Docker daemon, matching
-  # docker-compose.prod.yml: the backend talks to THIS instead of mounting the
-  # raw socket, so a compromised backend can't run arbitrary Docker API calls.
+  # Least-privilege gateway to the host Docker daemon. The backend talks to
+  # THIS instead of mounting the raw socket, so a compromise of the backend
+  # cannot run arbitrary Docker API calls (raw socket access is host-root
+  # equivalent). Only the container/image operations FSM needs are allowed.
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:0.3.0
     restart: unless-stopped
+    networks:
+      - internal
     environment:
       # Allow the endpoints DockerBackend uses: create/start/stop/restart/remove
       # containers and pull images. Everything else stays denied by default.
       CONTAINERS: 1
       IMAGES: 1
       POST: 1
+      # HAProxy logs one access line per request at `info`. FSM polls container
+      # status frequently, which floods the compose logs; raise the threshold so
+      # only warnings/errors are logged.
       LOG_LEVEL: warning
     # This IS the socket proxy: the one container allowed to see the real
     # socket (read-only), scoped by the CONTAINERS/IMAGES/POST allowlist
@@ -23,51 +44,109 @@ services:
       - no-new-privileges:true
 
   backend:
+    # Locally the name `build:` produces. In production the digest-pinned GHCR
+    # ref from .env.deploy, and `--no-build` leaves the build section unused.
+    image: ${FSM_BACKEND_IMAGE:?set FSM_BACKEND_IMAGE in .env}
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        # Single knob for the service uid/gid: build the image, run the app, and
+        # PUID/PGID the spawned Factorio containers all from these. Keep in sync
+        # with scripts/setup-host.sh and the host data-dir ownership.
+        FSM_UID: ${FSM_UID:?set FSM_UID in .env}
+        FSM_GID: ${FSM_GID:?set FSM_GID in .env}
+    restart: unless-stopped
+    depends_on:
+      - docker-socket-proxy
+    networks:
+      - internal
+    # The container starts as root so docker-entrypoint.sh can chown the
+    # bind-mounted data to FSM_UID:FSM_GID (healing legacy/foreign ownership),
+    # then drops to that unprivileged user via gosu — so the app process is never
+    # root. No `user:` override (that would prevent the entrypoint chown), and no
+    # `no-new-privileges` (it blocks the setuid gosu needs). Caps are dropped to
+    # ALL then only the minimal set for chown + privilege-drop is added back.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN         # chown -R the data tree
+      - DAC_OVERRIDE  # read/traverse files owned by other uids while reconciling
+      - FOWNER        # chmod/operate on those files regardless of owner
+      - SETUID        # gosu drop to fsm
+      - SETGID        # gosu drop to fsm
+    # Secrets (FSM_SECRET_KEY, FSM_TOKEN_KEY, SENTRY_*) come from .env, never
+    # from the image.
     env_file:
       - path: .env
         required: true
     environment:
       # Drive the daemon through the scoped proxy, never the raw socket.
       DOCKER_HOST: tcp://docker-socket-proxy:2375
-    ports:
-      - "8000:8000"
     volumes:
-      # IDENTICAL host:container path, matching docker-compose.prod.yml: the
-      # backend hands spec.data_dir (an in-container path) to the real Docker
-      # daemon via docker-socket-proxy, which resolves it against the HOST's
-      # filesystem. A mismatched host source (e.g. a repo-relative path) means
-      # the backend and the spawned Factorio container see two different
-      # directories -- the container's logs/mods/saves never show up here.
+      # AppConfig (public_ip, server_backend). confkit rewrites this file in
+      # place at import, so it must be a writable host bind, not read-only.
+      # Create it from config.example.ini before the first `up`, else
+      # Docker creates a directory in its place.
+      - ./config.ini:/app/src/api/config.ini
+      # Persistence. The servers dir uses an IDENTICAL host:container path: the
+      # backend hands spec.data_dir (an in-container path) to the host daemon,
+      # which resolves it on the host filesystem — the paths must match.
+      # scripts/setup-host.sh creates all of these.
       - /app/src/api/servers:/app/src/api/servers
-      # SQLite DB as a single-file bind (matches prod) so users/sessions/tokens
-      # survive an image rebuild instead of resetting to whatever was baked
-      # into the image at build time.
+      - /app/src/api/saves:/app/src/api/saves
+      - /app/src/api/downloads:/app/src/api/downloads
+      # SQLite DB as a single-file bind (touch the host file first, else Docker
+      # creates a directory in its place).
       - /app/src/api/database.db:/app/src/api/database.db
-    restart: unless-stopped
-    depends_on:
-      - frontend
-      - docker-socket-proxy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/openapi.json"]
+      # The slim image has no curl; probe with the bundled Python instead.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/openapi.json')"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   frontend:
+    image: ${FSM_FRONTEND_IMAGE:?set FSM_FRONTEND_IMAGE in .env}
     build:
       context: src/frontend
       dockerfile: Dockerfile
-    # Dev: run the HMR dev server (the image now defaults to the prod server).
-    command: ["bun", "run", "dev", "--host", "0.0.0.0"]
-    environment:
-      # Without this the dev server's /api proxy falls back to 127.0.0.1:8000,
-      # which inside this container is itself, not the backend service.
-      - API_TARGET=http://backend:8000
-    ports:
-      - "3000:3000"
+    # `start` runs the production Bun server, `dev` the hot-reloading one.
+    command: ["bun", "run", "${FSM_FRONTEND_SCRIPT:?set FSM_FRONTEND_SCRIPT in .env}"]
     restart: unless-stopped
+    depends_on:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+      - internal
+    environment:
+      # The Bun server proxies /api/* to this in-network backend service.
+      API_TARGET: http://backend:8000
+    # Locally `3000` opens http://localhost:3000. In production `127.0.0.1:3000`
+    # keeps it off the internet, since Traefik reaches it over its network.
+    ports:
+      - "${FSM_FRONTEND_PORT:?set FSM_FRONTEND_PORT in .env}:3000"
+    labels:
+      - traefik.enable=true
+      # If the shared Traefik network isn't the container's only network,
+      # Traefik needs to be told which one to use to reach this service.
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.fsm.rule=Host(`${SUBDOMAIN:?set SUBDOMAIN in .env}.${DOMAIN_NAME:?set DOMAIN_NAME in .env}`)
+      # Entrypoint + certresolver names match the existing n8n Traefik (v3.6):
+      # web(:80, auto-redirects to https), websecure(:443), TLS-ALPN resolver.
+      - traefik.http.routers.fsm.entrypoints=web,websecure
+      - traefik.http.routers.fsm.tls=true
+      - traefik.http.routers.fsm.tls.certresolver=mytlschallenge
+      - traefik.http.services.fsm.loadbalancer.server.port=3000
 
-# Using host bind mounts for server data; no named volumes declared
+networks:
+  # In production the existing network Traefik is attached to (e.g.
+  # n8n_default), with TRAEFIK_EXTERNAL=true. Locally compose creates it.
+  traefik:
+    external: ${TRAEFIK_EXTERNAL:?set TRAEFIK_EXTERNAL in .env}
+    name: ${TRAEFIK_NETWORK:?set TRAEFIK_NETWORK in .env}
+  # Private backend<->frontend link, not reachable from Traefik.
+  internal:
+    driver: bridge

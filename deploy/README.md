@@ -19,16 +19,16 @@ The deploy never runs `git pull` and never builds on the server.
 
 ## On the VPS
 
-Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
+Everything runs as `herogold`. The stack is `docker-compose.yml` in
 `~/FactorioServerManager`, behind the existing Traefik (see the main README's
 "Production deployment").
 
 ```text
 ~/FactorioServerManager/        this app
-├── docker-compose.prod.yml
+├── docker-compose.yml          docker-compose.yml from the deployed release
 ├── deploy-fsm.sh               deploy/deploy-fsm.sh (executable)
-├── .env                        .env.prod.example, filled in
-├── config.ini                  config.prod.example.ini, filled in
+├── .env                        .env.example, filled in with the production values
+├── config.ini                  config.example.ini, filled in
 ├── .env.deploy                 written by deploy-fsm.sh: FSM_BACKEND_IMAGE, FSM_FRONTEND_IMAGE
 └── .env.deploy.prev            the deploy before that, for rollback
 ~/deploy-notifier/verifier/     the deploy verifier, a container behind Traefik
@@ -49,10 +49,16 @@ Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
 
    Copy it again when `deploy/deploy-fsm.sh` changes. The deploy doesn't update it.
 
-2. Registry access. After the first release pushes the two GHCR packages, set each one to
+2. Compose file. Copy `docker-compose.yml` from the release you deploy, and delete the old
+   `docker-compose.prod.yml`. Then add the variables that are new in `.env.example`
+   (`FSM_BACKEND_IMAGE`, `FSM_FRONTEND_IMAGE`, `FSM_FRONTEND_SCRIPT`, `FSM_FRONTEND_PORT`,
+   `TRAEFIK_EXTERNAL`) to `.env` with their production values. Copy the compose file again when
+   it changes. The deploy doesn't update it either, and compose fails on a missing variable.
+
+3. Registry access. After the first release pushes the two GHCR packages, set each one to
    public in its package settings. The server then pulls them without a login.
 
-3. Deploy verifier. It already runs for nota. Add `[apps.fsm]` from `deploy/verifier.toml` to
+4. Deploy verifier. It already runs for HEROgold/nota. Add `[apps.fsm]` from `deploy/verifier.toml` to
    `~/deploy-notifier/verifier/config.toml`, add this mount to `compose.override.yml`, and
    recreate the verifier:
 
@@ -66,7 +72,7 @@ Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
    The mount uses the same path inside and out, because the compose file's relative binds
    (`./config.ini`) resolve on the host daemon.
 
-4. GitHub. The repository needs the `production` environment and the repository secret
+5. GitHub. The repository needs the `production` environment and the repository secret
    `DEPLOY_URL` set to `https://deploy.herogold.nl/hooks/fsm`.
 
 Without a token, `curl -i -X POST https://deploy.herogold.nl/hooks/fsm` answers 401.
@@ -92,7 +98,7 @@ cd ~/FactorioServerManager
 printf 'FSM_BACKEND_IMAGE=%s\nFSM_FRONTEND_IMAGE=%s\n' \
   ghcr.io/herogold/factorioservermanager-backend@sha256:… \
   ghcr.io/herogold/factorioservermanager-frontend@sha256:… > .env.deploy
-docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.deploy \
+docker compose --env-file .env --env-file .env.deploy \
   up -d --wait --pull missing --no-build
 ```
 

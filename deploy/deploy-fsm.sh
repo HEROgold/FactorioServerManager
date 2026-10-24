@@ -31,7 +31,7 @@ docker pull --quiet "$frontend_image"
 printf 'FSM_BACKEND_IMAGE=%s\nFSM_FRONTEND_IMAGE=%s\n' "$DEPLOY_IMAGE" "$frontend_image" >.env.deploy.tmp
 mv .env.deploy.tmp .env.deploy
 
-compose() { docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.deploy "$@"; }
+compose() { docker compose --env-file .env --env-file .env.deploy "$@"; }
 
 # --wait blocks until the backend's healthcheck passes. The verifier kills this
 # script after 900 s. The two waits take at most 600 s, which leaves 300 s for
