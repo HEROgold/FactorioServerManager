@@ -33,7 +33,7 @@ jobs:
       version_changed: ${{ steps.version-check.outputs.version_changed }}
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # needed for tag comparison
           persist-credentials: false # this job never pushes; tags/release use the API instead
@@ -57,7 +57,7 @@ jobs:
           done
 
       - name: Install uv
-        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "latest"
 
@@ -80,7 +80,7 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: v${{ steps.version-check.outputs.current_version }}
           name: Release v${{ steps.version-check.outputs.current_version }}
@@ -93,7 +93,7 @@ jobs:
       # which is already wired in src/api/main.py).
       - name: Create Sentry release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+        uses: getsentry/action-release@6fb9aeade7061441cf3864e34fbe11a1457ad7dc # v3.7.1
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Trigger deploy workflow
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: peter-evans/repository-dispatch@bf47d102fdb849e755b0b0023ea3e81a44b6f570 # v2.1.2
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           event-type: new-release-created
