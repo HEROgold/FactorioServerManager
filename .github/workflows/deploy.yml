@@ -120,7 +120,7 @@ jobs:
           image: ${{ needs.publish.outputs.backend_image }}
           version: ${{ needs.publish.outputs.version }}
           extra: '{"frontend_image": "${{ needs.publish.outputs.frontend_image }}"}'
-          timeout: 900 # the verifier's [apps.fsm] timeout
+          timeout: 600 # the verifier's [apps.fsm] timeout
 
       # Traefik can take a moment to route to the new frontend container, so
       # allow a short window before failing. /api/health goes through Traefik,
