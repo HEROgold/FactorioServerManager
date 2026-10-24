@@ -93,7 +93,13 @@ EXPOSE 8000
 # Baked default healthcheck (compose healthchecks still override per-service).
 # The slim image has no curl, so probe with the bundled Python.
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/openapi.json')"]
+  CMD ["python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')"]
+
+# The commit CI built this image from. /api/health reports it, so the deploy
+# smoke test can tell the new build is live. Declared last so it doesn't bust
+# the layer cache.
+ARG FSM_COMMIT=unknown
+ENV FSM_COMMIT=${FSM_COMMIT}
 
 # No USER instruction is deliberate: the image starts as root ONLY so
 # docker-entrypoint.sh can chown the bind-mounted data tree, then gosu-drops to

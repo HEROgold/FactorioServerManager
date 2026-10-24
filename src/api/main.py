@@ -113,6 +113,7 @@ def _register_routers(app: FastAPI) -> None:
     from .routers import (  # noqa: PLC0415
         dashboard,
         feature_flags,
+        health,
         login,
         mods,
         server,
@@ -123,6 +124,7 @@ def _register_routers(app: FastAPI) -> None:
     for module in (
         dashboard,
         feature_flags,
+        health,
         mods,
         server.lifecycle,
         server.settings,
