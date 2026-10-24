@@ -37,8 +37,9 @@ is reachable at `https://<subdomain>.<your-domain>`.
 
 ### One-time host setup
 
-Clone the repo on the host (the default deploy location is `$HOME/FactorioServerManager`;
-override with the `FSM_DIR` env var). Run all commands from the repo directory.
+Clone the repo on the host at `$HOME/FactorioServerManager` (the release deploy expects
+that path, see [`deploy/README.md`](deploy/README.md)). Run all commands from the repo
+directory.
 
 ```sh
 git clone <repo-url> FactorioServerManager
@@ -113,42 +114,14 @@ Traefik obtains a certificate for the hostname on the first request. If you were
 running the plain `docker-compose.yml` (direct ports, no proxy), stop it first with
 `docker compose down`.
 
-### Auto-deploy (optional: GitHub Actions + Tailscale SSH)
+### Auto-deploy
 
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs on push to
-`main`: the runner joins your tailnet as an ephemeral `tag:ci` node and runs
-[`deploy.sh`](deploy.sh) on the host over Tailscale SSH (`git pull` + rebuild). This
-keeps the host with no public SSH port.
-
-Configure once in the GitHub repo:
-
-- **Secrets:** `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` — a Tailscale OAuth client
-  (tag `tag:ci`).
-- **Variables:** `DEPLOY_HOST` (host's MagicDNS name), `DEPLOY_USER` (SSH user).
-
-On the host / tailnet:
-
-- Enable Tailscale SSH: `sudo tailscale up --ssh`.
-- Add a tailnet ACL rule granting `tag:ci` SSH to the host as `DEPLOY_USER`, e.g.:
-
-  ```jsonc
-  "ssh": [
-    { "action": "accept", "src": ["tag:ci"], "dst": ["tag:server"], "users": ["<deploy-user>"] }
-  ]
-  ```
-
-If you prefer not to enable Tailscale SSH, swap the deploy step for key-based SSH
-over the tailnet (`appleboy/ssh-action` with `host: <tailscale-ip>` and an
-`SSH_PRIVATE_KEY` secret whose public key is in the host's `authorized_keys`).
-
-If the repo is not at `$HOME/FactorioServerManager` on the host, set `FSM_DIR`
-accordingly (in `deploy.sh` or the environment).
-
-### Updating manually
-
-```sh
-ssh <deploy-user>@<host> 'bash ~/FactorioServerManager/deploy.sh'
-```
+Each release builds the backend and frontend images in GitHub Actions, pushes them to
+GHCR, and notifies the host through
+[deploy-notifier](https://github.com/HEROgold/deploy-notifier). The host then pulls the
+images by digest and restarts the stack. It never builds or runs `git pull`. The
+one-time setup, deploying by hand and rolling back are in
+[`deploy/README.md`](deploy/README.md).
 
 ### Notes / hardening
 
