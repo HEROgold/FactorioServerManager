@@ -211,6 +211,14 @@ cd src/frontend && bun install && bun dev   # serves on :3000
 Open http://localhost:3000. Login needs real Factorio.com credentials. Create/start/stop a server needs
 Docker. Smoke checks: `GET /api/me` → 401 unauthenticated; `GET /api/versions` → list incl. 2.1.x.
 
+### Tests
+```sh
+uv run pytest                                            # the suite under tests/
+uv run pytest --cov --cov-config=coverage.toml           # with coverage, as CI runs it
+```
+Property tests use Hypothesis, with Faker for realistic emails, names and passwords
+(`tests/strategies.py`). `coverage.toml` sets the floor CI enforces.
+
 ### 5b. docker compose (the production stack)
 ```sh
 cp .env.example .env            # then switch to the local values shown in it

@@ -32,6 +32,11 @@ dev = [
     "ty>=0.0.55",
     "pyrefly>=1.1.1",
     "types-docker>=7.1.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "hypothesis>=6.170.9",
+    "faker>=40.43.0",
+    "httpx2>=2.16.0",
 ]
 
 [build-system]
@@ -49,7 +54,7 @@ script_location = "%(here)s/src/api/migrations"
 
 [tool.ty.environment]
 python-version = "3.14"
-root = ["src"]
+root = ["src", "."]
 
 [tool.ty.terminal]
 # Treat warnings as hard failures so nothing slips through.
@@ -63,7 +68,7 @@ unused-ignore-comment = "error"
 
 [tool.pyrefly]
 project-includes = ["src/api"]
-search-path = ["src"]
+search-path = ["src", "."]
 python-version = "3.14"
 # Strictest behaviour: type-check untyped defs and infer their return types.
 untyped-def-behavior = "check-and-infer-return-type"

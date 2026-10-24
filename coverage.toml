@@ -1,0 +1,15 @@
+# Read by `uv run pytest --cov --cov-config=coverage.toml` (see .github/workflows/test.yml).
+[run]
+source = ["src/api"]
+branch = true
+
+[report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+# The coverage when the suite was added. Raise it as tests land; never lower it.
+fail_under = 43
+show_missing = true
+skip_covered = true
