@@ -1,7 +1,7 @@
 name: Deploy
 
 # Needs, in the repository settings:
-#   - variable DEPLOY_URL: the deploy-verifier hook, https://deploy.herogold.nl/hooks/fsm
+#   - secret DEPLOY_URL: the deploy-verifier hook, https://deploy.herogold.nl/hooks/fsm
 #   - environment "production" (pinned by the verifier; its protection rules gate the deploy)
 # The server side is in deploy/README.md.
 on:
@@ -114,7 +114,7 @@ jobs:
       - name: Notify the server
         uses: HEROgold/deploy-notifier@916bbfab11a60e4e68ee8f7eff69f2149ed5fe9f # v1
         with:
-          url: ${{ vars.DEPLOY_URL }}
+          url: ${{ secrets.DEPLOY_URL }}
           image: ${{ needs.publish.outputs.backend_image }}
           version: ${{ needs.publish.outputs.version }}
           extra: '{"frontend_image": "${{ needs.publish.outputs.frontend_image }}"}'

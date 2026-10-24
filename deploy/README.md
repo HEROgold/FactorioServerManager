@@ -66,7 +66,7 @@ Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
    The mount uses the same path inside and out, because the compose file's relative binds
    (`./config.ini`) resolve on the host daemon.
 
-4. GitHub. The repository needs the `production` environment and the repository variable
+4. GitHub. The repository needs the `production` environment and the repository secret
    `DEPLOY_URL` set to `https://deploy.herogold.nl/hooks/fsm`.
 
 Without a token, `curl -i -X POST https://deploy.herogold.nl/hooks/fsm` answers 401.
