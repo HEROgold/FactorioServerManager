@@ -11,9 +11,12 @@ A release deploys itself. When `release.yml` creates a new `v<version>` tag, it 
    [deploy-notifier](https://github.com/HEROgold/deploy-notifier) at
    `https://deploy.herogold.nl/hooks/fsm`. The backend goes as `image` and the frontend as
    `extra.frontend_image`, both pinned by digest. The verifier runs `deploy-fsm.sh`, which pulls
-   both images, writes `.env.deploy` and runs `docker compose up --wait --no-build`. If that
+   both images, writes `.env.deploy` and runs `docker compose up --wait --no-build`, which runs
+   the `migrate` service before the backend starts. If that
    fails, it puts the previous `.env.deploy` back and starts that instead.
-3. Retries `https://factorio.herogold.nl/` until it answers 200.
+3. Retries `https://factorio.herogold.nl/api/health` until it reports the app and database up
+   and the commit the release was built from. The request goes through Traefik and the
+   frontend's `/api` proxy to the backend, so one check covers both images.
 
 The deploy never runs `git pull` and never builds on the server.
 

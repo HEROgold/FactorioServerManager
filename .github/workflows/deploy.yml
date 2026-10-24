@@ -24,6 +24,7 @@ jobs:
       packages: write
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.sha }}
       backend_digest: ${{ steps.backend.outputs.digest }}
       frontend_digest: ${{ steps.frontend.outputs.digest }}
       backend_image: ghcr.io/herogold/factorioservermanager-backend@${{ steps.backend.outputs.digest }}
@@ -73,6 +74,7 @@ jobs:
           build-args: |
             FSM_UID=10001
             FSM_GID=10001
+            FSM_COMMIT=${{ steps.version.outputs.sha }}
           push: true
           tags: |
             ${{ steps.version.outputs.release == 'true' && format('ghcr.io/herogold/factorioservermanager-backend:{0}', steps.version.outputs.version) || '' }}
@@ -121,18 +123,23 @@ jobs:
           timeout: 900 # the verifier's [apps.fsm] timeout
 
       # Traefik can take a moment to route to the new frontend container, so
-      # allow a short window before failing.
+      # allow a short window before failing. /api/health goes through Traefik,
+      # the frontend's /api proxy and the backend to the database, and reports
+      # the commit the running backend was built from.
       - name: Smoke test
+        env:
+          COMMIT: ${{ needs.publish.outputs.commit }}
         run: |
           set -u
+          url=https://factorio.herogold.nl/api/health
           for attempt in $(seq 1 12); do
-            status=$(curl --silent --output /dev/null --max-time 10 --write-out "%{http_code}" https://factorio.herogold.nl/ || true)
-            if [ "$status" = 200 ]; then
-              echo "factorio.herogold.nl responded with 200"
+            if health=$(curl --fail --silent --show-error --max-time 10 "$url") &&
+              jq -e --arg commit "$COMMIT" '.app == "up" and .database == "up" and .commit == $commit' <<<"$health" >/dev/null; then
+              echo "$url: $health"
               exit 0
             fi
-            echo "attempt $attempt: status $status"
+            echo "attempt $attempt: ${health:-no response}"
             sleep 10
           done
-          echo "::error::factorio.herogold.nl did not respond with 200"
+          echo "::error::$url did not report commit $COMMIT with the app and database up"
           exit 1
