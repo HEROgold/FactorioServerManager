@@ -1,0 +1,30 @@
+# Update PRs for what the repo pins: actions by commit SHA, images by digest.
+# The cooldown holds a new release back for a week, so a compromised release
+# that gets pulled in that time never reaches a PR.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Dockerfile.backend (python, astral/uv) and src/frontend/Dockerfile (oven/bun).
+  - package-ecosystem: docker
+    directories: ["/", "/src/frontend"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  # docker-compose.yml (docker-socket-proxy).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

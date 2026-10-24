@@ -3,7 +3,7 @@
 # Resolve the runtime venv in a throwaway stage that carries the compilers and
 # -dev headers some Python wheels need to build. None of this toolchain ships to
 # production — only the resolved /app/.venv crosses into the runtime stage.
-FROM python:3.14-slim AS builder
+FROM python:3.14-slim@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -13,14 +13,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Build-time deps for compiling native extensions. Confined to this stage.
-# Versions pinned to the python:3.14-slim (Debian 13) base for reproducibility;
-# bump these when the base image rolls forward.
+# Versions pinned to the python:3.14-slim (Debian 13) base for reproducibility.
+# apt reads the live Debian mirror, not the pinned base, so bump these when the
+# base rolls forward or Debian replaces one with a security update; the build
+# fails with "held broken packages" until then.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        build-essential=12.12 \
        gcc=4:14.2.0-1 \
        libffi-dev=3.4.8-2 \
-       libssl-dev=3.5.7-1~deb13u2 \
+       libssl-dev=3.5.7-1~deb13u3 \
     && find /var/lib/apt/lists -mindepth 1 -delete
 
 # Copy project metadata and lockfile for reproducible dependency resolution
@@ -29,7 +31,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src/api ./src/api
 
 # The uv runtime from the official astral/uv image (provides `/uv`, `/uvx`).
-COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+COPY --from=docker.io/astral/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /bin/
 
 # Sync runtime dependencies only; source is executed directly from /app/src/api.
 RUN uv sync --locked --no-install-project --no-dev
@@ -38,7 +40,7 @@ RUN uv sync --locked --no-install-project --no-dev
 # Slim final image: the app venv, the source, gosu, and the uv launcher — no
 # compilers or headers, so there's no build toolchain for an attacker who gets
 # shell access to pivot from.
-FROM python:3.14-slim AS runtime
+FROM python:3.14-slim@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8 AS runtime
 
 # Fixed UID/GID for the unprivileged runtime user. Host bind-mounted data dirs
 # must be owned by this id so the container can write them (see README setup).
@@ -66,7 +68,7 @@ RUN apt-get update \
     && find /var/lib/apt/lists -mindepth 1 -delete
 
 # The uv launcher for the `uv run --no-sync` CMD.
-COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+COPY --from=docker.io/astral/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /bin/
 
 # Carry the resolved venv and source over from the builder; copy the metadata
 # uv reads at launch. Same /app path in both stages keeps the venv valid.
