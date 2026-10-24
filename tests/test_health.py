@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from api.migrate import upgrade
 
 if TYPE_CHECKING:
-    import pytest
+    import pytest  # skylos: ignore[SKY-D223] -- dev dependency
     from fastapi.testclient import TestClient
 
 

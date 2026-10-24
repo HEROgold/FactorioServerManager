@@ -7,7 +7,7 @@ imported, so they are set here, before any test module imports it.
 import os
 import secrets
 
-import pytest
+import pytest  # skylos: ignore[SKY-D223] -- dev dependency
 from cryptography.fernet import Fernet
 
 os.environ.setdefault("FSM_SECRET_KEY", secrets.token_hex(64))

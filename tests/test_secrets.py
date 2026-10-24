@@ -3,8 +3,8 @@
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given  # skylos: ignore[SKY-D223] -- dev dependency
+from hypothesis import strategies as st  # skylos: ignore[SKY-D223] -- dev dependency
 
 from api.logging_security import RedactingFilter, redact_text, scrub_event
 from api.security import decrypt_factorio_token, encrypt_factorio_token

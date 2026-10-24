@@ -6,8 +6,8 @@ from contextlib import closing
 from pathlib import Path
 
 from alembic import command
-from hypothesis import given, settings
-from hypothesis import strategies as st
+from hypothesis import given, settings  # skylos: ignore[SKY-D223] -- dev dependency
+from hypothesis import strategies as st  # skylos: ignore[SKY-D223] -- dev dependency
 
 from api.migrate import alembic_config, upgrade
 from tests.strategies import display_names, emails, passwords
@@ -71,7 +71,8 @@ def test_pre_alembic_database_keeps_its_users(
         database_url = f"sqlite:///{Path(directory) / 'legacy.db'}"
         token_column = ", factorio_token BLOB" if with_token else ""
         with _connect(database_url) as db:
-            db.execute(
+            # Literal DDL; token_column is one of two fixed strings.
+            db.execute(  # skylos: ignore[SKY-D211]
                 "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "password VARCHAR, email VARCHAR, "
                 f"_display_name VARCHAR{token_column})",

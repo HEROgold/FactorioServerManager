@@ -2,8 +2,8 @@
 
 import uuid
 
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given  # skylos: ignore[SKY-D223] -- dev dependency
+from hypothesis import strategies as st  # skylos: ignore[SKY-D223] -- dev dependency
 
 from api.ratelimit import is_rate_limited
 from api.utils import sanitize_str

@@ -4,8 +4,8 @@ Hypothesis draws a seed and Faker turns it into a value, so a failing example
 shrinks and replays like any other Hypothesis example.
 """
 
-from faker import Faker
-from hypothesis import strategies as st
+from faker import Faker  # skylos: ignore[SKY-D223] -- dev dependency
+from hypothesis import strategies as st  # skylos: ignore[SKY-D223] -- dev dependency
 
 _fake = Faker()
 
