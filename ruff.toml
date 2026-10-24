@@ -1,2 +1,6 @@
 select = ["ALL"]
 extend-ignore = ["N999"]
+
+[lint.per-file-ignores]
+# Alembic loads env.py and the revisions by path; they aren't a package.
+"src/api/migrations/**" = ["INP001"]

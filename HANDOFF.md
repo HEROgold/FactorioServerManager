@@ -203,7 +203,8 @@ Reference copies saved to scratchpad: `…/scratchpad/factorio-2.1/{server-setti
 ### 5a. Quickest: two processes
 ```sh
 # Backend (Docker must be running; it manages Factorio containers)
-cd src && PYTHONPATH=$PWD python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+cd src && PYTHONPATH=$PWD python -m api.migrate   # bring src/api/database.db up to date
+PYTHONPATH=$PWD python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 # Frontend (separate shell) — proxies /api -> 127.0.0.1:8000
 cd src/frontend && bun install && bun dev   # serves on :3000
 ```

@@ -14,6 +14,63 @@
 #                .env.deploy and runs
 #                docker compose --env-file .env --env-file .env.deploy up -d --wait --no-build
 
+# The backend image's settings, shared by `migrate` and `backend`.
+x-backend: &backend
+  # Locally the name `build:` produces. In production the digest-pinned GHCR
+  # ref from .env.deploy, and `--no-build` leaves the build section unused.
+  image: ${FSM_BACKEND_IMAGE:?set FSM_BACKEND_IMAGE in .env}
+  build:
+    context: .
+    dockerfile: Dockerfile.backend
+    args:
+      # Single knob for the service uid/gid: build the image, run the app, and
+      # PUID/PGID the spawned Factorio containers all from these. Keep in sync
+      # with scripts/setup-host.sh and the host data-dir ownership.
+      FSM_UID: ${FSM_UID:?set FSM_UID in .env}
+      FSM_GID: ${FSM_GID:?set FSM_GID in .env}
+  networks:
+    - internal
+  # The container starts as root so docker-entrypoint.sh can chown the
+  # bind-mounted data to FSM_UID:FSM_GID (healing legacy/foreign ownership),
+  # then drops to that unprivileged user via gosu — so the app process is never
+  # root. No `user:` override (that would prevent the entrypoint chown), and no
+  # `no-new-privileges` (it blocks the setuid gosu needs). Caps are dropped to
+  # ALL then only the minimal set for chown + privilege-drop is added back.
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN         # chown -R the data tree
+    - DAC_OVERRIDE  # read/traverse files owned by other uids while reconciling
+    - FOWNER        # chmod/operate on those files regardless of owner
+    - SETUID        # gosu drop to fsm
+    - SETGID        # gosu drop to fsm
+  # Secrets (FSM_SECRET_KEY, FSM_TOKEN_KEY, SENTRY_*) come from .env, never
+  # from the image.
+  env_file:
+    - path: .env
+      required: true
+  environment:
+    # Drive the daemon through the scoped proxy, never the raw socket.
+    DOCKER_HOST: tcp://docker-socket-proxy:2375
+  # Skylos reports docker-socket-proxy's socket mount (below) at this line.
+  # skylos: ignore[SKY-D331]
+  volumes:
+    # AppConfig (public_ip, server_backend). confkit rewrites this file in
+    # place at import, so it must be a writable host bind, not read-only.
+    # Create it from config.example.ini before the first `up`, else
+    # Docker creates a directory in its place.
+    - ./config.ini:/app/src/api/config.ini
+    # Persistence. The servers dir uses an IDENTICAL host:container path: the
+    # backend hands spec.data_dir (an in-container path) to the host daemon,
+    # which resolves it on the host filesystem — the paths must match.
+    # scripts/setup-host.sh creates all of these.
+    - /app/src/api/servers:/app/src/api/servers
+    - /app/src/api/saves:/app/src/api/saves
+    - /app/src/api/downloads:/app/src/api/downloads
+    # SQLite DB as a single-file bind (touch the host file first, else Docker
+    # creates a directory in its place).
+    - /app/src/api/database.db:/app/src/api/database.db
+
 services:
   # Least-privilege gateway to the host Docker daemon. The backend talks to
   # THIS instead of mounting the raw socket, so a compromise of the backend
@@ -43,62 +100,23 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # Runs once per `up`, before the backend starts: brings the SQLite schema up
+  # to date (src/api/migrate.py). Same image, mounts and secrets as the backend.
+  migrate:
+    <<: *backend
+    command: ["uv", "run", "--no-sync", "python", "-m", "api.migrate"]
+    restart: "no"
+    healthcheck:
+      disable: true
+
   backend:
-    # Locally the name `build:` produces. In production the digest-pinned GHCR
-    # ref from .env.deploy, and `--no-build` leaves the build section unused.
-    image: ${FSM_BACKEND_IMAGE:?set FSM_BACKEND_IMAGE in .env}
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-      args:
-        # Single knob for the service uid/gid: build the image, run the app, and
-        # PUID/PGID the spawned Factorio containers all from these. Keep in sync
-        # with scripts/setup-host.sh and the host data-dir ownership.
-        FSM_UID: ${FSM_UID:?set FSM_UID in .env}
-        FSM_GID: ${FSM_GID:?set FSM_GID in .env}
+    <<: *backend
     restart: unless-stopped
     depends_on:
-      - docker-socket-proxy
-    networks:
-      - internal
-    # The container starts as root so docker-entrypoint.sh can chown the
-    # bind-mounted data to FSM_UID:FSM_GID (healing legacy/foreign ownership),
-    # then drops to that unprivileged user via gosu — so the app process is never
-    # root. No `user:` override (that would prevent the entrypoint chown), and no
-    # `no-new-privileges` (it blocks the setuid gosu needs). Caps are dropped to
-    # ALL then only the minimal set for chown + privilege-drop is added back.
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN         # chown -R the data tree
-      - DAC_OVERRIDE  # read/traverse files owned by other uids while reconciling
-      - FOWNER        # chmod/operate on those files regardless of owner
-      - SETUID        # gosu drop to fsm
-      - SETGID        # gosu drop to fsm
-    # Secrets (FSM_SECRET_KEY, FSM_TOKEN_KEY, SENTRY_*) come from .env, never
-    # from the image.
-    env_file:
-      - path: .env
-        required: true
-    environment:
-      # Drive the daemon through the scoped proxy, never the raw socket.
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
-    volumes:
-      # AppConfig (public_ip, server_backend). confkit rewrites this file in
-      # place at import, so it must be a writable host bind, not read-only.
-      # Create it from config.example.ini before the first `up`, else
-      # Docker creates a directory in its place.
-      - ./config.ini:/app/src/api/config.ini
-      # Persistence. The servers dir uses an IDENTICAL host:container path: the
-      # backend hands spec.data_dir (an in-container path) to the host daemon,
-      # which resolves it on the host filesystem — the paths must match.
-      # scripts/setup-host.sh creates all of these.
-      - /app/src/api/servers:/app/src/api/servers
-      - /app/src/api/saves:/app/src/api/saves
-      - /app/src/api/downloads:/app/src/api/downloads
-      # SQLite DB as a single-file bind (touch the host file first, else Docker
-      # creates a directory in its place).
-      - /app/src/api/database.db:/app/src/api/database.db
+      docker-socket-proxy:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       # The slim image has no curl; probe with the bundled Python instead.
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/openapi.json')"]
