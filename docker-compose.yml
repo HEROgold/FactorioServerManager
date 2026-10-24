@@ -52,6 +52,8 @@ x-backend: &backend
   environment:
     # Drive the daemon through the scoped proxy, never the raw socket.
     DOCKER_HOST: tcp://docker-socket-proxy:2375
+  # Skylos reports docker-socket-proxy's socket mount (below) at this line.
+  # skylos: ignore[SKY-D331]
   volumes:
     # AppConfig (public_ip, server_backend). confkit rewrites this file in
     # place at import, so it must be a writable host bind, not read-only.
