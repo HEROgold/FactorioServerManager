@@ -24,6 +24,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pyjwt[crypto]>=2.15.0",
     "msgspec>=0.21.1",
+    "alembic>=1.16",
 ]
 
 [dependency-groups]
@@ -40,6 +41,11 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "api"
 module-root = "src"
+
+[tool.alembic]
+# For the alembic CLI (`uv run alembic revision --autogenerate -m "<what>"`).
+# Deploys run `python -m api.migrate`, which builds the same config in code.
+script_location = "%(here)s/src/api/migrations"
 
 [tool.ty.environment]
 python-version = "3.14"

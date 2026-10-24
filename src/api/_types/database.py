@@ -12,7 +12,6 @@ from sqlalchemy import (
     LargeBinary,
     String,
     create_engine,
-    inspect,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -196,20 +195,6 @@ class User(Base):
             msg = f"Server {server.name} does not exist"
             raise ValueError(msg)
         await self._servers[server.name].remove()
-
-def _ensure_user_schema() -> None:
-    inspector = inspect(engine)
-    columns = {column["name"] for column in inspector.get_columns(User.__tablename__)}
-    if "factorio_token" not in columns:
-        with engine.begin() as connection:
-            # Static DDL with no user input: exec_driver_sql (rather than
-            # execute(text(...))) is the SQLAlchemy Core API meant for raw,
-            # literal SQL that needs no bind parameters.
-            connection.exec_driver_sql("ALTER TABLE users ADD COLUMN factorio_token BLOB")
-
-
-Base().metadata.create_all(engine)
-_ensure_user_schema()
 
 
 def main() -> None:

@@ -33,13 +33,16 @@ mv .env.deploy.tmp .env.deploy
 
 compose() { docker compose --env-file .env --env-file .env.deploy "$@"; }
 
-# --wait blocks until the backend's healthcheck passes. The verifier kills this
+# `migrate` runs first and must exit 0 before the backend starts. --wait then
+# blocks until the backend's healthcheck passes. The verifier kills this
 # script after 900 s. The two waits take at most 600 s, which leaves 300 s for
 # the pulls above.
 if ! compose up -d --wait --wait-timeout 420 --pull missing --no-build; then
   echo "deploy of $DEPLOY_IMAGE and $frontend_image failed, rolling back" >&2
-  compose logs --tail 50 backend frontend >&2 || true
+  compose logs --tail 50 migrate backend frontend >&2 || true
   if [[ -f .env.deploy.prev ]]; then
+    # Migrations are not rolled back: each revision must keep the previous
+    # image working (expand first, contract in a later release).
     mv .env.deploy.prev .env.deploy
     compose up -d --wait --wait-timeout 180 --pull missing --no-build || true
   fi
