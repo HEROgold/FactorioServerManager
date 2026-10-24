@@ -1,5 +1,9 @@
 name: Deploy
 
+# Needs, in the repository settings:
+#   - secret DEPLOY_URL: the deploy-verifier hook, https://deploy.herogold.nl/hooks/fsm
+#   - environment "production" (pinned by the verifier; its protection rules gate the deploy)
+# The server side is in deploy/README.md.
 on:
   repository_dispatch:
     types: [new-release-created]
@@ -88,51 +92,47 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-  # Single job so the "production" environment's required-reviewer gate is
-  # requested exactly once, and the secrets below (scoped to this same
-  # environment) become available only after that approval. Remove the
-  # `environment:` line later to drop the gate once the pipeline is trusted
-  # (see RUNBOOK.md).
+  # Notify the VPS through deploy-notifier with a GitHub OIDC token. The
+  # verifier checks the token's repository and environment and the backend
+  # against its image_pattern, then runs deploy-fsm.sh, which checks the
+  # frontend image itself.
+  # The "production" environment's required reviewers gate this job. To drop
+  # the gate once the pipeline is trusted, remove those protection rules and
+  # keep the environment. The verifier pins its name, so a run from another
+  # environment gets a 403.
   deploy:
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production
-    permissions: {}
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://factorio.herogold.nl
+    concurrency: deploy-production
+    permissions:
+      id-token: write # deploy-notifier authenticates with a GitHub OIDC token
     steps:
-      - name: Log deploy trigger
-        env:
-          RELEASE_VERSION: ${{ needs.publish.outputs.version }}
-          BACKEND_IMAGE: ${{ needs.publish.outputs.backend_image }}
-          FRONTEND_IMAGE: ${{ needs.publish.outputs.frontend_image }}
-        run: |
-          echo "Deploying: $RELEASE_VERSION"
-          echo "backend:  $BACKEND_IMAGE"
-          echo "frontend: $FRONTEND_IMAGE"
-
-      - name: Connect to tailnet
-        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
+      - name: Notify the server
+        uses: HEROgold/deploy-notifier@916bbfab11a60e4e68ee8f7eff69f2149ed5fe9f # v1
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
-          tags: tag:ci
+          url: ${{ secrets.DEPLOY_URL }}
+          image: ${{ needs.publish.outputs.backend_image }}
+          version: ${{ needs.publish.outputs.version }}
+          extra: '{"frontend_image": "${{ needs.publish.outputs.frontend_image }}"}'
+          timeout: 900 # the verifier's [apps.fsm] timeout
 
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            cd ~/FactorioServerManager
-            ./deploy.sh
-
+      # Traefik can take a moment to route to the new frontend container, so
+      # allow a short window before failing.
       - name: Smoke test
         run: |
-          STATUS=$(curl -o /dev/null -s -w "%{http_code}" https://factorio.herogold.nl/)
-          echo "factorio.herogold.nl responded with $STATUS"
-          if [ "$STATUS" -ne 200 ]; then
-            echo "::error::Smoke test failed with status $STATUS"
-            exit 1
-          fi
+          set -u
+          for attempt in $(seq 1 12); do
+            status=$(curl --silent --output /dev/null --max-time 10 --write-out "%{http_code}" https://factorio.herogold.nl/ || true)
+            if [ "$status" = 200 ]; then
+              echo "factorio.herogold.nl responded with 200"
+              exit 0
+            fi
+            echo "attempt $attempt: status $status"
+            sleep 10
+          done
+          echo "::error::factorio.herogold.nl did not respond with 200"
+          exit 1

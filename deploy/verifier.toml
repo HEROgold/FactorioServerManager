@@ -1,0 +1,13 @@
+# Reference copy of the fsm app in the deploy verifier's config. The live one is
+# ~/deploy-notifier/verifier/config.toml on the VPS.
+# Changing the app name, an image name or a pin below means editing it there and
+# recreating the verifier; keep this copy in step.
+
+[apps.fsm]
+command = ["/home/herogold/FactorioServerManager/deploy-fsm.sh"]
+timeout = 900
+image_pattern = '^ghcr\.io/herogold/factorioservermanager-backend@sha256:[0-9a-f]{64}$'
+audience = "https://deploy.herogold.nl"
+repository_id = "788071275"        # HEROgold/FactorioServerManager
+repository_owner_id = "21345384"   # HEROgold
+environment = "production"
