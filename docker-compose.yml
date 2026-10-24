@@ -86,7 +86,7 @@ services:
     volumes:
       # AppConfig (public_ip, server_backend). confkit rewrites this file in
       # place at import, so it must be a writable host bind, not read-only.
-      # Create it from config.prod.example.ini before the first `up`, else
+      # Create it from config.example.ini before the first `up`, else
       # Docker creates a directory in its place.
       - ./config.ini:/app/src/api/config.ini
       # Persistence. The servers dir uses an IDENTICAL host:container path: the
