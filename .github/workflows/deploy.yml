@@ -8,12 +8,86 @@ on:
 permissions: {}
 
 jobs:
+  # Build both images from the release tag and push them to GHCR. The outputs
+  # are digest-pinned refs, so the server runs exactly what this job built.
+  # The backend name is pinned in the VPS verifier's image_pattern for
+  # [apps.fsm]: renaming an image means changing that config too.
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      backend_digest: ${{ steps.backend.outputs.digest }}
+      frontend_digest: ${{ steps.frontend.outputs.digest }}
+      backend_image: ghcr.io/herogold/factorioservermanager-backend@${{ steps.backend.outputs.digest }}
+      frontend_image: ghcr.io/herogold/factorioservermanager-frontend@${{ steps.frontend.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # A release builds its own tag. A manual run builds the default branch.
+          ref: ${{ github.event.client_payload.version && format('v{0}', github.event.client_payload.version) || '' }}
+          persist-credentials: false
+
+      - name: Resolve version and commit
+        id: version
+        env:
+          RELEASE_VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          version=${RELEASE_VERSION:-$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")}
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Publishing v$version"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build and push backend
+        id: backend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          # Matches FSM_UID/FSM_GID in the server's .env and the host data-dir ownership.
+          build-args: |
+            FSM_UID=10001
+            FSM_GID=10001
+          push: true
+          tags: |
+            ghcr.io/herogold/factorioservermanager-backend:v${{ steps.version.outputs.version }}
+            ghcr.io/herogold/factorioservermanager-backend:sha-${{ steps.version.outputs.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and push frontend
+        id: frontend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: src/frontend
+          push: true
+          tags: |
+            ghcr.io/herogold/factorioservermanager-frontend:v${{ steps.version.outputs.version }}
+            ghcr.io/herogold/factorioservermanager-frontend:sha-${{ steps.version.outputs.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
   # Single job so the "production" environment's required-reviewer gate is
   # requested exactly once, and the secrets below (scoped to this same
   # environment) become available only after that approval. Remove the
   # `environment:` line later to drop the gate once the pipeline is trusted
   # (see RUNBOOK.md).
   deploy:
+    needs: publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -21,9 +95,13 @@ jobs:
     steps:
       - name: Log deploy trigger
         env:
-          RELEASE_VERSION: ${{ github.event.client_payload.version || 'manual dispatch' }}
+          RELEASE_VERSION: ${{ needs.publish.outputs.version }}
+          BACKEND_IMAGE: ${{ needs.publish.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ needs.publish.outputs.frontend_image }}
         run: |
-          echo "Deploying: $RELEASE_VERSION"
+          echo "Deploying: v$RELEASE_VERSION"
+          echo "backend:  $BACKEND_IMAGE"
+          echo "frontend: $FRONTEND_IMAGE"
 
       - name: Connect to tailnet
         uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
