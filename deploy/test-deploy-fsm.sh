@@ -67,7 +67,7 @@ check "writes .env.deploy with both images" \
   'grep -qx "FSM_BACKEND_IMAGE=$backend_a" "$project/.env.deploy" && grep -qx "FSM_FRONTEND_IMAGE=$frontend_a" "$project/.env.deploy" && [[ $(wc -l <"$project/.env.deploy") -eq 2 ]]'
 check "pulls both images" 'grep -qx "pull --quiet $backend_a" "$log" && grep -qx "pull --quiet $frontend_a" "$log"'
 check "runs compose up without building" \
-  'grep -qx "compose --env-file .env --env-file .env.deploy up -d --wait --wait-timeout 420 --pull missing --no-build" "$log"'
+  'grep -qx "compose --env-file .env --env-file .env.deploy up -d --wait --wait-timeout 300 --pull missing --no-build" "$log"'
 check "never runs git" '! grep -q git "$log"'
 
 new_project keeps-prev

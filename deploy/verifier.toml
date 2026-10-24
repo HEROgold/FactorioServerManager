@@ -5,7 +5,7 @@
 
 [apps.fsm]
 command = ["/home/herogold/FactorioServerManager/deploy-fsm.sh"]
-timeout = 900
+timeout = 600
 image_pattern = '^ghcr\.io/herogold/factorioservermanager-backend@sha256:[0-9a-f]{64}$'
 audience = "https://deploy.herogold.nl"
 repository_id = "788071275"        # HEROgold/FactorioServerManager
