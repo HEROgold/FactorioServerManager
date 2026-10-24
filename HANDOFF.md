@@ -210,12 +210,16 @@ cd src/frontend && bun install && bun dev   # serves on :3000
 Open http://localhost:3000. Login needs real Factorio.com credentials. Create/start/stop a server needs
 Docker. Smoke checks: `GET /api/me` → 401 unauthenticated; `GET /api/versions` → list incl. 2.1.x.
 
-### 5b. docker compose (closer to prod)
+### 5b. docker compose (the production stack)
 ```sh
-docker compose build && docker compose up
-# backend :8000, frontend :3000. Healthcheck hits /openapi.json.
+cp .env.example .env            # then switch to the local values shown in it
+cp config.example.ini config.ini
+sudo ./scripts/setup-host.sh    # creates the /app/src/api data dirs the stack binds
+docker compose up -d --build
+# frontend :3000, backend only through the frontend's /api proxy.
 ```
-Note: server data persists under `src/api/servers` (bind-mounted; gitignored).
+The same `docker-compose.yml` runs in production; only `.env` differs.
+Server data persists under `/app/src/api` on the host.
 
 ### 5c. Local Kubernetes (test the manifests before real deploy)
 Use a local cluster (Docker Desktop's K8s, kind, or minikube). Example smoke deploy (the user's example):

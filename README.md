@@ -62,26 +62,29 @@ sudo ./scripts/setup-host.sh
 > Prefer a nicer host path than `/app`? Make the data root configurable in
 > [src/api/constants.py](src/api/constants.py) (e.g. an `FSM_DATA_DIR` env var used
 > for the servers/saves/downloads dirs and the DB), then bind that path to itself
-> in `docker-compose.prod.yml`. The identical host:container path is the only hard
+> in `docker-compose.yml`. The identical host:container path is the only hard
 > requirement.
 
 **2. Configure environment and app config.**
 
 ```sh
-cp .env.prod.example .env
-cp config.prod.example.ini config.ini
+cp .env.example .env
+cp config.example.ini config.ini
 # confkit rewrites config.ini in place at startup, so the service user must own
 # it too. Re-running the setup script picks it up now that it exists:
 sudo ./scripts/setup-host.sh
 ```
 
-Edit `.env`:
+Edit `.env`. Every variable without "optional" in its comment must be set, and
+`docker compose` stops with an error naming any that is missing. Where local and
+production differ, `.env.example` shows both values.
 
 - `FSM_UID` / `FSM_GID` — the service uid/gid (default `10001`). Only change if the
   host reserves that id; if you do, pass the same values to `setup-host.sh` above.
 
 - `SUBDOMAIN`, `DOMAIN_NAME` — together form the public hostname.
-- `TRAEFIK_NETWORK` — the existing Traefik Docker network (`docker network ls`).
+- `TRAEFIK_NETWORK` — the existing Traefik Docker network (`docker network ls`), with
+  `TRAEFIK_EXTERNAL=true`.
 - `FSM_SECRET_KEY`, `FSM_TOKEN_KEY` — generate once and keep stable:
 
   ```sh
@@ -92,7 +95,7 @@ Edit `.env`:
 Edit `config.ini`: set `public_ip` to the host's public IP (the address players use
 to connect — not `127.0.0.1`).
 
-**3. Match your Traefik's routing names.** In `docker-compose.prod.yml`, set the
+**3. Match your Traefik's routing names.** In `docker-compose.yml`, set the
 frontend's Traefik labels to your proxy's actual **entrypoint** and **cert-resolver**
 names (e.g. `entrypoints=web,websecure`, `tls.certresolver=<your-resolver>`). Compare
 against another service already routed by the same Traefik.
@@ -107,12 +110,10 @@ sudo ufw allow 61616:65565/udp   # only if ufw is enabled
 **5. Launch:**
 
 ```sh
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+docker compose up -d --build
 ```
 
-Traefik obtains a certificate for the hostname on the first request. If you were
-running the plain `docker-compose.yml` (direct ports, no proxy), stop it first with
-`docker compose down`.
+Traefik obtains a certificate for the hostname on the first request.
 
 ### Auto-deploy
 

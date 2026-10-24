@@ -18,7 +18,7 @@ FSM_USER="${FSM_USER:-fsm}"
 
 # Canonical absolute data paths. These MUST match the container paths because the
 # backend hands them to the host Docker daemon verbatim as bind-mount sources
-# (see README / docker-compose.prod.yml).
+# (see README / docker-compose.yml).
 DATA_ROOT="/app/src/api"
 DIRS="${DATA_ROOT}/servers ${DATA_ROOT}/saves ${DATA_ROOT}/downloads"
 DB_FILE="${DATA_ROOT}/database.db"
@@ -50,7 +50,7 @@ fi
 # shellcheck disable=SC2086  # word-splitting DIRS intentionally
 mkdir -p ${DIRS}
 [ -e "${DB_FILE}" ] || touch "${DB_FILE}"   # a FILE bind — must exist before `up`
-[ -e "${CONFIG_FILE}" ] || echo "note: ${CONFIG_FILE} not present yet (copy config.prod.example.ini)."
+[ -e "${CONFIG_FILE}" ] || echo "note: ${CONFIG_FILE} not present yet (copy config.example.ini)."
 
 # --- ownership -------------------------------------------------------------
 # shellcheck disable=SC2086
