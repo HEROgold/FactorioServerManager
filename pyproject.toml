@@ -81,7 +81,10 @@ model = "gpt-4.1"
 # attributes (unlike its Python scanner) and no per-line suppression for
 # SKY-S101, so this tiny, non-logic file is excluded outright rather than
 # disabling the rule project-wide.
-exclude = ["src/frontend/src/components/Head.tsx"]
+# deploy/test-deploy-fsm.sh runs deploy-fsm.sh against a fake docker in a
+# mktemp directory, and its test inputs include an injection string the script
+# must reject. Skylos has no per-line suppression for shell files either.
+exclude = ["src/frontend/src/components/Head.tsx", "deploy/test-deploy-fsm.sh"]
 ignore = [
     # Flags any call to a method literally named `read`/`readlines`,
     # regardless of receiver type, so it fires on our JsonParser/settings
