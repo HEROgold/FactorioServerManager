@@ -7,6 +7,11 @@
 # Copy .env.prod.example -> .env and fill it in first. See README (Deployment).
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# A release deploys prebuilt images instead. deploy/deploy-fsm.sh sets
+# FSM_BACKEND_IMAGE and FSM_FRONTEND_IMAGE to GHCR refs pinned by digest, then runs
+#   docker compose ... up -d --pull missing --no-build
+# When they are unset, compose uses the names a local `--build` produces.
 
 services:
   # Least-privilege gateway to the host Docker daemon. The backend talks to
@@ -38,6 +43,7 @@ services:
       - no-new-privileges:true
 
   backend:
+    image: ${FSM_BACKEND_IMAGE:-factorioservermanager-backend}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -94,6 +100,7 @@ services:
       retries: 3
 
   frontend:
+    image: ${FSM_FRONTEND_IMAGE:-factorioservermanager-frontend}
     build:
       context: src/frontend
       dockerfile: Dockerfile
