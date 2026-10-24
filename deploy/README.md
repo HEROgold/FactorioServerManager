@@ -49,8 +49,8 @@ Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
 
    Copy it again when `deploy/deploy-fsm.sh` changes. The deploy doesn't update it.
 
-2. Registry access needs no setup. Both GHCR packages are public, so the pull needs no login.
-   Make each package public once in its package settings after the first release pushes it.
+2. Registry access. After the first release pushes the two GHCR packages, set each one to
+   public in its package settings. The server then pulls them without a login.
 
 3. Deploy verifier. It already runs for nota. Add `[apps.fsm]` from `deploy/verifier.toml` to
    `~/deploy-notifier/verifier/config.toml`, add this mount to `compose.override.yml`, and
@@ -66,10 +66,22 @@ Everything runs as `herogold`. The stack is `docker-compose.prod.yml` in
    The mount uses the same path inside and out, because the compose file's relative binds
    (`./config.ini`) resolve on the host daemon.
 
-4. GitHub: the `production` environment and the repository variable `DEPLOY_URL`
-   (`https://deploy.herogold.nl/hooks/fsm`).
+4. GitHub. The repository needs the `production` environment and the repository variable
+   `DEPLOY_URL` set to `https://deploy.herogold.nl/hooks/fsm`.
 
-Check it: `curl -i -X POST https://deploy.herogold.nl/hooks/fsm` answers 401 without a token.
+Without a token, `curl -i -X POST https://deploy.herogold.nl/hooks/fsm` answers 401.
+
+### Leftovers from the SSH deploy
+
+The old deploy ran `~/FactorioServerManager/deploy.sh` over Tailscale SSH. Once a release has
+deployed through the notifier, remove what it used:
+
+- the untracked `deploy.sh` and `deploy.sh.copy` on the server (back up `config.ini~` first if
+  it's still needed)
+- the `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_CLIENT_SECRET`, `PROD_HOST`, `PROD_SSH_USER` and
+  `PROD_SSH_KEY` secrets on the `production` environment
+- the CI key in the server's `~/.ssh/authorized_keys`
+- `tag:ci` in the tailnet policy, if nothing else uses it
 
 ## Deploying by hand
 

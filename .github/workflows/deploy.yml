@@ -95,10 +95,11 @@ jobs:
   # Notify the VPS through deploy-notifier with a GitHub OIDC token. The
   # verifier checks the token's repository and environment and the backend
   # against its image_pattern, then runs deploy-fsm.sh, which checks the
-  # frontend image itself. The "production" environment keeps its
-  # required-reviewer gate (remove the `environment:` protection rules later
-  # to drop it once the pipeline is trusted); the verifier pins the name, so a
-  # run from another environment gets a 403.
+  # frontend image itself.
+  # The "production" environment's required reviewers gate this job. To drop
+  # the gate once the pipeline is trusted, remove those protection rules and
+  # keep the environment. The verifier pins its name, so a run from another
+  # environment gets a 403.
   deploy:
     needs: publish
     runs-on: ubuntu-latest

@@ -1,5 +1,5 @@
-# Reference copy of the fsm app in the deploy verifier's config:
-# ~/deploy-notifier/verifier/config.toml on the VPS. That file is the live one.
+# Reference copy of the fsm app in the deploy verifier's config. The live one is
+# ~/deploy-notifier/verifier/config.toml on the VPS.
 # Changing the app name, an image name or a pin below means editing it there and
 # recreating the verifier; keep this copy in step.
 

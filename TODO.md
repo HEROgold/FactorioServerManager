@@ -1,1 +1,1 @@
-Setup and use GH-actions to auto-update prod server using tailscale.
+Remove the SSH deploy's leftovers once a release deploys through deploy-notifier (see deploy/README.md).

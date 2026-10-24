@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# check() evals its condition, so the single-quoted conditions expand there.
-# shellcheck disable=SC2016,SC2034
 # Tests for deploy-fsm.sh. Each case runs the script in a scratch project dir
 # with a fake `docker` on PATH that records its arguments.
 #   bash deploy/test-deploy-fsm.sh
+# check() evals its condition later, so the conditions stay single-quoted
+# (SC2016), and `status` is read only inside them (SC2034).
+# shellcheck disable=SC2016,SC2034
 set -uo pipefail
 
 script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/deploy-fsm.sh"
@@ -66,7 +67,7 @@ check "writes .env.deploy with both images" \
   'grep -qx "FSM_BACKEND_IMAGE=$backend_a" "$project/.env.deploy" && grep -qx "FSM_FRONTEND_IMAGE=$frontend_a" "$project/.env.deploy" && [[ $(wc -l <"$project/.env.deploy") -eq 2 ]]'
 check "pulls both images" 'grep -qx "pull --quiet $backend_a" "$log" && grep -qx "pull --quiet $frontend_a" "$log"'
 check "runs compose up without building" \
-  'grep -qx "compose -f docker-compose.prod.yml --env-file .env --env-file .env.deploy up -d --wait --wait-timeout 600 --pull missing --no-build" "$log"'
+  'grep -qx "compose -f docker-compose.prod.yml --env-file .env --env-file .env.deploy up -d --wait --wait-timeout 420 --pull missing --no-build" "$log"'
 check "never runs git" '! grep -q git "$log"'
 
 new_project keeps-prev
