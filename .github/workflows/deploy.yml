@@ -10,8 +10,8 @@ permissions: {}
 jobs:
   # Build both images from the release tag and push them to GHCR. The outputs
   # are digest-pinned refs, so the server runs exactly what this job built.
-  # The backend name is pinned in the VPS verifier's image_pattern for
-  # [apps.fsm]: renaming an image means changing that config too.
+  # The VPS verifier's image_pattern for [apps.fsm] pins the backend name, so
+  # renaming an image means changing that config too.
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -32,15 +32,22 @@ jobs:
           ref: ${{ github.event.client_payload.version && format('v{0}', github.event.client_payload.version) || '' }}
           persist-credentials: false
 
+      # Only a release gets a v<version> tag, so a manual run never moves one.
+      # The version output is that tag, or sha-<commit> for a manual run.
       - name: Resolve version and commit
         id: version
         env:
           RELEASE_VERSION: ${{ github.event.client_payload.version }}
         run: |
-          version=${RELEASE_VERSION:-$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")}
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "Publishing v$version"
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$RELEASE_VERSION" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=v$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "version=sha-$sha" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -64,7 +71,7 @@ jobs:
             FSM_GID=10001
           push: true
           tags: |
-            ghcr.io/herogold/factorioservermanager-backend:v${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.release == 'true' && format('ghcr.io/herogold/factorioservermanager-backend:{0}', steps.version.outputs.version) || '' }}
             ghcr.io/herogold/factorioservermanager-backend:sha-${{ steps.version.outputs.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
@@ -76,7 +83,7 @@ jobs:
           context: src/frontend
           push: true
           tags: |
-            ghcr.io/herogold/factorioservermanager-frontend:v${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.release == 'true' && format('ghcr.io/herogold/factorioservermanager-frontend:{0}', steps.version.outputs.version) || '' }}
             ghcr.io/herogold/factorioservermanager-frontend:sha-${{ steps.version.outputs.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
@@ -99,7 +106,7 @@ jobs:
           BACKEND_IMAGE: ${{ needs.publish.outputs.backend_image }}
           FRONTEND_IMAGE: ${{ needs.publish.outputs.frontend_image }}
         run: |
-          echo "Deploying: v$RELEASE_VERSION"
+          echo "Deploying: $RELEASE_VERSION"
           echo "backend:  $BACKEND_IMAGE"
           echo "frontend: $FRONTEND_IMAGE"
 

@@ -8,10 +8,10 @@
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 #
-# Releases deploy prebuilt images instead: deploy/deploy-fsm.sh sets
-# FSM_BACKEND_IMAGE / FSM_FRONTEND_IMAGE to GHCR refs pinned by digest and runs
+# A release deploys prebuilt images instead. deploy/deploy-fsm.sh sets
+# FSM_BACKEND_IMAGE and FSM_FRONTEND_IMAGE to GHCR refs pinned by digest, then runs
 #   docker compose ... up -d --pull missing --no-build
-# Unset, they fall back to the names a local `--build` produces.
+# When they are unset, compose uses the names a local `--build` produces.
 
 services:
   # Least-privilege gateway to the host Docker daemon. The backend talks to
