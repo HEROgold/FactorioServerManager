@@ -28,7 +28,7 @@ class Health(BaseModel):
 def health(response: Response, db: Annotated[Session, Depends(get_session)]) -> Health:
     """Report the app and database status. Answers 503 when the database is down."""
     try:
-        db.execute(text("SELECT version_num FROM alembic_version"))
+        db.execute(text("SELECT version_num FROM alembic_version"))  # skylos: ignore[SKY-D211] -- literal SQL
         database: Literal["up", "down"] = "up"
     except SQLAlchemyError:
         database = "down"
