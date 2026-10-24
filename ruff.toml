@@ -4,3 +4,5 @@ extend-ignore = ["N999"]
 [lint.per-file-ignores]
 # Alembic loads env.py and the revisions by path; they aren't a package.
 "src/api/migrations/**" = ["INP001"]
+# Tests assert, name themselves after what they check, and compare with literal values.
+"tests/**" = ["S101", "D103", "PLR2004"]

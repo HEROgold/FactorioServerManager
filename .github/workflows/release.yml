@@ -4,15 +4,16 @@ name: Auto-release
 # potentially attacker-influenced workflow - accepted here: the
 # `branches: [main]` filter below matches that trigger's head_branch, which
 # for a fork's pull_request run is that fork's branch name, never "main".
-# So this only ever fires for Skylos Analysis's push-triggered run on the
+# So this only ever fires for a check's push-triggered run on the
 # already-merged, already-protected main branch - never for a PR's run,
 # fork or not. This is the same pattern as HEROgold/confkit's release.yml.
-# Add more required gates to REQUIRED_WORKFLOWS below as they're introduced
-# (e.g. once a real test suite exists).
+# Each check below triggers this workflow when it completes. Only the run that
+# finds all of them succeeded releases; the earlier ones stop at the gate.
+# Keep the list here and REQUIRED_WORKFLOWS below in step.
 on:
   # skylos: ignore[SKY-D290]
   workflow_run:
-    workflows: ["Skylos Analysis"]
+    workflows: ["Skylos Analysis", "Tests", "Droast Dockerfile Lint"]
     branches: [main]
     types:
       - completed
@@ -26,6 +27,11 @@ jobs:
     timeout-minutes: 15
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     environment: release # scopes SENTRY_* secrets below to a dedicated environment
+    # Two checks finishing together start two runs. One at a time, so the second
+    # sees the tag the first one created and releases nothing.
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       actions: read # to query sibling workflow-run conclusions below
@@ -39,33 +45,43 @@ jobs:
           persist-credentials: false # this job never pushes; tags/release use the API instead
 
       - name: Verify all required checks passed for this commit
+        id: gate
         if: github.event_name == 'workflow_run'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # Extend this list as more required workflows (e.g. a test suite) are added.
-          REQUIRED_WORKFLOWS=("Skylos Analysis")
+          # Keep in step with `on.workflow_run.workflows` above.
+          REQUIRED_WORKFLOWS=("Skylos Analysis" "Tests" "Droast Dockerfile Lint")
           for wf in "${REQUIRED_WORKFLOWS[@]}"; do
-            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}" \
-              --jq ".workflow_runs[] | select(.name == \"$wf\") | .conclusion" | head -n1)
-            echo "Required workflow '$wf': ${conclusion:-not found}"
+            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=push" \
+              --jq ".workflow_runs[] | select(.name == \"$wf\") | .conclusion // \"\"" | head -n1)
+            echo "Required workflow '$wf': ${conclusion:-still running or not started}"
+            if [ -z "$conclusion" ]; then
+              # That check's own completion starts this workflow again.
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             if [ "$conclusion" != "success" ]; then
               echo "::error::Required workflow '$wf' has not succeeded for $HEAD_SHA"
               exit 1
             fi
           done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Install uv
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.ready == 'true'
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "latest"
 
       - name: Set up Python
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.ready == 'true'
         run: uv python install 3.14
 
       - name: Check if version changed
         id: version-check
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.ready == 'true'
         run: |
           CURRENT_VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
