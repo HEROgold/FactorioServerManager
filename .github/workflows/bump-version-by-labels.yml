@@ -42,7 +42,7 @@ jobs:
           version: "latest"
 
       - name: Bump by labels
-        uses: herogold/bump-by-label@0d7cfd05d8418971b55596b690742ddb37fd46ff # v4.0.0
+        uses: herogold/bump-by-label@1404526cd7064e7d35e83749a30aa866ca25c2cb # v5.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           command: "uv version --bump"
