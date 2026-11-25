@@ -71,7 +71,7 @@ jobs:
 
       - name: Install uv
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.ready == 'true'
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: "latest"
 
@@ -96,7 +96,7 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: v${{ steps.version-check.outputs.current_version }}
           name: Release v${{ steps.version-check.outputs.current_version }}
@@ -109,7 +109,7 @@ jobs:
       # which is already wired in src/api/main.py).
       - name: Create Sentry release
         if: steps.version-check.outputs.version_changed == 'true'
-        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
+        uses: getsentry/action-release@d55c8c3b7375607e972b710f12926b676d89d7d2 # v3.8.0
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
